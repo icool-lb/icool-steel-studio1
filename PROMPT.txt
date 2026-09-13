@@ -1,0 +1,10 @@
+الصق هذا في Claude Code بعد فتح مجلد المشروع:
+
+---
+ارفع هذا المجلد إلى الريبو icool-lb/icool-steel-studio1 على الفرع main.
+نفّذ: git init إن لزم، add، commit برسالة "iCOOL Steel Studio v2", branch -M main,
+remote add origin https://github.com/icool-lb/icool-steel-studio1.git, ثم push -u origin main.
+استخدم بيانات اعتماد git الموجودة على الجهاز. بعد النجاح أعطني رابط الريبو.
+---
+
+أو ببساطة: ./push.sh

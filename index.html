@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>iCOOL Steel Studio v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#0066A7;--orange:#F1471E;--navy:#0B2239;--ink:#16222e;--line:#dbe2e9;--paper:#eef2f6;--ok:#1a7f4b;--warn:#b06a00;--bad:#c02617}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:Tajawal,system-ui,sans-serif;background:var(--paper);color:var(--ink);overflow:hidden}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+header{background:#fff;border-bottom:3px solid var(--orange);padding:5px 9px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.logo{height:32px;width:auto;direction:ltr}
+.brand h1{margin:0;font-size:13.5px;font-weight:800;color:var(--navy);line-height:1.1}
+.brand p{margin:1px 0 0;font-size:10px;color:#5b6b7a}
+#tabs{display:flex;gap:4px;background:#fff;padding:5px 6px;border-bottom:1px solid var(--line);flex:0 0 auto;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{white-space:nowrap;font-size:11.5px;padding:6px 9px}
+button{font-family:inherit;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--navy);padding:6px 9px;border-radius:8px;cursor:pointer;font-size:11.5px}
+button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+button.o{border-color:var(--orange);color:var(--orange)}
+button.o.on{background:var(--orange);color:#fff}
+#main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#stage{position:relative;flex:1 1 auto;min-height:120px}
+canvas#gl{display:block;width:100%;height:100%;touch-action:none}
+#badge{position:absolute;top:6px;inset-inline-start:6px;background:rgba(255,255,255,.93);border-radius:8px;padding:5px 8px;font-size:10.5px;line-height:1.55;box-shadow:0 2px 9px rgba(11,34,57,.12);max-width:58%}
+#badge b{color:var(--blue)}
+#util{position:absolute;top:6px;inset-inline-end:6px;background:rgba(255,255,255,.93);border-radius:8px;padding:5px 8px;font-size:10.5px;text-align:center;box-shadow:0 2px 9px rgba(11,34,57,.12)}
+#vbar{position:absolute;bottom:5px;inset-inline-end:6px;display:flex;gap:4px}
+#vbar button{padding:4px 7px;font-size:10.5px;background:rgba(255,255,255,.93)}
+#dock{flex:0 0 auto;height:40vh;background:#fff;border-top:3px solid var(--blue);overflow:auto;padding:8px 10px 18px}
+#dock.min{height:0;padding:0;overflow:hidden;border-top-width:0}
+.grp{margin:7px 0 2px;font-size:10.5px;font-weight:800;color:var(--orange);border-bottom:1px dashed var(--line);padding-bottom:2px}
+.f{display:flex;align-items:center;gap:7px;margin:5px 0}
+.f label{font-size:11.5px;min-width:104px;color:var(--navy);font-weight:700}
+.f input[type=range]{flex:1;accent-color:var(--orange)}
+.f .v{font-size:11.5px;font-weight:800;color:var(--blue);min-width:56px;text-align:left;direction:ltr}
+.f select,.f input[type=text],.f input[type=number],.f input[type=file]{flex:1;font-family:inherit;font-size:11.5px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}
+.tip{font-size:10.5px;color:#5b6b7a;line-height:1.7;background:#f5f8fb;border-radius:7px;padding:6px 8px;margin:6px 0}
+#cmd{display:flex;gap:5px;margin:6px 0}
+#cmd textarea{flex:1;font-family:inherit;font-size:12px;padding:6px;border:1px solid var(--line);border-radius:8px;height:58px;resize:none}
+#log{font-size:11px;line-height:1.7;max-height:150px;overflow:auto}
+#log div{padding:4px 6px;border-radius:6px;margin:3px 0;background:#f5f8fb}
+#log .e{background:#fff1ee;color:#8c2013}
+#trace{width:100%;border:1px solid var(--line);border-radius:8px;touch-action:none;background:#f7f9fb}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin:5px 0}
+.chips button{font-size:10.5px;padding:4px 8px}
+#ov{position:fixed;inset:0;background:#fff;z-index:60;overflow:auto;display:none}
+#ov.open{display:block}
+.otop{position:sticky;top:0;background:#fff;border-bottom:2px solid var(--orange);padding:7px 10px;display:flex;gap:5px;z-index:3}
+.obody{padding:10px 12px 60px;max-width:940px;margin:0 auto}
+.obody h2{font-size:13.5px;color:#fff;background:var(--navy);padding:5px 8px;border-radius:5px;margin:15px 0 7px}
+.obody h3{font-size:12px;color:var(--blue);margin:11px 0 4px}
+.obody p,.obody li{font-size:11.5px;line-height:1.8}
+table{width:100%;border-collapse:collapse;font-size:11px;margin:5px 0 9px}
+th{background:#f2f5f8;color:var(--navy);padding:4px;text-align:right;border:1px solid var(--line)}
+td{border:1px solid var(--line);padding:4px}
+td.n{text-align:left;direction:ltr;font-weight:700}
+.tag{display:inline-block;padding:1px 6px;border-radius:20px;font-size:10px;font-weight:800;color:#fff}
+.t-ok{background:var(--ok)}.t-w{background:var(--warn)}.t-b{background:var(--bad)}
+.note{font-size:11px;line-height:1.75;background:#fff6f3;border-inline-start:4px solid var(--orange);padding:7px 9px;border-radius:7px;margin:7px 0}
+.kpi{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0 9px}
+.kpi div{flex:1 1 30%;background:#f4f7fa;border:1px solid var(--line);border-radius:8px;padding:6px}
+.kpi span{display:block;font-size:10px;color:#5b6b7a}
+.kpi b{font-size:13px;color:var(--blue)}
+.sign{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.sign div{flex:1 1 44%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;line-height:1.7}
+.sign img{max-height:70px}
+.sheet{border:1.5px solid var(--navy);border-radius:4px;margin:14px 0;background:#fff;overflow:hidden}
+.sheet .tb{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--navy);padding:4px 7px;background:#f4f7fa;font-size:10.5px;font-weight:800;color:var(--navy)}
+.sheet svg{width:100%;height:auto;display:block;direction:ltr}
+.foot{border-top:1px solid var(--line);margin-top:16px;padding-top:7px;font-size:10px;color:#5b6b7a;line-height:1.7}
+@media (min-width:820px){
+  #main{flex-direction:row}
+  #dock{height:auto;width:370px;border-top:0;border-inline-start:3px solid var(--blue)}
+  #dock.min{width:0;padding:0}
+}
+@media print{
+  #app{display:none!important}
+  #ov{position:static;display:block!important}
+  .otop{display:none}
+  .obody{max-width:100%;padding:0}
+  .sheet{page-break-inside:avoid}
+  h2{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+<header>
+  <span id="logoBox"></span>
+  <div class="brand"><h1>Steel Studio <span style="font-size:10px;color:#F1471E">v2</span></h1>
+  <p>دراسة هياكل حديدية · برغولا · طاقة · هنغار</p></div>
+</header>
+
+<div id="tabs"></div>
+
+<div id="main">
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <div id="badge"></div>
+    <div id="util"></div>
+    <div id="vbar">
+      <button id="vCover" class="on">غطاء</button>
+      <button id="vDim" class="on">أبعاد</button>
+      <button id="vSite" class="on">الموقع</button>
+      <button id="vFit">ضبط</button>
+      <button id="vDock">▼</button>
+    </div>
+  </div>
+  <div id="dock"></div>
+</div>
+</div>
+
+<div id="ov"><div class="otop" id="ovTop"></div><div class="obody" id="ovBody"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =======================================================================
+   iCOOL Steel Studio v2.0
+   منصة بارامترية لدراسة الهياكل الحديدية
+   الوحدات: تصميم حيّ · صورة→مخطط · محرّك أوامر عربي · تقرير موقّع · خرائط تنفيذية
+   ======================================================================= */
+
+/* ---------- 1. الهوية البصرية ---------- */
+const LOGO=`<svg class="logo" viewBox="0 0 306 96" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+ <defs><linearGradient id="ic_g" x1="0" y1="0" x2="1" y2="1">
+ <stop offset="0" stop-color="#1D8FC6"/><stop offset="1" stop-color="#005E9E"/></linearGradient>
+ <clipPath id="ic_c"><circle cx="41" cy="36" r="23"/></clipPath></defs>
+ <path d="M41 6c-14 0-25 11-25 25 0 15 17 31 25 44 8-13 25-29 25-44C66 17 55 6 41 6z" fill="url(#ic_g)"/>
+ <circle cx="41" cy="36" r="23" fill="#fff"/>
+ <rect x="17" y="12" width="24" height="48" fill="#0066A7" clip-path="url(#ic_c)"/>
+ <rect x="41" y="12" width="25" height="48" fill="#F1471E" clip-path="url(#ic_c)"/>
+ <g stroke="#fff" stroke-width="2.1" stroke-linecap="round">
+  <line x1="30" y1="25" x2="30" y2="47"/><line x1="20.5" y1="30.5" x2="39.5" y2="41.5"/>
+  <line x1="20.5" y1="41.5" x2="39.5" y2="30.5"/>
+  <line x1="30" y1="28.5" x2="27" y2="25.5"/><line x1="30" y1="28.5" x2="33" y2="25.5"/>
+  <line x1="30" y1="43.5" x2="27" y2="46.5"/><line x1="30" y1="43.5" x2="33" y2="46.5"/>
+ </g>
+ <g stroke="#fff" stroke-width="2.1" stroke-linecap="round">
+  <circle cx="52" cy="36" r="6" fill="#fff" stroke="none"/>
+  <line x1="52" y1="23" x2="52" y2="27"/><line x1="52" y1="45" x2="52" y2="49"/>
+  <line x1="39" y1="36" x2="43" y2="36"/><line x1="61" y1="36" x2="65" y2="36"/>
+  <line x1="43.5" y1="27.5" x2="46.5" y2="30.5"/><line x1="57.5" y1="41.5" x2="60.5" y2="44.5"/>
+  <line x1="60.5" y1="27.5" x2="57.5" y2="30.5"/><line x1="46.5" y1="41.5" x2="43.5" y2="44.5"/>
+ </g>
+ <g style="direction:ltr" text-anchor="start" font-family="Tajawal,Segoe UI,Arial">
+  <text x="80" y="45" font-size="40" font-weight="800" fill="#0066A7">i<tspan fill="#0B2239">COOL</tspan></text>
+  <text x="82" y="63" font-size="11.5" font-weight="700" fill="#F1471E" letter-spacing="2.6">COOL YOUR LIFE</text>
+  <text x="82" y="79" font-size="10" font-weight="500" fill="#5b6b7a" letter-spacing="0.6">TRADING &amp; CONTRACTING</text>
+ </g></svg>`;
+let LOGO_IMG=null;                                  // شعار رسمي يرفعه المستخدم
+let SIGN_IMG=null;                                  // توقيع/ختم
+function logoHTML(h){
+  if(LOGO_IMG) return `<img src="${LOGO_IMG}" style="height:${h||32}px;width:auto" alt="iCOOL">`;
+  return LOGO.replace('class="logo"',`class="logo" style="height:${h||32}px"`);
+}
+
+/* ---------- 2. مكتبة المقاطع ---------- */
+const SEC={
+ '40x40x2'  :{w:2.31,A:2.94,b:.04,h:.04},'50x50x2.5':{w:3.56,A:4.55,b:.05,h:.05},
+ '60x40x2.5':{w:3.56,A:4.55,b:.04,h:.06},'60x60x3'  :{w:5.19,A:6.63,b:.06,h:.06},
+ '80x40x3'  :{w:5.19,A:6.63,b:.04,h:.08},'80x80x3'  :{w:7.07,A:9.03,b:.08,h:.08},
+ '80x80x4'  :{w:9.22,A:11.7,b:.08,h:.08},'100x50x3' :{w:6.51,A:8.29,b:.05,h:.10},
+ '100x50x4' :{w:8.49,A:10.8,b:.05,h:.10},'100x100x4':{w:11.7,A:14.9,b:.10,h:.10},
+ '120x60x4' :{w:10.6,A:13.4,b:.06,h:.12},'120x120x4':{w:14.2,A:18.1,b:.12,h:.12},
+ '150x50x4' :{w:11.7,A:14.9,b:.05,h:.15},'150x150x5':{w:22.0,A:28.0,b:.15,h:.15},
+ 'IPE160'   :{w:15.8,A:20.1,b:.082,h:.16},'IPE200'  :{w:22.4,A:28.5,b:.10,h:.20},
+ 'IPE240'   :{w:30.7,A:39.1,b:.12,h:.24}};
+const PANEL={w:2.382,h:1.134,t:.030,kg:32.3,Wp:660,nm:'Bluesun 2382×1134 / 660Wp'};
+
+/* ---------- 3. حالة المشروع ---------- */
+const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',muni:'',parcel:'',permit:'',
+ terrain:'II',phi:0,cont:7,marg:12,vat:0,pAnch:4,pvPrice:0,knee:.60,win:1,
+ bOn:1,bShape:'rect',bA:8.07,bB:9.83,ba:3.10,bb:1.36,bCorner:'NW',bF:2,bFH:3.0,bPar:.80,bParT:.20,
+ bRot:0,bOX:.6,bOZ:.6, nPost:2,pInset:.15,fix2:'same',
+ L:12,S:6,h1:2.2,h2:3.4,bay:2.5,td:.5,over:.5,
+ secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
+ diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
+ slatGap:.12,clearH:5,ridge:1.9};
+let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
+function inPoly(x,z,p){let c=false;
+  for(let i=0,j=p.length-1;i<p.length;j=i++){const a=p[i],b=p[j];
+    if(((a[1]>z)!==(b[1]>z))&&(x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0]))c=!c;}return c;}
+function makeSite(){
+  if(!M.bOn){SITE=null;return;}
+  let p;
+  if(M.bShape==='trace'&&TRACE_POLY)p=TRACE_POLY.map(q=>[q[0],q[1]]);
+  else if(M.bShape==='L'){
+    const A=M.bA,B=M.bB,a=Math.min(M.ba,A-.3),b=Math.min(M.bb,B-.3);
+    p=[[0,0],[A,0],[A,B],[a,B],[a,B-b],[0,B-b]];
+    if(M.bCorner==='NE')p=p.map(q=>[A-q[0],q[1]]);
+    if(M.bCorner==='SW')p=p.map(q=>[q[0],B-q[1]]);
+    if(M.bCorner==='SE')p=p.map(q=>[A-q[0],B-q[1]]);
+  }else p=[[0,0],[M.bA,0],[M.bA,M.bB],[0,M.bB]];
+  const r=(M.bRot|0)%360;
+  if(r){const t=r*Math.PI/180;
+    p=p.map(q=>[q[0]*Math.cos(t)-q[1]*Math.sin(t),q[0]*Math.sin(t)+q[1]*Math.cos(t)]);
+    const mx=Math.min(...p.map(q=>q[0])),mz=Math.min(...p.map(q=>q[1]));
+    p=p.map(q=>[q[0]-mx,q[1]-mz]);}
+  let A2=0;for(let i=0;i<p.length;i++){const u=p[i],v=p[(i+1)%p.length];A2+=u[0]*v[1]-v[0]*u[1];}
+  const xs=p.map(q=>q[0]),zs=p.map(q=>q[1]);
+  SITE={poly:p,area:Math.abs(A2/2),bb:[Math.max(...xs),Math.max(...zs)],H:M.bF*M.bFH};}
+function distPoly(x,z,P){let d=1e9;
+  for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];
+    const vx=b[0]-a[0],vz=b[1]-a[1],l2=vx*vx+vz*vz||1;
+    let t=((x-a[0])*vx+(z-a[1])*vz)/l2;t=Math.max(0,Math.min(1,t));
+    d=Math.min(d,Math.hypot(x-(a[0]+t*vx),z-(a[1]+t*vz)));}
+  return d;}
+function legState(x,z,fx){
+  if(!SITE)return{s:'ok',t:'—'};
+  const P=SITE.poly,X=M.bOX+x,Z=M.bOZ+z,ins=inPoly(X,Z,P),d=distPoly(X,Z,P);
+  const fac=(fx==='beam'||fx==='through');
+  if(fac){
+    if(!ins&&d<=.60)return{s:'ok',t:'على الواجهة (خارج '+(d*100).toFixed(0)+' سم)'};
+    if(ins&&d<=.40)return{s:'ok',t:'ملاصقة للكمرة (داخل '+(d*100).toFixed(0)+' سم)'};
+    if(ins)return{s:'warn',t:'داخل السطح '+(d*100).toFixed(0)+' سم — لا تصل إلى الكمرة'};
+    return{s:'bad',t:'بعيدة '+(d*100).toFixed(0)+' سم عن الواجهة'};}
+  if(!ins)return{s:'bad',t:'خارج السطح '+(d*100).toFixed(0)+' سم'};
+  if(d<.12)return{s:'warn',t:'على الحافة تماماً ('+(d*100).toFixed(0)+' سم) — مسافة حافة غير كافية للمسمار'};
+  return{s:'ok',t:'داخل السطح ('+(d*100).toFixed(0)+' سم عن الحافة)'};}
+function validate(){
+  VAL={ok:true,msgs:[]};
+  if(!SITE)return;
+  let bad=0,warn=0;
+  LEGS.forEach(([x,z,fx])=>{const st=legState(x,z,fx);
+    if(st.s==='bad')bad++; else if(st.s==='warn')warn++;});
+  if(bad){VAL.ok=false;VAL.msgs.push(bad+' رجل في موضع غير صالح — راجع جدول الأرجل.');}
+  if(warn)VAL.msgs.push(warn+' رجل بحاجة إلى مراجعة موضعها.');
+  const cov=(M.L*M.S)/Math.max(SITE.area,1)*100;
+  if(cov>85)VAL.msgs.push('الهيكل يغطي '+cov.toFixed(0)+'% من السطح — اترك ممر صيانة 60 سم على الأقل.');
+  const need=(M.bF*M.bFH>0)?0:0;
+  if(M.bPar>0&&Math.max(M.h1,M.h2)<M.bPar+.25)
+    VAL.msgs.push('الحافة الأمامية للألواح أدنى من العمامة + 25 سم — احتمال تظليل شتوي.');}
+
+const F={
+ L:{l:'الطول (م)',t:'r',min:2,max:60,st:.1}, S:{l:'البحر / العرض (م)',t:'r',min:1.5,max:30,st:.05},
+ h1:{l:'الارتفاع الأمامي (م)',t:'r',min:.6,max:9,st:.05}, h2:{l:'الارتفاع الخلفي (م)',t:'r',min:.6,max:10,st:.05},
+ clearH:{l:'الارتفاع الصافي (م)',t:'r',min:3,max:14,st:.1}, ridge:{l:'ارتفاع الجملون (م)',t:'r',min:.4,max:5,st:.05},
+ bay:{l:'تباعد الإطارات (م)',t:'r',min:1,max:7,st:.05}, td:{l:'ارتفاع الجمالون (م)',t:'r',min:.2,max:2.2,st:.05},
+ over:{l:'بروز (م)',t:'r',min:0,max:2.5,st:.05}, slatGap:{l:'فراغ التضليع (م)',t:'r',min:.04,max:.5,st:.01},
+ secT:{l:'الجائز العلوي',t:'s',o:['80x40x3','100x50x3','100x50x4','120x60x4','150x50x4','IPE160','IPE200','IPE240']},
+ secB:{l:'الجائز السفلي',t:'s',o:['40x40x2','50x50x2.5','60x40x2.5','60x60x3','80x40x3','100x50x3']},
+ secW:{l:'التضليع/الأقطار',t:'s',o:['40x40x2','50x50x2.5','60x60x3']},
+ secP:{l:'الأعمدة',t:'s',o:['80x80x3','80x80x4','100x100x4','120x120x4','150x150x5','IPE200','IPE240']},
+ secR:{l:'المرابط/المدادات',t:'s',o:['40x40x2','50x50x2.5','60x40x2.5','80x40x3','100x50x3']},
+ diag:{l:'أقطار الجمالون',t:'s',o:[['1','نعم — مثلثات'],['0','لا — مستطيل Vierendeel']],num:1},
+ orient:{l:'اتجاه الألواح',t:'s',o:[['auto','تلقائي (الأكثر)'],['port','بورتريه'],['land','عرضاني']]},
+ fix:{l:'طريقة التثبيت',t:'s',o:[['base','قاعدة + مسامير كيميائية'],['beam','بليتة 200×200×10 + Anchor M16 على الكمرة'],['through','ثروبولت على الواجهة'],['parapet','كتائف على العمامة'],['wall','ارتكاز على حائطين'],['hangar','كلامب على جمالون هنغار'],['ballast','وزن باطوني']]},
+ wind:{l:'سرعة الريح (كم/س)',t:'s',o:[['80','80'],['100','100'],['120','120'],['140','140'],['160','160']],num:1},
+ snow:{l:'الثلج (كغ/م²)',t:'s',o:[['0','0'],['25','25'],['50','50'],['75','75'],['100','100']],num:1},
+ price:{l:'سعر الحديد ($/كغ)',t:'r',min:.6,max:3,st:.05}, fab:{l:'تصنيع وتركيب ($/كغ)',t:'r',min:.2,max:3,st:.05},
+ coat:{l:'الحماية',t:'s',o:[['paint','دهان أساس + نهائي'],['galv','جلفنة ساخنة'],['none','بدون']]},
+ project:{l:'اسم المشروع',t:'x'},client:{l:'العميل',t:'x'},site:{l:'الموقع',t:'x'},
+ muni:{l:'البلدية',t:'x'},parcel:{l:'رقم العقار/المنطقة',t:'x'},permit:{l:'رقم الطلب/الرخصة',t:'x'},
+ terrain:{l:'فئة التضاريس',t:'s',o:[['I','I — بحر / مكشوف تماماً'],['II','II — أراضٍ مفتوحة'],['III','III — ضواحٍ وأشجار'],['IV','IV — مدينة كثيفة']]},
+ phi:{l:'انسداد أسفل المظلة φ',t:'s',o:[['0','0 — مفتوح تماماً'],['1','1 — مسدود (سيارات/بضائع)']],num:1},
+ cont:{l:'احتياطي %',t:'r',min:0,max:25,st:1},marg:{l:'هامش الربح %',t:'r',min:0,max:40,st:1},
+ vat:{l:'ضريبة %',t:'s',o:[['0','بدون'],['11','11%']],num:1},
+ pAnch:{l:'سعر المسمار ($)',t:'r',min:.5,max:20,st:.5},
+ pvPrice:{l:'سعر اللوح ($/Wp) — 0 لاستبعاده',t:'r',min:0,max:.5,st:.01},
+ knee:{l:'كتف تقوية 50×50 (م)',t:'r',min:0,max:1.2,st:.05},
+ win:{l:'إظهار الشبابيك',t:'s',o:[['1','نعم'],['0','لا']],num:1},
+ bOn:{l:'إظهار المبنى',t:'s',o:[['1','نعم'],['0','لا']],num:1},
+ bShape:{l:'شكل السطح',t:'s',o:[['rect','مستطيل'],['L','حرف L (بقصّة)'],['trace','من الصورة']]},
+ bA:{l:'الضلع A (م)',t:'r',min:2,max:60,st:.01},
+ bB:{l:'الضلع B (م)',t:'r',min:2,max:60,st:.01},
+ ba:{l:'القصّة — عرض a (م)',t:'r',min:.2,max:40,st:.01},
+ bb:{l:'القصّة — عمق b (م)',t:'r',min:.2,max:40,st:.01},
+ bCorner:{l:'زاوية القصّة',t:'s',o:[['NW','شمال-غرب'],['NE','شمال-شرق'],['SW','جنوب-غرب'],['SE','جنوب-شرق']]},
+ bF:{l:'عدد الطوابق',t:'r',min:0,max:12,st:1},
+ bFH:{l:'ارتفاع الطابق (م)',t:'r',min:2.4,max:5,st:.05},
+ bPar:{l:'ارتفاع العمامة (م)',t:'r',min:0,max:1.8,st:.05},
+ bParT:{l:'سماكة العمامة (م)',t:'r',min:.1,max:.4,st:.01},
+ bRot:{l:'تدوير السطح (°)',t:'s',o:[['0','0'],['90','90'],['180','180'],['270','270']],num:1},
+ bOX:{l:'موضع الهيكل — X (م)',t:'r',min:0,max:40,st:.05},
+ bOZ:{l:'موضع الهيكل — Z (م)',t:'r',min:0,max:40,st:.05},
+ nPost:{l:'عدد الأرجل لكل صف',t:'r',min:2,max:8,st:1},
+ pInset:{l:'دخول الرجل عن الطرف (م)',t:'r',min:0,max:2,st:.05},
+ fix2:{l:'تثبيت الصف الخلفي',t:'s',o:[['same','مثل الأمامي'],['base','قاعدة + كيميائي'],['beam','بليتة 200×200×10 + M16'],['through','ثروبولت'],['parapet','كتائف العمامة'],['ballast','وزن باطوني']]}};
+
+const TPL={
+ S1:{cat:'solar',n:'مظلة أرضية — أعمدة الجهتين',cover:'pv',bld:'A',
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secP','secR','diag','orient','fix'],
+   d:{L:12,S:6,h1:2.2,h2:3.4,bay:2.5,td:.5,fix:'base'},desc:'إطارات عرضية على صفّي أعمدة — الحل القياسي.'},
+ S2:{cat:'solar',n:'موقف سيارات — كابولي',cover:'pv',bld:'A',cant:1,
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secP','secR','diag','orient','fix'],
+   d:{L:15,S:5.5,h1:2.4,h2:3.6,bay:2.75,td:.7,fix:'base'},desc:'صف أعمدة واحد وكابولي — الموقف حرّ.'},
+ S3:{cat:'solar',n:'موقف سيارات — مزدوج',cover:'pv',bld:'A',dbl:1,
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secP','secR','diag','orient','fix'],
+   d:{L:16,S:11,h1:2.4,h2:3.8,bay:2.75,td:.8,fix:'base'},desc:'أعمدة وسطية وميلان للجهتين — صفّا سيارات.'},
+ S4:{cat:'solar',n:'سطح مبنى — 4 أعمدة وجمالونان طوليان',cover:'pv',bld:'B',
+   f:['L','S','h1','h2','td','secT','secB','secW','secP','secR','diag','orient','fix'],
+   d:{L:8.1,S:4.75,h1:1.8,h2:2.8,td:.5,fix:'parapet'},desc:'جمالونان طوليان على 4 أعمدة — أقل نقاط تثبيت.'},
+ S5:{cat:'solar',n:'معلّق على الواجهة — ثروبولت',cover:'pv',bld:'B',fac:1,
+   f:['L','S','h1','h2','td','secT','secB','secW','secP','secR','diag','orient'],
+   d:{L:8.29,S:4.75,h1:1.8,h2:2.8,td:.5,fix:'through'},desc:'أعمدة خارج العمامة بامتداد تحت السقف — لا خرق للعزل.'},
+ S6:{cat:'solar',n:'فوق سطح هنغار — بدون أرجل',cover:'pv',bld:'C',hang:1,
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secR','diag','orient'],
+   d:{L:18,S:8,h1:.6,h2:2.3,bay:3,td:.45,fix:'hangar'},desc:'جمالونات ترتكز على جمالونات الهنغار بكلامب.'},
+ S7:{cat:'solar',n:'جمالون حر بين حائطين',cover:'pv',bld:'C',
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secR','diag','orient'],
+   d:{L:12,S:6.5,h1:2.6,h2:3.6,bay:2.5,td:.6,fix:'wall'},desc:'ارتكاز ببليتات على حائطين — بدون أي أرجل.'},
+ P1:{cat:'perg',n:'برغولا مستقيمة',cover:'slat',bld:'A',flat:1,
+   f:['L','S','h1','bay','td','slatGap','secT','secB','secW','secP','secR','diag','fix'],
+   d:{L:6,S:4,h1:2.6,bay:2,td:.3,slatGap:.12,secT:'100x50x3',secP:'100x100x4'},desc:'سقف أفقي بتضليع مفتوح.'},
+ P2:{cat:'perg',n:'برغولا مائلة',cover:'slat',bld:'A',
+   f:['L','S','h1','h2','bay','td','slatGap','secT','secB','secW','secP','secR','diag','fix'],
+   d:{L:6,S:4,h1:2.5,h2:3.1,bay:2,td:.3,slatGap:.1},desc:'ميل لتصريف المطر — تقبل بوليكربونيت.'},
+ P3:{cat:'perg',n:'برغولا كابولي من الحائط',cover:'slat',bld:'A',cant:1,
+   f:['L','S','h1','h2','bay','td','slatGap','secT','secB','secW','secP','secR','diag','fix'],
+   d:{L:6,S:3,h1:2.6,h2:3,bay:2,td:.45,fix:'through'},desc:'كابولي من الحائط — مساحة حرة تماماً.'},
+ H1:{cat:'hang',n:'هنغار جملون (Gable)',cover:'sheet',bld:'H',
+   f:['L','S','clearH','ridge','bay','td','secT','secB','secW','secP','secR','diag','fix'],
+   d:{L:30,S:15,clearH:5,ridge:1.9,bay:4,td:1,secT:'120x60x4',secP:'150x150x5',secR:'80x40x3'},desc:'إطارات جملونية على أعمدة.'},
+ H2:{cat:'hang',n:'هنغار سقف مائل مفرد',cover:'sheet',bld:'A',
+   f:['L','S','h1','h2','bay','td','secT','secB','secW','secP','secR','diag','fix'],
+   d:{L:24,S:10,h1:4.5,h2:6,bay:4,td:.9,secT:'120x60x4',secP:'150x150x5',secR:'80x40x3'},desc:'ميل واحد — مثالي لتركيب طاقة فوقه.'}};
+const CATS=[['solar','طاقة'],['perg','برغولا'],['hang','هنغار']];
+
+/* ---------- 4. three.js ---------- */
+const stage=document.getElementById('stage');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xe9eff5);
+const camera=new THREE.PerspectiveCamera(45,1,.05,900);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,canvas:document.getElementById('gl')});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+scene.add(new THREE.HemisphereLight(0xffffff,0x93a3b0,.95));
+const D1=new THREE.DirectionalLight(0xffffff,.55); D1.position.set(14,22,10); scene.add(D1);
+const D2=new THREE.DirectionalLight(0xffffff,.2); D2.position.set(-11,9,-9); scene.add(D2);
+const MAT={top:new THREE.MeshLambertMaterial({color:0x7d8a95}),bot:new THREE.MeshLambertMaterial({color:0x93a0ab}),
+ web:new THREE.MeshLambertMaterial({color:0xa6b1bb}),post:new THREE.MeshLambertMaterial({color:0x53606c}),
+ rail:new THREE.MeshLambertMaterial({color:0xb3bdc6}),brace:new THREE.MeshLambertMaterial({color:0xF1471E}),
+ pv:new THREE.MeshLambertMaterial({color:0x16243d}),slat:new THREE.MeshLambertMaterial({color:0x8d8577}),
+ sheet:new THREE.MeshLambertMaterial({color:0xdfe3e6,transparent:true,opacity:.9,side:THREE.DoubleSide}),
+ edge:new THREE.LineBasicMaterial({color:0xc9d3db}),ground:new THREE.MeshLambertMaterial({color:0xd3cec3}),
+ wall:new THREE.MeshLambertMaterial({color:0xcdc6b8}),mass:new THREE.MeshLambertMaterial({color:0xc9c2b4}),
+ win:new THREE.MeshLambertMaterial({color:0x3c4e5e}),dim:new THREE.LineBasicMaterial({color:0x0066A7})};
+const gS=new THREE.Group(),gC=new THREE.Group(),gB=new THREE.Group(),gD=new THREE.Group(),gSite=new THREE.Group();
+scene.add(gS,gC,gB,gD,gSite);
+function clr(g){while(g.children.length){const c=g.children.pop(); if(c.geometry)c.geometry.dispose();}}
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tube(p1,p2,w,h,mat){
+  const d=new THREE.Vector3().subVectors(p2,p1),l=d.length(); if(l<1e-6)return null;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,l),mat);
+  m.position.copy(p1).add(p2).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(V(0,0,1),d.normalize()); return m;}
+let QTY={},KIND={},PC={},NP=0,PLATES=0,ANCH=0,PVINFO={};
+const BASE={secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',diag:1,orient:'auto',fix:'base',coat:'paint'};
+function addM(kind,sec,p1,p2,mat,mark){
+  const s=SEC[sec]; if(!s)return;
+  const len=p1.distanceTo(p2);
+  QTY[sec]=(QTY[sec]||0)+len;
+  (KIND[kind]=KIND[kind]||{})[sec]=((KIND[kind]||{})[sec]||0)+len;
+  if(mark){const k=mark+'|'+sec+'|'+len.toFixed(2);
+    PC[k]=PC[k]||{mark,sec,len:+len.toFixed(2),q:0,kind}; PC[k].q++;}
+  const m=tube(p1,p2,s.b,s.h,mat||MAT.top); if(m)gS.add(m);}
+function lbl(t,pos,c,sc){
+  const cv=document.createElement('canvas');cv.width=512;cv.height=128;const x=cv.getContext('2d');
+  x.fillStyle='rgba(255,255,255,0.93)';x.fillRect(0,0,512,128);
+  x.strokeStyle=c||'#0066A7';x.lineWidth=8;x.strokeRect(4,4,504,120);
+  x.fillStyle=c||'#0066A7';x.font='bold 58px Tajawal, Arial';x.textAlign='center';x.textBaseline='middle';x.fillText(t,256,68);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));
+  s.position.copy(pos);s.scale.set(1.7*(sc||1),.42*(sc||1),1);s.renderOrder=999;return s;}
+const dLine=(a,b)=>new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),MAT.dim);
+
+/* بيت ثلاثي الأبعاد تحت الهيكل */
+function house(x0,x1,z0,z1,h){
+  if(!(h>0))return;
+  const w=x1-x0,d=z1-z0;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),MAT.mass);
+  m.position.set((x0+x1)/2,-.30-h/2,(z0+z1)/2);gB.add(m);
+  const nF=Math.max(1,Math.round(h/3));
+  for(let i=1;i<nF;i++){const y=-.30-h*i/nF;
+    [z0-.02,z1+.02].forEach(z=>gB.add(tube(V(x0,y,z),V(x1,y,z),.04,.14,MAT.ground)));
+    [x0-.02,x1+.02].forEach(x=>gB.add(tube(V(x,y,z0),V(x,y,z1),.14,.04,MAT.ground)));}
+  if(M.win){
+    const cols=Math.max(1,Math.floor(w/2.6));
+    for(let fl=0;fl<nF;fl++)for(let c=0;c<cols;c++){
+      const wx=x0+(c+.5)*w/cols,wy=-.30-h*(fl+.55)/nF;
+      const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);a.position.set(wx,wy,z1+.03);gB.add(a);
+      const b=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);b.position.set(wx,wy,z0-.03);gB.add(b);}
+    const rows=Math.max(1,Math.floor(d/2.6));
+    for(let fl=0;fl<nF;fl++)for(let c=0;c<rows;c++){
+      const wz=z0+(c+.5)*d/rows,wy=-.30-h*(fl+.55)/nF;
+      const a=new THREE.Mesh(new THREE.BoxGeometry(.06,1.2,1.1),MAT.win);a.position.set(x1+.03,wy,wz);gB.add(a);
+      const b=new THREE.Mesh(new THREE.BoxGeometry(.06,1.2,1.1),MAT.win);b.position.set(x0-.03,wy,wz);gB.add(b);}}
+  gB.add(lbl('المبنى '+h.toFixed(1)+' م',V((x0+x1)/2,-.30-h*.5,z1+.6),'#5b6b7a',1.4));}
+
+/* كتفا تقوية 50×50 عند الزاوية العلوية — أحدهما باتجاه الجمالون والآخر باتجاه المداد */
+function knees(x,z,yTop,dx,dz){
+  const k=M.knee; if(!(k>0))return;
+  if(dx)addM('كتف تقوية',M.secW,V(x,yTop-k,z),V(x+dx*k,yTop-.04,z),MAT.brace,'K2');
+  if(dz)addM('كتف تقوية',M.secW,V(x,yTop-k,z),V(x,yTop-.04,z+dz*k),MAT.brace,'K2');}
+
+function truss(p1,p2,td,nB,diag){
+  const q1=V(p1.x,p1.y-td,p1.z),q2=V(p2.x,p2.y-td,p2.z);
+  addM('جوائز علوية',M.secT,p1,p2,MAT.top,'C1');
+  addM('جوائز سفلية',M.secB,q1,q2,MAT.bot,'C2');
+  for(let i=0;i<=nB;i++){const u=i/nB;
+    addM('تضليع',M.secW,p1.clone().lerp(p2,u),q1.clone().lerp(q2,u),MAT.web,'W1');}
+  if(diag)for(let i=0;i<nB;i++){const u1=i/nB,u2=(i+1)/nB;
+    const a=(i%2===0)?q1.clone().lerp(q2,u1):p1.clone().lerp(p2,u1);
+    const b=(i%2===0)?p1.clone().lerp(p2,u2):q1.clone().lerp(q2,u2);
+    addM('أقطار',M.secW,a,b,MAT.brace,'D1');}}
+
+/* ---------- الغطاء : تصحيح اتجاه الميل ----------
+   دوران الصندوق حول X بزاوية θ ينقل محوره +Z إلى (0,−sinθ,cosθ).
+   لذلك: مستوى صاعد مع +Z ⇒ θ = −t ، ومستوى هابط ⇒ θ = +t.
+   pt.dir = +1 للمستوى الصاعد و −1 للهابط ، والدوران = −dir·t      */
+function cover(type,x0,x1,s0,slopeLen,pt){
+  const t=pt.t,W=x1-x0,rot=-pt.dir*t;
+  if(type==='pv'){
+    const g=.02,gr=.05,o=[];
+    o.push({o:'port',c:Math.floor((W+g)/(PANEL.h+g)),r:Math.floor((slopeLen+gr)/(PANEL.w+gr)),w:PANEL.h,h:PANEL.w});
+    o.push({o:'land',c:Math.floor((W+g)/(PANEL.w+g)),r:Math.floor((slopeLen+gr)/(PANEL.h+gr)),w:PANEL.w,h:PANEL.h});
+    o.forEach(p=>{p.c=Math.max(0,p.c);p.r=Math.max(0,p.r);p.n=p.c*p.r;});
+    const pick=M.orient==='auto'?(o[0].n>=o[1].n?o[0]:o[1]):(M.orient==='port'?o[0]:o[1]);
+    NP+=pick.n; PVINFO={o:pick.o,c:pick.c,r:pick.r,w:pick.w,h:pick.h};
+    if(pick.n===0)return;
+    const rowW=pick.c*pick.w+(pick.c-1)*g,px0=x0+(W-rowW)/2+pick.w/2;
+    const arr=pick.r*pick.h+(pick.r-1)*gr,sS=s0+Math.max(0,(slopeLen-arr)/2);
+    const off=pick.h<1.5?.28:.55;
+    for(let r=0;r<pick.r;r++){
+      const sr=sS+r*(pick.h+gr);
+      [off,pick.h-off].forEach(oo=>{const p=pt.at(sr+oo);
+        addM('مرابط الألواح',M.secR,V(x0,p.y+.03,p.z),V(x1,p.y+.03,p.z),MAT.rail,'R1');});
+      const c=pt.at(sr+pick.h/2);
+      for(let i=0;i<pick.c;i++){
+        const m=new THREE.Mesh(new THREE.BoxGeometry(pick.w,PANEL.t,pick.h),MAT.pv);
+        m.position.set(px0+i*(pick.w+g),c.y+.085,c.z); m.rotation.x=rot; gC.add(m);
+        const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),MAT.edge);
+        e.position.copy(m.position); e.rotation.x=rot; gC.add(e);}}
+  }else if(type==='slat'){
+    const n=Math.max(2,Math.floor(slopeLen/(M.slatGap+SEC[M.secR].b)));
+    for(let i=0;i<=n;i++){const p=pt.at(s0+slopeLen*i/n);
+      addM('تضليع الغطاء',M.secR,V(x0,p.y+.05,p.z),V(x1,p.y+.05,p.z),MAT.slat,'S1');}
+  }else{
+    const a=pt.at(s0),b=pt.at(s0+slopeLen);
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,slopeLen),MAT.sheet);
+    m.position.set((x0+x1)/2,(a.y+b.y)/2+.06,(a.z+b.z)/2);
+    m.rotation.x=-Math.PI/2+rot; gC.add(m);
+    const nP=Math.max(2,Math.round(slopeLen/1.5));
+    for(let i=0;i<=nP;i++){const p=pt.at(s0+slopeLen*i/nP);
+      addM('مدادات السقف',M.secR,V(x0,p.y+.05,p.z),V(x1,p.y+.05,p.z),MAT.rail,'R1');}}}
+
+/* ---------- 5. البناة ---------- */
+function builderA(T){
+  const t=T.flat?0:Math.atan((M.h2-M.h1)/M.S),S=M.S,L=M.L;
+  const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
+  for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
+  const nB=Math.max(4,Math.round(S/.9)),yA=M.h1,yB=T.flat?M.h1:M.h2;
+  bx.forEach(x=>{
+    if(T.dbl){truss(V(x,yB,0),V(x,yA,S/2),M.td,Math.round(nB/2),M.diag);
+              truss(V(x,yA,S/2),V(x,yB,S),M.td,Math.round(nB/2),M.diag);}
+    else truss(V(x,yB,0),V(x,yA,S),M.td,nB,M.diag);});
+  const rows=T.dbl?[S/2]:(T.cant?[S*.28]:[0,S]);
+  bx.forEach(x=>rows.forEach(z=>{
+    const y=T.flat?M.h1:(M.h2+(M.h1-M.h2)*(z/S));
+    addM('أعمدة',M.secP,V(x,0,z),V(x,y-M.td-.02,z),MAT.post,'P1');
+    PLATES++;ANCH+=4;
+    LEGS.push([x,z,M.fix]);knees(x,z,y-M.td-.02,(x<L/2?1:-1),(z<S/2?1:-1));
+    if(T.cant||T.dbl){[1,-1].forEach(k=>
+      addM('كتائف',M.secW,V(x,y-M.td-.85,z),V(x,y-M.td-.05,z+k*.85),MAT.brace,'K1'));}}));
+  rows.forEach(z=>[[bx[0],bx[1]],[bx[nBay-1],bx[nBay]]].forEach(([a,b])=>{
+    const y=T.flat?M.h1:(M.h2+(M.h1-M.h2)*(z/S));
+    addM('تربيط',M.secW,V(a,.2,z),V(b,y-M.td-.15,z),MAT.brace,'B1');
+    addM('تربيط',M.secW,V(b,.2,z),V(a,y-M.td-.15,z),MAT.brace,'B1');}));
+  if(!SITE){const gr=new THREE.Mesh(new THREE.BoxGeometry(L+4,.2,S+4),MAT.ground);
+    gr.position.set(L/2,-.1,S/2); gB.add(gr);}
+  if(T.cant&&(M.fix==='through'||M.fix==='wall')){
+    const wh=yB+.5,w=new THREE.Mesh(new THREE.BoxGeometry(L+1,wh,.25),MAT.wall);
+    w.position.set(L/2,wh/2,-.15);gB.add(w);
+    bx.forEach(x=>[.35,.75].forEach(u=>
+      addM('كتائف ثروبولت',M.secW,V(x,yB-M.td*u,.02),V(x,yB-M.td*u,-.28),MAT.brace,'T1')));}
+  if(T.dbl){
+    cover(T.cover,0,L,0,(S/2)/Math.cos(t),{t,dir:-1,at:s=>({z:s*Math.cos(t),y:yB-s*Math.sin(t)})});
+    cover(T.cover,0,L,0,(S/2)/Math.cos(t),{t,dir:+1,at:s=>({z:S-s*Math.cos(t),y:yB-s*Math.sin(t)})});
+  }else cover(T.cover,0,L,0,S/Math.cos(t),{t,dir:-1,at:s=>({z:s*Math.cos(t),y:yB-s*Math.sin(t)})});
+  return {t,nSup:bx.length*rows.length,frames:bx.length,bays:nBay,bx,rows,
+    primary:'إطار عرضي بحر '+S.toFixed(2)+' م',spanMain:S,trib:L/nBay,nWeb:nB};}
+
+function builderB(T){
+  const t=Math.atan((M.h2-M.h1)/M.S),L=M.L,S=M.S;
+  const yF=M.h1-.14,yR=yF+S*Math.tan(t),nB=Math.max(6,Math.round(L/.85));
+  truss(V(0,yF,0),V(L,yF,0),M.td,nB,M.diag);
+  truss(V(0,yR,S),V(L,yR,S),M.td,nB,M.diag);
+  const nP=Math.max(2,Math.round(M.nPost)),ins=Math.min(M.pInset,L/4),px=[];
+  for(let i=0;i<nP;i++)px.push(ins+(L-2*ins)*i/(nP-1));
+  px.forEach(x=>[[0,yF],[S,yR]].forEach(([z,y])=>{
+    const fx=(z<S/2)?M.fix:(M.fix2==='same'?M.fix:M.fix2);
+    const base=(fx==='beam'||fx==='through')?-.5:0;
+    addM('أعمدة',M.secP,V(x,base,z),V(x,y+.06,z),MAT.post,base<0?'P2':'P1');
+    LEGS.push([x,z,fx]);PLATES++;ANCH+=(fx==='beam'?8:4);
+    if(fx==='beam'){            // بليتتان 200×200×10 على الكمرة الباطونية
+      [-.15,-.45].forEach(h=>{
+        const pl=new THREE.Mesh(new THREE.BoxGeometry(.20,.20,.01),MAT.brace);
+        pl.position.set(x,h,z+(z<S/2?-.14:.14));gS.add(pl);
+        addM('وصلة الكمرة',M.secW,V(x,h,z),V(x,h,z+(z<S/2?-.16:.16)),MAT.brace,'T2');});
+    } else if(fx==='through'){[-.15,-.42].forEach(h=>addM('ثروبولت/كتائف',M.secW,V(x,h,z),V(x+(x<L/2?.35:-.35),h,z),MAT.brace,'T1'));}
+    else if(fx==='parapet'){[.3,.62].forEach(h=>addM('كتائف العمامة',M.secW,V(x,h,z),V(x,h,z+(z<S/2?-.3:.3)),MAT.brace,'T1'));}
+    else if(fx==='base'){const bp=new THREE.Mesh(new THREE.BoxGeometry(.3,.02,.3),MAT.post);bp.position.set(x,.01,z);gS.add(bp);}
+    // كتفا التقوية عند الزاوية العلوية
+    knees(x,z,y,(x<L/2?1:-1),(z<S/2?1:-1));}));
+  const nR=Math.max(3,Math.round(L/1.7));
+  for(let i=0;i<=nR;i++){const x=L*i/nR;
+    addM('عوارض مائلة',M.secT,V(x,yF+.1,0),V(x,yR+.1,S),MAT.top,'RF');}
+  if(!SITE){
+    const roof=(T.fac||M.fix==='parapet'||M.fix==='beam'||M.fix==='through');
+    if(roof){
+      const x0=-1.2,x1=L+1.2,z0=-1.5,z1=S+1.2;
+      const sl=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,.3,z1-z0),MAT.ground);
+      sl.position.set((x0+x1)/2,-.15,(z0+z1)/2);gB.add(sl);
+      [[x0,z0,x1,z0],[x0,z1,x1,z1],[x0,z0,x0,z1],[x1,z0,x1,z1]].forEach(([a,b,c,d])=>
+        gB.add(tube(V(a,.4,b),V(c,.4,d),(a===c?.2:Math.abs(c-a)),.8,MAT.wall)));
+      house(x0,x1,z0,z1,M.bldH);
+      gB.add(lbl('كمرة باطون مسلح',V(L/2,.95,z0-.15),'#F1471E',1.5));
+    }else{const gr=new THREE.Mesh(new THREE.BoxGeometry(L+2,.2,S+2),MAT.ground);gr.position.set(L/2,-.1,S/2);gB.add(gr);}}
+
+  cover(T.cover,0,L,0,S/Math.cos(t),{t,dir:+1,at:s=>({z:s*Math.cos(t),y:(yF+.15)+s*Math.sin(t)})});
+  return {t,nSup:px.length*2,frames:2,bays:px.length-1,bx:px,rows:[0,S],
+    primary:'جمالون طولي بحر '+(px[1]-px[0]).toFixed(2)+' م بين الأرجل',spanMain:(px[1]-px[0]),trib:S/2,nWeb:nB};}
+
+function builderC(T){
+  const t=Math.atan((M.h2-M.h1)/M.S),L=M.L,S=M.S;
+  const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
+  for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
+  const nB=Math.max(4,Math.round(S/.85));
+  bx.forEach(x=>truss(V(x,M.h2,0),V(x,M.h1,S),M.td,nB,M.diag));
+  if(T.hang){
+    const hy=Math.min(M.h1,M.h2)-M.td-.15;
+    const sh=new THREE.Mesh(new THREE.PlaneGeometry(L+1.5,S+1.5),MAT.sheet);
+    sh.position.set(L/2,hy-.05,S/2);sh.rotation.x=-Math.PI/2;gB.add(sh);
+    bx.forEach(x=>[0,S].forEach(z=>addM('كلامب/بليتة',M.secW,
+      V(x,M.h2-(z/S)*(M.h2-M.h1)-M.td-.02,z),V(x,hy,z),MAT.brace,'CL')));
+    gB.add(lbl('سطح الهنغار القائم',V(L*.5,hy-.5,S+.9),'#5b6b7a',1.4));
+    ANCH+=bx.length*4;
+  }else{
+    [0,S].forEach((z,k)=>{const y=k?M.h1:M.h2;
+      const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.2,y-M.td,.25),MAT.wall);
+      w.position.set(L/2,(y-M.td)/2,z);gB.add(w);});
+    gB.add(lbl('ارتكاز على الحائط ببليتة',V(L*.5,M.h2-M.td-.4,-.7),'#F1471E',1.5));
+    PLATES+=bx.length*2;ANCH+=bx.length*8;}
+  cover(T.cover,0,L,0,S/Math.cos(t),{t,dir:-1,at:s=>({z:s*Math.cos(t),y:M.h2-s*Math.sin(t)})});
+  return {t,nSup:bx.length*2,frames:bx.length,bays:nBay,bx,rows:[0,S],
+    primary:'جمالون عرضي حر بحر '+S.toFixed(2)+' م',spanMain:S,trib:L/nBay,nWeb:nB};}
+
+function builderH(T){
+  const L=M.L,S=M.S,H=M.clearH,Rg=M.ridge,t=Math.atan(Rg/(S/2));
+  const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
+  for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
+  const nB=Math.max(4,Math.round((S/2)/1));
+  bx.forEach(x=>{
+    addM('جوائز علوية',M.secT,V(x,H+Rg,S/2),V(x,H,0),MAT.top,'C1');
+    addM('جوائز علوية',M.secT,V(x,H+Rg,S/2),V(x,H,S),MAT.top,'C1');
+    addM('جوائز سفلية',M.secB,V(x,H-M.td,0),V(x,H-M.td,S),MAT.bot,'C2');
+    for(let i=0;i<=nB;i++){const u=i/nB;
+      [[0,S/2],[S,S/2]].forEach(([a,b])=>{const z=a+(b-a)*u;
+        addM('تضليع',M.secW,V(x,H+Rg*u,z),V(x,H-M.td,z),MAT.web,'W1');});}
+    if(M.diag)for(let i=0;i<nB;i++){const u1=i/nB,u2=(i+1)/nB;
+      [[0,S/2],[S,S/2]].forEach(([a,b])=>{
+        addM('أقطار',M.secW,V(x,H-M.td,a+(b-a)*u1),V(x,H+Rg*u2,a+(b-a)*u2),MAT.brace,'D1');});}
+    [0,S].forEach(z=>{addM('أعمدة',M.secP,V(x,0,z),V(x,H,z),MAT.post,'P1');PLATES++;ANCH+=4;
+      LEGS.push([x,z,M.fix]);knees(x,z,H-.02,(x<L/2?1:-1),(z<S/2?1:-1));});});
+  [0,S].forEach(z=>[[bx[0],bx[1]],[bx[nBay-1],bx[nBay]]].forEach(([a,b])=>{
+    addM('تربيط',M.secW,V(a,.3,z),V(b,H-.3,z),MAT.brace,'B1');
+    addM('تربيط',M.secW,V(b,.3,z),V(a,H-.3,z),MAT.brace,'B1');}));
+  if(!SITE){const gr=new THREE.Mesh(new THREE.BoxGeometry(L+5,.2,S+5),MAT.ground);gr.position.set(L/2,-.1,S/2);gB.add(gr);}
+  const sl=(S/2)/Math.cos(t);
+  cover('sheet',0,L,0,sl,{t,dir:+1,at:s=>({z:s*Math.cos(t),y:H+s*Math.sin(t)})});
+  cover('sheet',0,L,0,sl,{t,dir:-1,at:s=>({z:S-s*Math.cos(t),y:H+s*Math.sin(t)})});
+  return {t,nSup:bx.length*2,frames:bx.length,bays:nBay,bx,rows:[0,S],
+    primary:'إطار جملوني بحر '+S.toFixed(2)+' م',spanMain:S,trib:L/nBay,nWeb:nB};}
+
+/* ---------- 6. الحسابات ---------- */
+/* محرّك الرياح — سلسلة EN 1991-1-4 مبسّطة */
+function windCalc(zRef,tdeg,T){
+  const TZ={I:[.01,1],II:[.05,2],III:[.3,5],IV:[1,10]}[M.terrain]||[.05,2];
+  const z0=TZ[0],zmin=TZ[1],z=Math.max(zRef,zmin);
+  const kr=.19*Math.pow(z0/.05,.07), vb=M.wind/3.6;
+  const cr=kr*Math.log(z/z0), co=1, vm=cr*co*vb;
+  const Iv=1/(co*Math.log(z/z0)), rho=1.25;
+  const qb=.5*rho*vb*vb/1000;
+  const qp=(1+7*Iv)*.5*rho*vm*vm/1000;
+  const ce=qp/qb;
+  const ts=[0,5,10,15,20,25,30];
+  const CF=[.2,.4,.5,.7,.8,1,1.2];
+  const CPx=[.5,.8,1.2,1.4,1.7,2,2.2];
+  const CN0=[-.6,-1.1,-1.5,-1.9,-2.2,-2.6,-3];
+  const CN1=[-1.3,-1.4,-1.5,-1.9,-2.2,-2.6,-3];
+  const ip=a=>{const x=Math.min(30,Math.max(0,Math.abs(tdeg)));
+    let i=0;while(i<ts.length-2&&x>ts[i+1])i++;
+    return a[i]+(a[i+1]-a[i])*(x-ts[i])/(ts[i+1]-ts[i]);};
+  let cf=ip(CF),cpMax=ip(CPx),cpMin=ip(M.phi?CN1:CN0),src='EN 1991-1-4 جدول 7.6 — مظلة أحادية الميل';
+  if(T.bld==='H'){cpMax=.2;cpMin=-1.5;cf=.8;src='EN 1991-1-4 §7.2.5 سقف جملوني مغلق + ضغط داخلي c_pi=±0.3';}
+  if(T.cover==='slat'){cpMax*=.45;cpMin*=.45;cf*=.45;src='سقف مضلّع مفتوح — الضغوط مخفّضة بنسبة النفاذية';}
+  /* التمييز الجوهري:
+     cf  = معامل القوة الكلية → يُستعمل لتصميم الإطار والجوائز والأعمدة (حمل عام)
+     cp,net = معاملات الضغط الصافي المناطقية → تُستعمل للعناصر الموضعية والمرابط والمسامير */
+  return {z0,zmin,z,kr,vb,cr,vm,Iv,qb,qp,ce,cf,cpMax,cpMin,src,
+          wGl:qp*cf, wLocUp:qp*Math.abs(cpMin), wLocDn:qp*cpMax,
+          wUp:qp*cf, wDn:qp*cpMax, Fh:qp*cf};}
+let R={};
+function compute(g){
+  const T=TPL[M.tpl];
+  const steel=Object.keys(QTY).reduce((a,k)=>a+QTY[k]*SEC[k].w,0);
+  const plateKg=PLATES*7.1,tot=steel+plateKg;
+  const area=M.L*M.S/Math.cos(g.t);
+  const tdeg=g.t*180/Math.PI;
+  const zRef=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2);
+  const WD=windCalc(zRef,tdeg,T);
+  const q=WD.qp,Cf=WD.cf,wWind=WD.wGl;
+  const gk=(T.cover==='pv'?.12:(T.cover==='sheet'?.15:.08))+tot*.00981/Math.max(area,1);
+  const sk=M.snow*.00981;
+  const C1=1.35*gk+1.5*sk;                 // شاقولي نحو الأسفل
+  const C2=Math.abs(1.5*WD.wGl-1.0*gk);    // رفع صافٍ عام (معامل القوة الكلية)
+  const C3=1.35*gk+1.5*WD.wGl*.6;          // ضغط نحو الأسفل + ميت
+  const wU=Math.max(C1,C2,C3);
+  const Ls=g.spanMain,trib=g.trib,w=wU*trib;
+  const Mmax=T.cant?w*Ls*Ls/2:w*Ls*Ls/8;
+  const d=(T.bld==='H')?M.td+M.ridge*.5:M.td;
+  const N=Mmax/Math.max(d,.2);
+  const At=SEC[M.secT].A,Ab=SEC[M.secB].A;
+  const sig=N/(Math.min(At,Ab)/1e4)/1e3,util=sig/157;
+  const Ieff=At*Math.pow(d*100*.42,2)+Ab*Math.pow(d*100*.58,2);
+  let def=5*w*Math.pow(Ls*1e3,4)/(384*21e4*Ieff*1e4);
+  if(T.cant)def=w*Math.pow(Ls*1e3,4)/(8*21e4*Ieff*1e4);
+  if(!M.diag)def*=3.5;
+  const defR=Ls*1e3/Math.max(def,.01);
+  const Rv=wU*area/Math.max(g.nSup,1),Hf=wWind*area*Math.sin(g.t)/Math.max(g.nSup,1);
+  const hTop=(T.bld==='H')?M.clearH:Math.max(M.h1,M.h2);
+  const ANCHOR={M14:{n:'M14 غوص 120 مم',NRd:16,VRd:20},M16:{n:'M16 غوص 130 مم',NRd:22,VRd:27}};
+  const FIX={base:[.30,'قاعدة 300×300×10 مم + 4 مسامير كيميائية M14 غوص 120 مم','M14',4],
+   beam:[.30,'بليتتان 200×200×10 مم على الوجه الخارجي للكمرة الباطونية، المسافة بين محوريهما 300 مم، كل بليتة 4 × Anchor M16 غوص 130 مم','M16',8],
+   through:[.50,'امتداد 50 سم تحت السقف + ثروبولت 2×M16 لكل صف مع بليتة داخلية 200×200×10','M16',4],
+   parapet:[1.00,'كتيفتان على العمامة بمسافة 1.00 م + مسامير كيميائية M14','M14',4],
+   wall:[.40,'بليتة ارتكاز 250×250×10 + 4 مسامير كيميائية M14','M14',4],
+   hangar:[.35,'كلامب مجلفن على جائز الهنغار + براغي M12 مع حشوة EPDM','M14',4],
+   ballast:[1.20,'كتلة باطونية موزونة — تزيد 1.5× عن قوة الرفع','M14',4]};
+  const f2=(M.fix2==='same')?M.fix:M.fix2;
+  const G1=FIX[M.fix],G2=FIX[f2]||G1;
+  const lever=Math.min(G1[0],G2[0]);
+  const fixTxt=(f2===M.fix)?G1[1]:('الصف الأمامي: '+G1[1]+' — الصف الخلفي: '+G2[1]);
+  const ab=(ANCHOR[G1[2]].NRd<=ANCHOR[G2[2]].NRd)?ANCHOR[G1[2]]:ANCHOR[G2[2]];
+  const nBolt=Math.min(G1[3],G2[3]);
+  const Rup=Math.max(0,1.5*WD.wLocUp-1.0*gk)*area/Math.max(g.nSup,1);   // شدّ مباشر بالضغوط الموضعية
+  const Mbase=Hf*hTop+Rv*.1, boltT=Mbase/lever+Rup;
+  const ballast=wWind*area*1.5/9.81*1000;
+  const coatArea=Object.keys(QTY).reduce((a,k)=>a+QTY[k]*2*(SEC[k].b+SEC[k].h),0);
+  const coatCost=M.coat==='galv'?tot*.55:(M.coat==='paint'?coatArea*5.5:0);
+  const steelCost=tot*M.price,fabCost=tot*M.fab,kwp=NP*PANEL.Wp/1e3;
+  const upTot=WD.wGl*area, wTot=tot*.00981+ (TPL[M.tpl].cover==='pv'?NP*PANEL.kg*.00981:0);
+  const FS=wTot/Math.max(upTot,.001);
+  const ecc=(T.bld==='H')?0:WD.Fh*area*0.25*(T.bld==='B'?M.S:M.S);
+  R={T,WD,upTot,wTot,FS,ecc,Rup,ab,nBolt,steel,plateKg,tot,area,q,Cf,wWind,gk,sk,C1,C2,C3,wU,Ls,trib,w,Mmax,d,N,sig,util,def,defR,
+     Rv,Hf,Mbase,boltT,fixTxt,lever,ballast,coatArea,coatCost,steelCost,fabCost,kwp,tdeg,g,
+     total:steelCost+fabCost+coatCost,kgm2:tot/Math.max(area,1),At,Ab,Ieff,hTop};}
+
+/* ---------- 7. البناء ---------- */
+function build(){
+  [gS,gC,gB,gD].forEach(clr);QTY={};KIND={};PC={};NP=0;PLATES=0;ANCH=0;PVINFO={};LEGS=[];
+  makeSite();
+  const T=TPL[M.tpl];T.id=M.tpl;
+  const g=T.bld==='A'?builderA(T):T.bld==='B'?builderB(T):T.bld==='C'?builderC(T):builderH(T);
+  compute(g);g.legs=LEGS.slice();validate();drawSite();dims(T,g);badge();}
+function dims(T,g){
+  const L=M.L,S=M.S,hi=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2);
+  gD.add(dLine(V(0,-.45,S+.7),V(L,-.45,S+.7)));
+  gD.add(lbl('L = '+L.toFixed(2)+' م',V(L/2,-.12,S+.7),'#0066A7',1.3));
+  gD.add(dLine(V(L+.7,-.45,0),V(L+.7,-.45,S)));
+  gD.add(lbl('B = '+S.toFixed(2)+' م',V(L+.7,-.12,S/2),'#0066A7',1.3));
+  gD.add(dLine(V(-.6,0,0),V(-.6,hi,0)));
+  gD.add(lbl('H = '+hi.toFixed(2)+' م',V(-.6,hi/2,0),'#0066A7',1.3));
+  gD.add(lbl(R.tdeg.toFixed(1)+'° ميل',V(L*.5,hi+.5,S*.5),'#F1471E',1.2));
+  if(TPL[M.tpl].cover==='pv'&&PVINFO.c)
+    gD.add(lbl((PVINFO.o==='port'?'بورتريه ':'عرضاني ')+PVINFO.r+'×'+PVINFO.c,
+      V(L*.5,hi+1.0,S*.5),'#0B2239',1.3));}
+function badge(){
+  const T=TPL[M.tpl];
+  document.getElementById('badge').innerHTML=`<b>${T.n}</b><br>حديد <b>${R.tot.toFixed(0)} كغ</b> · ${R.kgm2.toFixed(1)} كغ/م²`+
+   (T.cover==='pv'?`<br>${NP} لوح · <b>${R.kwp.toFixed(2)} kWp</b>`:'')+`<br>تقديري <b>$${R.total.toFixed(0)}</b>`;
+  const u=R.util,cls=u<.75?'t-ok':(u<1?'t-w':'t-b');
+  document.getElementById('util').innerHTML=`<span class="tag ${cls}">استغلال ${(u*100).toFixed(0)}%</span><br>
+   <span style="font-size:10px">هبوط L/${R.defR.toFixed(0)}</span>`;}
+
+/* ---------- 8. الموقع من صورة ---------- */
+let TR={img:null,pts:[],sc:null,mode:'poly',p1:null,p2:null};
+function siteFromTrace(){
+  if(TR.pts.length<3||!TR.sc){log('حدّد 3 نقاط على الأقل وأدخل مقياس معلوم.',1);return;}
+  const p=TR.pts.map(q=>[q.x/TR.sc,q.y/TR.sc]);
+  const xs=p.map(a=>a[0]),ys=p.map(a=>a[1]);
+  const mnx=Math.min(...xs),mny=Math.min(...ys);
+  const poly=p.map(a=>[a[0]-mnx,a[1]-mny]);
+  let A=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];A+=a[0]*b[1]-b[0]*a[1];}
+  TRACE_POLY=poly; M.bShape='trace'; M.bOn=1; makeSite(); drawSite();
+  const m=.6;M.L=+(SITE.bb[0]-2*m).toFixed(2);M.S=+Math.min(SITE.bb[1]-2*m,12).toFixed(2);
+  if(M.L<2)M.L=2; if(M.S<1.5)M.S=1.5;
+  log('مخطط الموقع جاهز: مساحة '+SITE.area.toFixed(1)+' م² · إطار أقصى '+SITE.bb[0].toFixed(2)+'×'+SITE.bb[1].toFixed(2)+' م. تم ملاءمة الهيكل تلقائياً.');
+  build();fit();dock();}
+function drawSite(){
+  clr(gSite); if(!SITE)return;
+  const P=SITE.poly.map(q=>[q[0]-M.bOX,q[1]-M.bOZ]);
+  const H=Math.max(0,M.bF*M.bFH);
+  const sh=new THREE.Shape();
+  P.forEach((p,i)=>i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1]));
+  // بلاطة السطح
+  const sl=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.30,bevelEnabled:false}),MAT.ground);
+  sl.rotation.x=Math.PI/2; gSite.add(sl);
+  // كتلة المبنى
+  if(H>0){
+    const ms=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:H,bevelEnabled:false}),MAT.mass);
+    ms.rotation.x=Math.PI/2; ms.position.y=-.30; gSite.add(ms);}
+  // العمامة
+  for(let i=0;i<P.length;i++){
+    const a=P[i],b=P[(i+1)%P.length];
+    if(M.bPar>0)gSite.add(tube(V(a[0],M.bPar/2,a[1]),V(b[0],M.bPar/2,b[1]),M.bParT,M.bPar,MAT.wall));
+    // كورنيش الطوابق
+    for(let k=1;k<=M.bF;k++){
+      const y=-.30-H*k/Math.max(M.bF,1)+ (k===M.bF?.001:0);
+      if(k<M.bF)gSite.add(tube(V(a[0],y,a[1]),V(b[0],y,b[1]),.06,.14,MAT.ground));}
+    // الشبابيك موزّعة على كل ضلع
+    if(M.win&&H>0){
+      const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      const n=Math.floor(L/2.6);
+      for(let k=0;k<M.bF;k++){
+        const y=-.30-H*(k+.55)/M.bF;
+        for(let j=0;j<n;j++){
+          const u0=(j+.5)/n-.55/L, u1=(j+.5)/n+.55/L;
+          const p1=V(a[0]+(b[0]-a[0])*u0,y,a[1]+(b[1]-a[1])*u0);
+          const p2=V(a[0]+(b[0]-a[0])*u1,y,a[1]+(b[1]-a[1])*u1);
+          gSite.add(tube(p1,p2,M.bParT+.08,1.25,MAT.win));}}}}
+  gSite.add(lbl('السطح '+SITE.area.toFixed(1)+' م²'+(H>0?' · '+M.bF+' طوابق · '+H.toFixed(1)+' م':''),
+    V(SITE.bb[0]*.5-M.bOX,M.bPar+.45,-M.bOZ-.8),'#5b6b7a',1.8));
+  // خط حدود الهيكل على السطح
+  [[0,0],[M.L,0],[M.L,M.S],[0,M.S]].forEach((p,i,arr)=>{
+    const q=arr[(i+1)%4];
+    gSite.add(tube(V(p[0],.02,p[1]),V(q[0],.02,q[1]),.04,.02,MAT.brace));});}
+
+/* ---------- 9. محرّك الأوامر العربي ---------- */
+const AR='٠١٢٣٤٥٦٧٨٩';
+function num(s){return s.replace(/[٠-٩]/g,c=>AR.indexOf(c));}
+function grab(txt,keys){
+  for(const k of keys){
+    const re=new RegExp(k+'\\s*[:=]?\\s*(-?\\d+(?:[.,]\\d+)?)');
+    const m=txt.match(re); if(m)return parseFloat(m[1].replace(',','.'));}
+  return null;}
+function aiApply(raw){
+  const t=num(raw).replace(/[×xX*]/g,'x');
+  const ch=[];
+  const T0=M.tpl;
+  if(/مزدوج|صفين\s*سيار/.test(t))M.tpl='S3';
+  else if(/موقف|كارب|carport/i.test(t))M.tpl=/جهتين|عمودين|صفي\s*أعمدة/.test(t)?'S1':'S2';
+  else if(/هنغار/.test(t)&&/فوق|سطح/.test(t))M.tpl='S6';
+  else if(/هنغار/.test(t))M.tpl=/مائل|مفرد/.test(t)?'H2':'H1';
+  else if(/برغول|بركول/.test(t))M.tpl=/كابول|حائط/.test(t)?'P3':(/مائل/.test(t)?'P2':'P1');
+  else if(/مظل[ةه]/.test(t))M.tpl=/سطح\s*مبنى/.test(t)?'S4':'S1';
+  else if(/ثروبولت|واجهة|خارج\s*العمامة/.test(t))M.tpl='S5';
+  else if(/حائطين|بين\s*حائط|بدون\s*(أ|ا)رجل/.test(t))M.tpl='S7';
+  else if(/سطح\s*مبنى|4\s*أعمدة|أربع\s*أعمدة/.test(t))M.tpl='S4';
+  if(M.tpl!==T0){applyTpl(M.tpl);M.cat=TPL[M.tpl].cat;ch.push('النموذج → '+TPL[M.tpl].n);}
+  const set=(k,v,u)=>{if(v===null||isNaN(v))return;const f=F[k];
+    if(f&&f.t==='r')v=Math.min(f.max,Math.max(f.min,v));
+    if(M[k]!==v){M[k]=v;ch.push(f.l+' → '+v+(u||''));}};
+  set('L',grab(t,['الطول','طول','لون?ج']));
+  set('S',grab(t,['البحر','بحر','العرض','عرض']));
+  set('h1',grab(t,['الارتفاع\\s*الأمامي','ارتفاع\\s*أمامي','امامي']));
+  set('h2',grab(t,['الارتفاع\\s*الخلفي','ارتفاع\\s*خلفي','خلفي']));
+  set('bay',grab(t,['تباعد','المسافة\\s*بين']));
+  set('td',grab(t,['ارتفاع\\s*الجمالون','عمق\\s*الجمالون']));
+  set('clearH',grab(t,['الارتفاع\\s*الصافي','صافي']));
+  set('ridge',grab(t,['الجملون','جملون']));
+  set('wind',grab(t,['ريح','الريح']));
+  set('snow',grab(t,['ثلج','الثلج']));
+  const tl=grab(t,['ميل','زاوية']);
+  if(tl!==null&&!isNaN(tl)&&TPL[M.tpl].bld!=='H'){
+    const sl=(TPL[M.tpl].bld==='B')?M.S:M.S;
+    M.h2=+(M.h1+sl*Math.tan(tl*Math.PI/180)).toFixed(2);ch.push('ميل '+tl+'° → ارتفاع خلفي '+M.h2+' م');}
+  if(/بدون\s*أقطار|مستطيل|vierendeel/i.test(t)){M.diag=0;ch.push('جمالون مستطيل بدون أقطار');}
+  if(/مع\s*أقطار|مثلث/.test(t)){M.diag=1;ch.push('جمالون بأقطار');}
+  if(/بورتريه|طولي\s*اللوح/.test(t)){M.orient='port';ch.push('ألواح بورتريه');}
+  if(/عرضاني|landscape/i.test(t)){M.orient='land';ch.push('ألواح عرضانية');}
+  if(/كيميائي/.test(t)){M.fix='base';ch.push('تثبيت: قاعدة كيميائية');}
+  if(/ثروبولت/.test(t)){M.fix='through';ch.push('تثبيت: ثروبولت');}
+  if(/عمامة/.test(t)){M.fix='parapet';ch.push('تثبيت: كتائف العمامة');}
+  if(/كلامب/.test(t)){M.fix='hangar';ch.push('تثبيت: كلامب');}
+  if(/وزن\s*باطون|بالاست/.test(t)){M.fix='ballast';ch.push('تثبيت: وزن باطوني');}
+  if(/جلفن/.test(t)){M.coat='galv';ch.push('حماية: جلفنة');}
+  const secs=t.match(/\d{2,3}x\d{2,3}(?:x[\d.]+)?/g)||[];
+  secs.forEach(s=>{
+    const k=Object.keys(SEC).find(q=>q.startsWith(s))||Object.keys(SEC).find(q=>q.indexOf(s)===0);
+    if(!k)return;
+    if(/عمود|أعمدة|رجل|أرجل/.test(t)&&SEC[k].b>=.08){M.secP=k;ch.push('الأعمدة → '+k);}
+    else if(/مراب|مداد|تضليع/.test(t)&&SEC[k].b<=.06){M.secW=k;M.secR=k;ch.push('التضليع/المرابط → '+k);}
+    else if(SEC[k].h>=.1){M.secT=k;ch.push('الجائز العلوي → '+k);}
+    else {M.secB=k;ch.push('الجائز السفلي → '+k);}});
+  if(!ch.length){log('لم أفهم أمراً قابلاً للتنفيذ. مثال: «موقف سيارات طول 18 بحر 5.5 ميل 12 أعمدة 120x120 بدون أقطار».',1);return;}
+  build();fit();dock();
+  log('تم: '+ch.join(' · '));}
+function log(s,e){
+  const el=document.getElementById('log'); if(!el)return;
+  const d=document.createElement('div'); if(e)d.className='e'; d.textContent=s;
+  el.insertBefore(d,el.firstChild);}
+
+/* ---------- 10. رسم SVG للخرائط التنفيذية ---------- */
+function SV(w,h,body,grid){
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" font-family="Tajawal,Arial">
+  <rect width="${w}" height="${h}" fill="#fff"/>${grid||''}${body}</svg>`;}
+const ln=(a,b,c,d,st)=>`<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${(st&&st.c)||'#16222e'}" stroke-width="${(st&&st.w)||1.3}" ${st&&st.dash?'stroke-dasharray="5 3"':''}/>`;
+const tx=(x,y,t,o)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${(o&&o.s)||10}" fill="${(o&&o.c)||'#16222e'}" text-anchor="${(o&&o.a)||'middle'}" ${o&&o.b?'font-weight="700"':''} ${o&&o.r?`transform="rotate(${o.r} ${x.toFixed(1)} ${y.toFixed(1)})"`:''}>${t}</text>`;
+const rc=(x,y,w,h,f,s)=>`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.abs(w).toFixed(1)}" height="${Math.abs(h).toFixed(1)}" fill="${f||'none'}" stroke="${s||'#16222e'}" stroke-width="1.1"/>`;
+function dimH(x1,x2,y,t){
+  const c='#0066A7';
+  return ln(x1,y,x2,y,{c,w:.9})+ln(x1,y-4,x1,y+4,{c,w:.9})+ln(x2,y-4,x2,y+4,{c,w:.9})+
+   `<rect x="${((x1+x2)/2-20).toFixed(1)}" y="${(y-8).toFixed(1)}" width="40" height="11" fill="#fff"/>`+
+   tx((x1+x2)/2,y+1,t,{s:9,c,b:1});}
+function dimV(y1,y2,x,t){
+  const c='#0066A7';
+  return ln(x,y1,x,y2,{c,w:.9})+ln(x-4,y1,x+4,y1,{c,w:.9})+ln(x-4,y2,x+4,y2,{c,w:.9})+
+   `<rect x="${(x-20).toFixed(1)}" y="${((y1+y2)/2-6).toFixed(1)}" width="40" height="11" fill="#fff"/>`+
+   tx(x,(y1+y2)/2+3,t,{s:9,c,b:1});}
+
+function sheetPlan(){
+  const T=TPL[M.tpl],g=R.g,W=760,H=420,mx=70,my=55;
+  const sc=Math.min((W-2*mx)/M.L,(H-2*my)/Math.max(M.S,1));
+  const X=x=>mx+x*sc, Z=z=>my+z*sc;
+  let b=rc(X(0),Z(0),M.L*sc,M.S*sc,'#f7f9fb','#0B2239');
+  (g.bx||[]).forEach((x,i)=>{
+    b+=ln(X(x),Z(0)-8,X(x),Z(M.S)+8,{c:'#9aa6b0',dash:1});
+    b+=tx(X(x),Z(0)-13,'①②③④⑤⑥⑦⑧⑨⑩⑪⑫'.charAt(Math.min(i,11))||String(i+1),{s:10,b:1,c:'#0066A7'});
+    (g.rows||[]).forEach(z=>{
+      const s=SEC[M.secP];
+      b+=rc(X(x)-s.b*sc/2,Z(z)-s.b*sc/2,s.b*sc,s.b*sc,'#53606c','#16222e');});});
+  if(T.cover==='pv'&&PVINFO.c){
+    const pw=PVINFO.w*sc,ph=PVINFO.h*sc*Math.cos(R.g.t);
+    const rowW=PVINFO.c*PVINFO.w+(PVINFO.c-1)*.02;
+    const x0=X((M.L-rowW)/2),arr=(PVINFO.r*PVINFO.h+(PVINFO.r-1)*.05)*Math.cos(R.g.t);
+    const z0=Z((M.S-arr)/2);
+    for(let r=0;r<PVINFO.r;r++)for(let c=0;c<PVINFO.c;c++)
+      b+=rc(x0+c*(pw+.02*sc),z0+r*(ph+.05*sc),pw,ph,'#dfe6ee','#16243d');
+    b+=tx(X(M.L/2),Z(M.S)+30,`${PVINFO.r} صف × ${PVINFO.c} لوح — ${PVINFO.o==='port'?'بورتريه':'عرضاني'} (${PANEL.nm})`,{s:10,b:1,c:'#16243d'});}
+  b+=dimH(X(0),X(M.L),Z(M.S)+18,M.L.toFixed(2)+' م');
+  b+=dimV(Z(0),Z(M.S),X(M.L)+18,M.S.toFixed(2)+' م');
+  if((g.bx||[]).length>1)b+=dimH(X(g.bx[0]),X(g.bx[1]),Z(0)-24,(g.bx[1]-g.bx[0]).toFixed(2));
+  b+=tx(X(M.L/2),26,'مخطط أفقي — توزيع الإطارات والأعمدة',{s:12,b:1,c:'#0B2239'});
+  b+=tx(mx,H-14,'شمال الرسم اختياري — يُثبّت اتجاه الانحدار حسب الجنوب في الموقع',{s:9,a:'start',c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function sheetSection(){
+  const T=TPL[M.tpl],W=760,H=430,mx=90,my=60;
+  const isB=T.bld==='B', span=isB?M.L:M.S;
+  const hiTop=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2)+.2;
+  const sc=Math.min((W-2*mx)/span,(H-2*my)/hiTop);
+  const X=x=>mx+x*sc, Y=y=>H-my-y*sc;
+  let b='';
+  b+=ln(mx-30,Y(0),W-mx+30,Y(0),{c:'#8d8577',w:2});
+  for(let i=0;i<28;i++)b+=ln(mx-30+i*((W-2*mx+60)/28),Y(0),mx-36+i*((W-2*mx+60)/28),Y(0)+7,{c:'#8d8577',w:.8});
+  if(T.bld==='H'){
+    const H0=M.clearH,Rg=M.ridge;
+    b+=ln(X(0),Y(H0),X(M.S/2),Y(H0+Rg),{w:2.4})+ln(X(M.S/2),Y(H0+Rg),X(M.S),Y(H0),{w:2.4});
+    b+=ln(X(0),Y(H0-M.td),X(M.S),Y(H0-M.td),{w:1.8});
+    const n=Math.max(4,Math.round((M.S/2)/1));
+    for(let i=0;i<=n;i++){const u=i/n;
+      [[0,M.S/2],[M.S,M.S/2]].forEach(([a,c])=>{const z=a+(c-a)*u;
+        b+=ln(X(z),Y(H0+Rg*u),X(z),Y(H0-M.td),{c:'#9aa6b0',w:1});});}
+    [0,M.S].forEach(z=>b+=ln(X(z),Y(0),X(z),Y(H0),{w:3,c:'#53606c'}));
+    b+=dimV(Y(0),Y(H0),X(0)-26,M.clearH.toFixed(2));
+    b+=dimV(Y(H0),Y(H0+Rg),X(M.S/2)+26,M.ridge.toFixed(2));
+  }else{
+    const yA=isB?M.h1:(T.flat?M.h1:M.h1), yB=isB?M.h2:(T.flat?M.h1:M.h2);
+    const p0=isB?{x:0,y:yB}:{x:0,y:yB}, p1=isB?{x:span,y:yB}:{x:span,y:yA};
+    const yy0=isB?yA:yB, yy1=isB?yA:yA;
+    b+=ln(X(0),Y(yy0),X(span),Y(isB?yy0:yy1),{w:2.4});
+    b+=ln(X(0),Y(yy0-M.td),X(span),Y((isB?yy0:yy1)-M.td),{w:1.8});
+    const n=R.g.nWeb||6;
+    for(let i=0;i<=n;i++){const u=i/n,yt=yy0+((isB?yy0:yy1)-yy0)*u;
+      b+=ln(X(span*u),Y(yt),X(span*u),Y(yt-M.td),{c:'#9aa6b0',w:1});}
+    if(M.diag)for(let i=0;i<n;i++){
+      const u1=i/n,u2=(i+1)/n,ya=yy0+((isB?yy0:yy1)-yy0)*u1,yb=yy0+((isB?yy0:yy1)-yy0)*u2;
+      b+=(i%2===0)?ln(X(span*u1),Y(ya-M.td),X(span*u2),Y(yb),{c:'#F1471E',w:1.1})
+                  :ln(X(span*u1),Y(ya),X(span*u2),Y(yb-M.td),{c:'#F1471E',w:1.1});}
+    (R.g.rows||[]).forEach(z=>{
+      const zz=isB?0:z; if(isB)return;
+      const y=T.flat?M.h1:(M.h2+(M.h1-M.h2)*(z/M.S));
+      b+=ln(X(z),Y(0),X(z),Y(y-M.td),{w:3,c:'#53606c'});
+      b+=rc(X(z)-14,Y(0)-3,28,4,'#53606c','#16222e');});
+    if(isB){[.15,span-.15].forEach(x=>{
+      const y=M.h1-.14+(x/span)*0;
+      b+=ln(X(x),Y(0),X(x),Y(M.h1-.14-M.td),{w:3,c:'#53606c'});});}
+    b+=dimV(Y(0),Y(isB?M.h1:M.h2),X(0)-26,(isB?M.h1:M.h2).toFixed(2));
+    b+=dimV(Y(0),Y(isB?M.h2:M.h1),X(span)+26,(isB?M.h2:M.h1).toFixed(2));
+    b+=tx(X(span*.5),Y(Math.max(yy0,yy1))-16,R.tdeg.toFixed(1)+'°',{s:11,b:1,c:'#F1471E'});
+  }
+  b+=dimH(X(0),X(span),Y(0)+30,span.toFixed(2)+' م');
+  b+=tx(W/2,26,'مقطع A-A — الإطار الرئيسي',{s:12,b:1,c:'#0B2239'});
+  b+=tx(W-mx,H-14,`علوي ${M.secT} · سفلي ${M.secB} · تضليع ${M.secW} · أعمدة ${M.secP}`,{s:9,a:'end',c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function sheetTruss(){
+  const T=TPL[M.tpl],W=760,H=300,mx=60,my=90;
+  const span=(T.bld==='B')?M.L:M.S;
+  const n=R.g.nWeb||6, sc=(W-2*mx)/span, dv=Math.min(120,M.td*sc*2.2);
+  const X=x=>mx+x*sc, Yt=my, Yb=my+dv;
+  let b=ln(X(0),Yt,X(span),Yt,{w:2.6})+ln(X(0),Yb,X(span),Yb,{w:2});
+  for(let i=0;i<=n;i++)b+=ln(X(span*i/n),Yt,X(span*i/n),Yb,{c:'#9aa6b0',w:1.2});
+  if(M.diag)for(let i=0;i<n;i++)b+=(i%2===0)?ln(X(span*i/n),Yb,X(span*(i+1)/n),Yt,{c:'#F1471E',w:1.2})
+    :ln(X(span*i/n),Yt,X(span*(i+1)/n),Yb,{c:'#F1471E',w:1.2});
+  b+=tx(X(span*.25),Yt-9,'C1 — '+M.secT,{s:10,b:1});
+  b+=tx(X(span*.25),Yb+16,'C2 — '+M.secB,{s:10,b:1});
+  b+=tx(X(span*.62),Yt+dv/2,'W1 — '+M.secW,{s:9,c:'#5b6b7a'});
+  if(M.diag)b+=tx(X(span*.82),Yt+dv/2,'D1 — '+M.secW,{s:9,c:'#F1471E'});
+  b+=dimV(Yt,Yb,X(0)-24,(M.td*100).toFixed(0)+' سم');
+  b+=dimH(X(0),X(span/n),Yb+34,(span/n).toFixed(2));
+  b+=dimH(X(0),X(span),Yb+56,span.toFixed(2)+' م');
+  b+=tx(W/2,26,'تفصيل الجمالون — '+n+' مستطيل × '+(span/n).toFixed(2)+' م',{s:12,b:1,c:'#0B2239'});
+  b+=tx(mx,48,M.diag?'مثلثات: كل قطر يُلحم كامل المحيط على العقدة':'مستطيل Vierendeel: لحام كامل المحيط إلزامي في كل عقدة — القص الأقصى في المستطيلين الطرفيين',{s:9,a:'start',c:M.diag?'#5b6b7a':'#c02617'});
+  return SV(W,H,b);}
+
+function sheetDetail(){
+  const W=760,H=520;let b='';
+  const P=SEC[M.secP];
+  // تفصيل 1 : قاعدة عمود
+  const cx=150,cy=230;
+  b+=tx(cx,40,'تفصيل 1 — قاعدة العمود',{s:11,b:1,c:'#0B2239'});
+  b+=ln(cx-90,cy,cx+90,cy,{c:'#8d8577',w:2});
+  b+=rc(cx-60,cy-10,120,10,'#c4beb1','#16222e');
+  b+=rc(cx-58,cy-16,116,6,'#9aa6b0','#16222e');
+  b+=rc(cx-P.b*260/2,cy-120,P.b*260,104,'#53606c','#16222e');
+  b+=tx(cx,cy-128,'عمود '+M.secP,{s:9,b:1});
+  [-44,-26,26,44].forEach(o=>b+=ln(cx+o,cy-16,cx+o,cy+26,{c:'#F1471E',w:2}));
+  b+=tx(cx,cy+44,'4 × M14 كيميائي غوص 120 مم',{s:9,c:'#F1471E',b:1});
+  b+=tx(cx,cy+58,'بليتة 300×300×10 مم',{s:9});
+  b+=dimH(cx-60,cx+60,cy+18,'300');
+  // تفصيل 2 : وصلة الجمالون بالعمود
+  const dx=390,dy=200;
+  b+=tx(dx,40,'تفصيل 2 — ربط الجمالون على جانب العمود',{s:11,b:1,c:'#0B2239'});
+  b+=rc(dx-8,dy-110,16,150,'#53606c','#16222e');
+  b+=rc(dx+8,dy-100,110,10,'#7d8a95','#16222e');
+  b+=rc(dx+8,dy-100+Math.min(90,M.td*130),110,8,'#93a0ab','#16222e');
+  b+=rc(dx+8,dy-104,12,Math.min(102,M.td*130+18),'#F1471E','#16222e');
+  b+=tx(dx+70,dy-108,'C1',{s:9,b:1})+tx(dx+70,dy-88+Math.min(90,M.td*130),'C2',{s:9,b:1});
+  b+=tx(dx+64,dy+22,'كتيفة 8 مم + 4×M12 أو لحام 6 مم',{s:9,c:'#F1471E',b:1});
+  b+=tx(dx+64,dy+36,'الجمالون على جانب العمود لا فوقه',{s:9});
+  // تفصيل 3 : التثبيت المختار
+  const ex=620,ey=210;
+  b+=tx(ex,40,'تفصيل 3 — '+({base:'قاعدة كيميائية',through:'ثروبولت',parapet:'كتائف العمامة',wall:'ارتكاز حائط',hangar:'كلامب هنغار',ballast:'وزن باطوني'})[M.fix],{s:11,b:1,c:'#0B2239'});
+  if(M.fix==='beam'){
+    // الكمرة الباطونية المسلحة + بليتتان 200×200×10 + Anchor M16
+    b+=rc(ex-58,ey-70,34,170,'#cdc6b8','#16222e');
+    b+=tx(ex-41,ey-78,'كمرة ب.م',{s:8,b:1,c:'#5b6b7a'});
+    for(let i=0;i<5;i++)b+=`<circle cx="${ex-52+i*7}" cy="${ey-56}" r="2" fill="#8d8577"/>`;
+    for(let i=0;i<5;i++)b+=`<circle cx="${ex-52+i*7}" cy="${ey+86}" r="2" fill="#8d8577"/>`;
+    b+=rc(ex-20,ey-96,16,190,'#53606c','#16222e');
+    b+=tx(ex+2,ey-104,'عمود '+M.secP,{s:8,b:1,a:'start'});
+    [ey+4,ey+52].forEach((y,i)=>{
+      b+=rc(ex-26,y-16,7,32,'#F1471E','#16222e');
+      [y-10,y+10].forEach(h=>{b+=ln(ex-26,h,ex+6,h,{c:'#F1471E',w:2.4});
+        b+=`<circle cx="${ex+8}" cy="${h}" r="3" fill="#F1471E"/>`;});
+      b+=tx(ex+46,y+3,'4×M16',{s:8,b:1,c:'#F1471E'});});
+    b+=dimV(ey+4,ey+52,ex+26,'300');
+    b+=dimV(ey-12,ey+20,ex-44,'200');
+    b+=tx(ex,ey+112,'بليتتان 200×200×10 مم',{s:9,b:1});
+    b+=tx(ex,ey+126,'Anchor M16 غوص 130 مم',{s:9,c:'#F1471E',b:1});
+  }else if(M.fix==='through'){
+    b+=rc(ex-40,ey-100,26,190,'#cdc6b8','#16222e');
+    b+=rc(ex-14,ey-110,14,120,'#53606c','#16222e');
+    [ey+10,ey+46].forEach(y=>{b+=ln(ex-48,y,ex+4,y,{c:'#F1471E',w:2.6});b+=rc(ex-52,y-7,6,14,'#F1471E','#16222e');});
+    b+=tx(ex+40,ey+28,'2×M16 ثروبولت',{s:9,c:'#F1471E',b:1});
+    b+=dimV(ey+10,ey+46,ex+18,'27');
+  }else if(M.fix==='hangar'){
+    b+=ln(ex-50,ey+30,ex+50,ey-10,{w:3,c:'#7d8a95'});
+    b+=rc(ex-12,ey-2,24,14,'#F1471E','#16222e');
+    b+=tx(ex,ey-26,'كلامب مجلفن + M12 + EPDM',{s:9,c:'#F1471E',b:1});
+    b+=ln(ex,ey-2,ex,ey-70,{w:3,c:'#53606c'});
+  }else if(M.fix==='ballast'){
+    b+=rc(ex-60,ey+10,120,50,'#c4beb1','#16222e');
+    b+=tx(ex,ey+40,(R.ballast/Math.max(R.g.nSup,1)).toFixed(0)+' كغ / نقطة',{s:10,b:1,c:'#F1471E'});
+    b+=ln(ex,ey+10,ex,ey-70,{w:3,c:'#53606c'});
+  }else{
+    b+=rc(ex-55,ey+10,110,14,'#9aa6b0','#16222e');
+    b+=rc(ex-10,ey-70,20,80,'#53606c','#16222e');
+    [-38,-22,22,38].forEach(o=>b+=ln(ex+o,ey+10,ex+o,ey+46,{c:'#F1471E',w:2.2}));
+    b+=tx(ex,ey+62,'M14 كيميائي × 4',{s:9,c:'#F1471E',b:1});}
+  b+=tx(ex,330,'شدّ المسامير ≈ '+R.boltT.toFixed(1)+' kN · '+(R.boltT/R.nBolt).toFixed(1)+' kN لكل مسمار',{s:10,b:1,c:'#0066A7'});
+  // ---- تفصيل 4 : كتفا التقوية 50×50 عند الزاوية العلوية ----
+  const kx=210,ky=470,K=Math.max(.2,M.knee)*110;
+  b+=tx(220,372,'تفصيل 4 — كتفا التقوية 50×50 عند الزاوية العلوية',{s:11,b:1,c:'#0B2239'});
+  b+=rc(kx-8,ky-120,16,140,'#53606c','#16222e');
+  b+=rc(kx-8,ky-132,190,12,'#7d8a95','#16222e');
+  b+=rc(kx-8,ky-132+Math.min(70,M.td*120),190,9,'#93a0ab','#16222e');
+  b+=ln(kx,ky-120+K*0.0,kx+K,ky-120,{c:'#F1471E',w:4});
+  b+=ln(kx,ky-120+K,kx+K,ky-122,{c:'#F1471E',w:4});
+  b+=tx(kx+K*0.62,ky-112+K*0.55,'كتف 50×50 باتجاه الجمالون',{s:9,b:1,c:'#F1471E',a:'start'});
+  b+=dimV(ky-120,ky-120+K,kx-26,(M.knee*100).toFixed(0));
+  b+=dimH(kx,kx+K,ky+14,(M.knee*100).toFixed(0)+' مم');
+  // إسقاط الكتف الثاني باتجاه المداد
+  const mx2=560;
+  b+=rc(mx2-8,ky-120,16,140,'#53606c','#16222e');
+  b+=rc(mx2-70,ky-132,150,12,'#7d8a95','#16222e');
+  b+=ln(mx2,ky-120+K,mx2-K,ky-122,{c:'#F1471E',w:4});
+  b+=tx(mx2-K*0.5,ky-108+K*0.6,'كتف 50×50 باتجاه المداد',{s:9,b:1,c:'#F1471E'});
+  b+=tx(mx2,372-0,'(مستوٍ عمودي على تفصيل 4)',{s:9,c:'#5b6b7a'});
+  b+=tx(W/2,H-10,'الكتفان يقصّان بزاوية 45° ويُلحمان كامل المحيط 6 مم — يقلّلان البحر الفعّال ويمنعان دوران العقدة',{s:9,c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function cutList(){
+  const items=Object.values(PC).sort((a,b)=>a.mark<b.mark?-1:1);
+  let rows='',tw=0;
+  items.forEach(p=>{const wt=p.len*p.q*SEC[p.sec].w;tw+=wt;
+    rows+=`<tr><td class="n">${p.mark}</td><td>${p.kind}</td><td class="n">${p.sec}</td>
+     <td class="n">${p.len.toFixed(2)}</td><td class="n">${p.q}</td><td class="n">${(p.len*p.q).toFixed(1)}</td><td class="n">${wt.toFixed(0)}</td></tr>`;});
+  return {rows,tw,n:items.length};}
+
+/* ---------- 11. التقرير الفني (بلدية / نقابة المهندسين) — بدون تسعير ---------- */
+function ovTop(cur){
+  document.getElementById('ovTop').innerHTML=
+   `<button onclick="closeOv()">✕ إغلاق</button><button onclick="window.print()">🖶 طباعة / PDF</button>`+
+   (cur!=='rep'?`<button onclick="report()">التقرير الفني</button>`:'')+
+   (cur!=='shop'?`<button onclick="shop()">الخرائط التنفيذية</button>`:'')+
+   (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'');}
+
+function report(){
+  const T=TPL[M.tpl],d=new Date(),W=R.WD;
+  const chk=(v,l)=>v<l*.75?'<span class="tag t-ok">سليم</span>':(v<l?'<span class="tag t-w">مقبول</span>':'<span class="tag t-b">غير كافٍ</span>');
+  const gov=R.wU===R.C1?'C1':(R.wU===R.C2?'C2':'C3');
+  ovTop('rep');
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(52)}
+   <div><div style="font-size:15px;font-weight:800;color:#0B2239">تقرير دراسة إنشائية — هيكل حديدي</div>
+   <div style="font-size:10.5px;color:#5b6b7a">iCOOL Trading &amp; Contracting · 03 715 512 · info.icool.lb@gmail.com</div></div></div>
+
+  <table>
+   <tr><th style="width:22%">إلى</th><td colspan="3"><b>بلدية ${M.muni||'..............................'}</b> — دائرة الهندسة والتنظيم المدني<br>
+    <b>نقابة المهندسين</b> — دائرة تدقيق الدراسات</td></tr>
+   <tr><th>الموضوع</th><td colspan="3">دراسة إنشائية وأحمال لهيكل حديدي — ${T.n}</td></tr>
+   <tr><th>المشروع</th><td>${M.project||'—'}</td><th>صاحب العلاقة</th><td>${M.client||'—'}</td></tr>
+   <tr><th>العقار / المنطقة</th><td>${M.parcel||'—'}</td><th>رقم الطلب</th><td>${M.permit||'—'}</td></tr>
+   <tr><th>الموقع</th><td>${M.site||'—'}</td><th>التاريخ</th><td>${d.toLocaleDateString('en-GB')}</td></tr>
+  </table>
+  <div class="note">هذا التقرير فني بحت ولا يتضمن أي بيانات تسعيرية؛ دراسة الكلفة تُقدَّم في مستند منفصل.</div>
+
+  <h2>1 — وصف المشروع والنظام الإنشائي</h2>
+  <p>${T.desc} النظام الحامل: ${R.g.primary}، بعدد ${R.g.frames} إطاراً و${R.g.nSup} مسنداً.
+  الهيكل ${T.cover==='pv'?'مخصّص لحمل منظومة كهروضوئية':(T.cover==='sheet'?'مغطّى بألواح ساندويتش/صفيح':'مظلّل بتضليع معدني مفتوح')}.</p>
+  <div class="kpi">
+   <div><span>الطول × البحر</span><b>${M.L.toFixed(2)} × ${M.S.toFixed(2)} م</b></div>
+   <div><span>المساحة المسقوفة</span><b>${R.area.toFixed(1)} م²</b></div>
+   <div><span>الارتفاع المرجعي z</span><b>${R.WD.z.toFixed(2)} م</b></div>
+   <div><span>زاوية الميل α</span><b>${R.tdeg.toFixed(1)}°</b></div>
+   <div><span>ارتفاع الجمالون</span><b>${(M.td*100).toFixed(0)} سم</b></div>
+   <div><span>تباعد الإطارات</span><b>${R.trib.toFixed(2)} م</b></div>
+   ${T.cover==='pv'?`<div><span>الألواح</span><b>${NP} × 660Wp</b></div><div><span>القدرة</span><b>${R.kwp.toFixed(2)} kWp</b></div>`:''}
+   ${SITE?`<div><span>مساحة الموقع</span><b>${SITE.area.toFixed(1)} م²</b></div>`:''}
+  </div>
+  <table><tr><th>العنصر</th><th>المقطع</th><th>العنصر</th><th>المقطع</th></tr>
+   <tr><td>الجائز العلوي C1</td><td class="n">${M.secT}</td><td>الجائز السفلي C2</td><td class="n">${M.secB}</td></tr>
+   <tr><td>التضليع W1 / الأقطار D1</td><td class="n">${M.secW}</td><td>الأعمدة P1</td><td class="n">${M.secP}</td></tr>
+   <tr><td>المرابط R1</td><td class="n">${M.secR}</td><td>الحماية</td><td class="n">${M.coat==='galv'?'جلفنة ساخنة 80 ميكرون':(M.coat==='paint'?'أساس زنك + وجهان نهائي':'بدون')}</td></tr></table>
+
+  ${SITE?`<h3>1.1 المبنى الحامل</h3>
+  <table><tr><th>البند</th><th>القيمة</th><th>البند</th><th>القيمة</th></tr>
+   <tr><td>شكل السطح</td><td class="n">${M.bShape==='L'?'حرف L بقصّة '+M.ba.toFixed(2)+'×'+M.bb.toFixed(2)+' م':(M.bShape==='trace'?'مرفوع من مخطط':'مستطيل')}</td>
+       <td>مساحة السطح</td><td class="n">${SITE.area.toFixed(2)} م²</td></tr>
+   <tr><td>أبعاد السطح</td><td class="n">${SITE.bb[0].toFixed(2)} × ${SITE.bb[1].toFixed(2)} م</td>
+       <td>عدد الطوابق</td><td class="n">${M.bF} × ${M.bFH.toFixed(2)} م = ${(M.bF*M.bFH).toFixed(2)} م</td></tr>
+   <tr><td>العمامة</td><td class="n">${(M.bPar*100).toFixed(0)} × ${(M.bParT*100).toFixed(0)} سم</td>
+       <td>موضع الهيكل</td><td class="n">X=${M.bOX.toFixed(2)} ، Z=${M.bOZ.toFixed(2)} م</td></tr>
+   <tr><td>نسبة تغطية السطح</td><td class="n">${((M.L*M.S)/Math.max(SITE.area,1)*100).toFixed(0)}%</td>
+       <td>عدد الأرجل</td><td class="n">${(R.g.legs||[]).length}</td></tr></table>
+  ${VAL.msgs.length?'<div class="note"><b>تنبيهات هندسية:</b><br>• '+VAL.msgs.join('<br>• ')+'</div>':'<div class="note">جميع الأرجل تقع ضمن حدود السطح المُدخل.</div>'}`:''}
+
+  <h2>2 — المرجعيات المعتمدة</h2>
+  <ul>
+   <li>EN 1990 — أسس التصميم الإنشائي وتوليفات الأحمال.</li>
+   <li>EN 1991-1-1 — الأوزان الذاتية والأحمال الحيّة.</li>
+   <li>EN 1991-1-3 — أحمال الثلج.</li>
+   <li><b>EN 1991-1-4 — أحمال الرياح</b> (البند 7.3 للمظلات الحرة، الجدول 7.6 لمعاملات الضغط الصافي).</li>
+   <li>EN 1993-1-1 — تصميم المنشآت الفولاذية؛ الفولاذ S235، γ<sub>M0</sub>=1.0 مع تخفيض خدمي إلى 157 MPa.</li>
+   <li>المرسوم اللبناني لنظام السلامة العامة في الأبنية ومتطلبات البلدية المحلية.</li>
+  </ul>
+
+  <h2>3 — دراسة أحمال الرياح (تفصيلية)</h2>
+  <h3>3.1 السرعة والضغط المرجعي</h3>
+  <table>
+   <tr><th>البند</th><th>الرمز</th><th>القيمة</th><th>المرجع / الحساب</th></tr>
+   <tr><td>السرعة الأساسية</td><td class="n">v<sub>b</sub></td><td class="n">${W.vb.toFixed(1)} م/ث (${M.wind} كم/س)</td><td>مُدخل حسب المنطقة</td></tr>
+   <tr><td>فئة التضاريس</td><td class="n">—</td><td class="n">${M.terrain}</td><td>z₀ = ${W.z0} م ، z<sub>min</sub> = ${W.zmin} م</td></tr>
+   <tr><td>معامل التضاريس</td><td class="n">k<sub>r</sub></td><td class="n">${W.kr.toFixed(3)}</td><td>k<sub>r</sub> = 0.19 (z₀/0.05)<sup>0.07</sup></td></tr>
+   <tr><td>معامل الخشونة</td><td class="n">c<sub>r</sub>(z)</td><td class="n">${W.cr.toFixed(3)}</td><td>k<sub>r</sub>·ln(z/z₀) ، z = ${W.z.toFixed(2)} م</td></tr>
+   <tr><td>السرعة المتوسطة</td><td class="n">v<sub>m</sub></td><td class="n">${W.vm.toFixed(1)} م/ث</td><td>c<sub>r</sub>·c<sub>o</sub>·v<sub>b</sub> ، c<sub>o</sub>=1</td></tr>
+   <tr><td>شدّة الاضطراب</td><td class="n">I<sub>v</sub></td><td class="n">${W.Iv.toFixed(3)}</td><td>1/ln(z/z₀)</td></tr>
+   <tr><td>الضغط المرجعي</td><td class="n">q<sub>b</sub></td><td class="n">${W.qb.toFixed(3)} kN/m²</td><td>½ρv<sub>b</sub>² ، ρ=1.25 كغ/م³</td></tr>
+   <tr><td>معامل التعرية</td><td class="n">c<sub>e</sub>(z)</td><td class="n">${W.ce.toFixed(2)}</td><td>q<sub>p</sub>/q<sub>b</sub></td></tr>
+   <tr style="background:#f2f5f8"><td><b>ضغط الذروة</b></td><td class="n"><b>q<sub>p</sub>(z)</b></td><td class="n"><b>${W.qp.toFixed(3)} kN/m²</b></td><td>(1+7I<sub>v</sub>)·½ρv<sub>m</sub>²</td></tr>
+  </table>
+  <h3>3.2 معاملات الضغط الصافي</h3>
+  <p>${W.src}. نسبة الانسداد أسفل المظلة φ = ${M.phi}${T.bld==='H'?'':' (φ=0 تعني هواءً حراً تحت السقف، φ=1 تعني انسداداً كاملاً يرفع قيم الرفع).'}</p>
+  <table>
+   <tr><th>المعامل</th><th>القيمة</th><th>الضغط</th><th>أين يُستعمل</th></tr>
+   <tr><td><b>معامل القوة الكلية c<sub>f</sub></b></td><td class="n">${W.cf.toFixed(2)}</td><td class="n">${W.wGl.toFixed(3)} kN/m²</td><td><b>تصميم الإطار</b>: الجوائز والأعمدة والمساند — القوة المحصّلة ${(W.wGl*R.area).toFixed(1)} kN على كامل السطح</td></tr>
+   <tr><td>ضغط صافٍ موضعي c<sub>p,net</sub> (رفع)</td><td class="n">${W.cpMin.toFixed(2)}</td><td class="n">${W.wLocUp.toFixed(3)} kN/m²</td><td><b>العناصر الموضعية</b>: المرابط والكلامب ومسامير التثبيت</td></tr>
+   <tr><td>ضغط صافٍ موضعي (نحو الأسفل)</td><td class="n">+${W.cpMax.toFixed(2)}</td><td class="n">${W.wLocDn.toFixed(3)} kN/m²</td><td>يُجمع مع الميت والثلج للعناصر الموضعية</td></tr>
+  </table>
+  <div class="note">التمييز مقصود: يعطي الكود معامل قوة كلية c<sub>f</sub> لتصميم الهيكل ككل، ومعاملات ضغط صافٍ مناطقية c<sub>p,net</sub> أكبر بكثير تُطبَّق على العناصر الصغيرة والمثبتات. اعتماد c<sub>p,net</sub> على كامل الإطار يعطي تصميماً مبالغاً فيه، واعتماد c<sub>f</sub> على المسامير يعطي تصميماً غير آمن. هذا التقرير يطبّق كلاً منهما في موضعه.</div>
+  <h3>3.3 لامركزية المحصّلة والالتواء</h3>
+  <p>وفق EN 1991-1-4 §7.3 تُطبَّق محصّلة الرياح على بُعد <b>d/4</b> من الحافة المواجهة للريح وليس في المنتصف،
+  أي بلامركزية e = ${( (T.bld==='H')?0:(M.S/4) ).toFixed(2)} م عن محور الإطار، ما يولّد عزم التواء إضافياً
+  قدره <b>${(R.ecc/4).toFixed(1)} kN·m</b> على مجموعة الإطار. عُولج بالتربيط القطري في مستوى الأعمدة (العنصر B1)
+  وليس بزيادة مقاطع الجوائز.</p>
+  <h3>3.4 الاستقرار العام ضد الرفع</h3>
+  <table>
+   <tr><td>قوة الرفع الكلية</td><td class="n">${R.upTot.toFixed(1)} kN</td></tr>
+   <tr><td>الوزن الثابت المقاوم (حديد + ألواح)</td><td class="n">${R.wTot.toFixed(1)} kN</td></tr>
+   <tr><td>معامل الأمان بالوزن وحده</td><td class="n">${R.FS.toFixed(2)}</td></tr>
+   <tr><td>الخلاصة</td><td class="n">${R.FS>=1.5?'<span class="tag t-ok">الوزن كافٍ</span>':'<span class="tag t-b">الوزن غير كافٍ — التثبيت الميكانيكي إلزامي</span>'}</td></tr>
+  </table>
+  ${R.FS<1.5?'<div class="note"><b>الهيكل يطير بوزنه.</b> مقاومة الرفع تعتمد كلياً على مسامير التثبيت وقواعدها، لذا يُعتبر تفصيل القاعدة عنصراً إنشائياً حرجاً لا تفصيلاً ثانوياً.</div>':''}
+
+  <h2>4 — الأحمال الأخرى وتوليفاتها</h2>
+  <table><tr><th>الحمل</th><th>القيمة</th><th>الحساب</th></tr>
+   <tr><td>ميت G<sub>k</sub></td><td class="n">${R.gk.toFixed(3)} kN/m²</td><td>غطاء ${T.cover==='pv'?'0.12':(T.cover==='sheet'?'0.15':'0.08')} kN/m² + وزن ذاتي محسوب ${R.kgm2.toFixed(1)} كغ/م²</td></tr>
+   <tr><td>ثلج S<sub>k</sub></td><td class="n">${R.sk.toFixed(3)} kN/m²</td><td>${M.snow} كغ/م² ، μ₁=0.8 للميل ≤30°</td></tr>
+   <tr><td>حيّ للصيانة</td><td class="n">0.4 kN نقطي</td><td>لا يُجمع مع الريح أو الثلج</td></tr>
+   <tr><td>الزلازل</td><td class="n">غير حاكم</td><td>كتلة الهيكل ${R.wTot.toFixed(1)} kN فقط؛ قوة القاعدة الأفقية الزلزالية أقل بكثير من قوة الريح ${(W.Fh*R.area).toFixed(1)} kN</td></tr></table>
+  <table><tr><th>التوليفة</th><th>الصيغة</th><th>القيمة kN/m²</th><th></th></tr>
+   <tr><td>C1</td><td>1.35G + 1.5S</td><td class="n">${R.C1.toFixed(3)}</td><td>${gov==='C1'?'<b>حاكمة</b>':''}</td></tr>
+   <tr><td>C2</td><td>1.5W<sub>رفع</sub> − 1.0G</td><td class="n">${R.C2.toFixed(3)}</td><td>${gov==='C2'?'<b>حاكمة</b>':''}</td></tr>
+   <tr><td>C3</td><td>1.35G + 1.5W<sub>ضغط</sub></td><td class="n">${R.C3.toFixed(3)}</td><td>${gov==='C3'?'<b>حاكمة</b>':''}</td></tr>
+   <tr style="background:#f2f5f8"><td colspan="2"><b>المعتمدة للتصميم</b></td><td class="n"><b>${R.wU.toFixed(3)}</b></td><td>${gov}</td></tr></table>
+
+  <h2>5 — التحليل والتحقق</h2>
+  <p>حُلّل الإطار كجمالون مكافئ: العزم يُقاوَم بزوج قوى في الجائزين (N = M/d)، والقص بالتضليع والأقطار.
+  ${M.diag?'الجمالون مثلّث بالكامل.':'<b>الجمالون مستطيل بدون أقطار (Vierendeel)</b> — أُخذ معامل تصحيح 3.5 على الهبوط.'}</p>
+  <table><tr><th>البند</th><th>القيمة</th><th>الحالة</th></tr>
+   <tr><td>البحر الحاكم L</td><td class="n">${R.Ls.toFixed(2)} م ${T.cant?'(كابولي)':''}</td><td>L/d = ${(R.Ls/R.d).toFixed(1)}</td></tr>
+   <tr><td>الحمل الخطي w</td><td class="n">${R.w.toFixed(2)} kN/m</td><td>${R.wU.toFixed(2)} × ${R.trib.toFixed(2)} م</td></tr>
+   <tr><td>العزم M</td><td class="n">${R.Mmax.toFixed(2)} kN·m</td><td>${T.cant?'wL²/2':'wL²/8'}</td></tr>
+   <tr><td>قوة الجائز N</td><td class="n">${R.N.toFixed(1)} kN</td><td>N = M/d ، d = ${R.d.toFixed(2)} م</td></tr>
+   <tr><td>الجهد σ</td><td class="n">${R.sig.toFixed(0)} MPa</td><td>${chk(R.sig,157)} الحد 157 MPa</td></tr>
+   <tr><td>نسبة الاستغلال</td><td class="n">${(R.util*100).toFixed(0)}%</td><td>${chk(R.util,1)}</td></tr>
+   <tr><td>العطالة المكافئة</td><td class="n">${R.Ieff.toFixed(0)} سم⁴</td><td>ΣA·y²</td></tr>
+   <tr><td>الهبوط δ</td><td class="n">${R.def.toFixed(1)} مم = L/${R.defR.toFixed(0)}</td><td>${R.defR>200?'<span class="tag t-ok">سليم</span>':(R.defR>150?'<span class="tag t-w">مقبول</span>':'<span class="tag t-b">كبير</span>')} الحد L/200</td></tr></table>
+  ${R.util>1?'<div class="note"><b>الاستغلال يتجاوز 100%</b> — يلزم تكبير المقاطع أو رفع ارتفاع الجمالون أو تقليل تباعد الإطارات قبل التنفيذ.</div>':''}
+
+  <h2>6 — ردود الأفعال والتثبيت</h2>
+  <table><tr><th>الحالة</th><th>لكل مسند</th><th>الاتجاه</th></tr>
+   <tr><td>ثابت (G)</td><td class="n">${(R.gk*R.area/Math.max(R.g.nSup,1)).toFixed(1)} kN</td><td>ضغط للأسفل</td></tr>
+   <tr><td>حاكمة شاقولية</td><td class="n">${R.Rv.toFixed(1)} kN</td><td>ضغط</td></tr>
+   <tr><td><b>رفع صافٍ عام (C2)</b></td><td class="n"><b>${(R.C2*R.area/Math.max(R.g.nSup,1)).toFixed(1)} kN</b></td><td>شدّ للأعلى — تصميم العمود</td></tr>
+   <tr><td><b>رفع موضعي على المثبت</b></td><td class="n"><b>${R.Rup.toFixed(1)} kN</b></td><td>بـ c<sub>p,net</sub> — تصميم المسمار</td></tr>
+   <tr><td>قوة أفقية</td><td class="n">${R.Hf.toFixed(1)} kN</td><td>في مستوى الميل</td></tr>
+   <tr><td>عزم عند نقطة التثبيت</td><td class="n">${R.Mbase.toFixed(1)} kN·m</td><td>ذراع ${(R.lever*100).toFixed(0)} سم</td></tr>
+   <tr style="background:#f2f5f8"><td><b>شدّ صف المسامير المطلوب</b></td><td class="n"><b>${R.boltT.toFixed(1)} kN</b></td><td>طلب لا مقاومة</td></tr>
+   <tr><td>التفصيل المعتمد</td><td colspan="2" class="n">${R.fixTxt}</td></tr>
+   <tr><td>عدد المسامير لكل مسند</td><td class="n">${R.nBolt} × ${R.ab.n}</td><td>—</td></tr>
+   <tr><td>الشدّ لكل مسمار</td><td class="n">${(R.boltT/R.nBolt).toFixed(1)} kN</td><td>مقاومة إرشادية N<sub>Rd</sub> = ${R.ab.NRd} kN (C25/30)</td></tr>
+   <tr><td>نسبة استغلال المسمار</td><td class="n">${((R.boltT/R.nBolt)/R.ab.NRd*100).toFixed(0)}%</td><td>${(R.boltT/R.nBolt)/R.ab.NRd<=1?'<span class="tag t-ok">ضمن المقاومة</span>':'<span class="tag t-b">يلزم زيادة العدد أو القطر</span>'}</td></tr>
+   ${M.fix==='ballast'?`<tr><td>الوزن الباطوني</td><td class="n">${R.ballast.toFixed(0)} كغ</td><td>${(R.ballast/Math.max(R.g.nSup,1)).toFixed(0)} كغ/نقطة</td></tr>`:''}</table>
+  <div class="note">قيمة رفع المثبت محسوبة بتطبيق c<sub>p,net</sub> المناطقي على كامل المساحة الحاملة للمسند، وهي <b>مغلّفة متحفّظة</b> مقصودة لأن فشل مثبت واحد يعني فقدان الهيكل بالكامل. قيمة الشدّ <b>طلب تصميمي</b> يُقارن بمقاومة المسمار المُعلنة من الصانع (Hilti / Fischer / Würth) مع مراعاة مسافة الحافة والتباعد وعمق الغوص ومقاومة الباطون C25/30 كحد أدنى. لا يُعتمد التثبيت على البلوك المجوّف أو على العمامة غير المسلّحة.</div>
+
+  <h2>7 — المواد والتنفيذ</h2>
+  <ul>
+   <li>الفولاذ S235JR، المقاطع RHS/SHS مسحوبة على البارد ومطابقة لـ EN 10219.</li>
+   <li>اللحام بأقطاب E7018 بسماكة لا تقل عن 6 مم وبوجه كامل المحيط في عقد الجمالون.</li>
+   <li>${M.coat==='galv'?'جلفنة على الساخن بعد إتمام كل اللحامات، وسماكة الطبقة ≥ 80 ميكرون.':'دهان أساس غني بالزنك + وجهين نهائيين؛ تُنظَّف اللحامات وتُدهن موقعياً.'}</li>
+   <li>تُسدّ نهايات المقاطع المفتوحة بصفيحة لمنع تجمّع المياه داخلها.</li>
+   <li>التربيط القطري في مستوى الأعمدة (B1) عنصر إنشائي لا زخرفي ولا يجوز حذفه في الموقع.</li>
+  </ul>
+
+  <h2>8 — الخلاصة والتصريح</h2>
+  <p>بناءً على التحليل أعلاه، فإن الهيكل الموصوف${R.util<=1&&R.defR>=150?' <b>يستوفي</b> متطلبات المقاومة وقابلية الخدمة':' <b>يحتاج تعديلاً</b> قبل الاعتماد'}
+  تحت التوليفة الحاكمة ${gov} بنسبة استغلال ${(R.util*100).toFixed(0)}% وهبوط L/${R.defR.toFixed(0)}،
+  شرط تنفيذ تفاصيل التثبيت المذكورة في البند 6 والتربيط في البند 7.</p>
+  <p>أُعدّت هذه الدراسة بطريقة الجمالون المكافئ للتحقق الأولي من المقاطع والاستقرار، وهي كافية لأغراض الترخيص لهيكل بهذا الحجم،
+  ولا تحلّ محل تحليل بالعناصر المحدودة في حال تغيّر الأبعاد أو البحور عمّا ورد أعلاه.</p>
+
+  <div class="sign">
+   <div><b>المهندس المُعدّ والمسؤول</b><br>
+    م. أحمد محمد ناصر<br>
+    مهندس ميكانيك — نقابة المهندسين رقم <b>OEA 36359</b><br>
+    iCOOL Trading &amp; Contracting<br>
+    التاريخ: ${d.toLocaleDateString('en-GB')}<br>
+    ${SIGN_IMG?`<img src="${SIGN_IMG}" alt="signature">`:'<div style="margin-top:22px;border-top:1px solid #16222e;width:190px">التوقيع والختم</div>'}
+   </div>
+   <div><b>لاستعمال البلدية / النقابة</b><br>
+    رقم الوارد: ......................................<br><br>
+    اسم المدقّق: ....................................<br><br>
+    الملاحظات: .....................................<br><br>
+    التوقيع والختم: ..............................</div>
+  </div>
+  <div class="foot">iCOOL Trading &amp; Contracting — HVAC · Solar · Electrical · MEP · Pools · 03 715 512 · info.icool.lb@gmail.com<br>
+   تقرير فني بدون بيانات تسعيرية — iCOOL Steel Studio v2 — ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');}
+
+/* ---------- 12-أ. واجهات ومناظير ---------- */
+function sheetElev(kind){
+  const T=TPL[M.tpl],W=760,H=400,mx=70,my=58,rear=(kind==='rear');
+  const yEdge=(T.bld==='H')?M.clearH:(T.flat?M.h1:(rear?M.h2:M.h1));
+  const hiTop=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2)+.3;
+  const sc=Math.min((W-2*mx)/M.L,(H-2*my)/hiTop);
+  const X=x=>mx+x*sc,Y=y=>H-my-y*sc;
+  const xs=R.g.bx||[0,M.L];
+  const postTop=z=>(T.bld==='H')?M.clearH:((T.flat?M.h1:(M.h2+(M.h1-M.h2)*(z/M.S)))-M.td-.02);
+  let b='';
+  b+=ln(mx-34,Y(0),W-mx+34,Y(0),{c:'#8d8577',w:2});
+  for(let i=0;i<30;i++)b+=ln(mx-34+i*((W-2*mx+68)/30),Y(0),mx-40+i*((W-2*mx+68)/30),Y(0)+7,{c:'#8d8577',w:.8});
+  // الصفوف البعيدة متقطعة
+  (R.g.rows||[]).forEach((z,k)=>{
+    const near=rear?(z===Math.min(...R.g.rows)):(z===Math.max(...R.g.rows));
+    const st=near?{w:3,c:'#53606c'}:{w:1.2,c:'#9aa6b0',dash:1};
+    xs.forEach(x=>{b+=ln(X(x),Y(0),X(x),Y(postTop(z)),st);
+      if(near)b+=rc(X(x)-13,Y(0)-4,26,5,'#53606c','#16222e');});});
+  if(T.bld==='C'){ // حائط ارتكاز بدل الأعمدة
+    b+=rc(X(0)-6,Y(yEdge-M.td),M.L*sc+12,(yEdge-M.td)*sc,'#e6e0d4','#8d8577');
+    b+=tx(X(M.L*.5),Y((yEdge-M.td)*.5),'حائط الارتكاز',{s:11,b:1,c:'#5b6b7a'});}
+  // حافة السقف + الجمالون
+  b+=ln(X(0),Y(yEdge),X(M.L),Y(yEdge),{w:2.6});
+  if(T.bld==='B'){
+    b+=ln(X(0),Y(yEdge-M.td),X(M.L),Y(yEdge-M.td),{w:1.8});
+    const n=R.g.nWeb||8;
+    for(let i=0;i<=n;i++)b+=ln(X(M.L*i/n),Y(yEdge),X(M.L*i/n),Y(yEdge-M.td),{c:'#9aa6b0',w:1});
+    if(M.diag)for(let i=0;i<n;i++)b+=(i%2===0)?ln(X(M.L*i/n),Y(yEdge-M.td),X(M.L*(i+1)/n),Y(yEdge),{c:'#F1471E',w:1.1})
+      :ln(X(M.L*i/n),Y(yEdge),X(M.L*(i+1)/n),Y(yEdge-M.td),{c:'#F1471E',w:1.1});
+    b+=tx(X(M.L*.5),Y(yEdge)-9,'الجمالون الطولي C1/C2 — '+M.secT+' / '+M.secB,{s:9,b:1});
+  }else{
+    xs.forEach(x=>b+=ln(X(x),Y(yEdge),X(x),Y(yEdge-Math.min(M.td,yEdge*.5)),{c:'#9aa6b0',w:1}));
+    b+=ln(X(0),Y(yEdge-Math.min(M.td,yEdge*.5)),X(M.L),Y(yEdge-Math.min(M.td,yEdge*.5)),{w:1.4,c:'#9aa6b0'});}
+  // تربيط قطري في البحرين الطرفيين
+  if(xs.length>1&&T.bld!=='C'){
+    const zz=rear?Math.min(...(R.g.rows||[0])):Math.max(...(R.g.rows||[0]));
+    [[xs[0],xs[1]],[xs[xs.length-2],xs[xs.length-1]]].forEach(([a,c])=>{
+      b+=ln(X(a),Y(.2),X(c),Y(postTop(zz)-.15),{c:'#F1471E',w:1.4});
+      b+=ln(X(c),Y(.2),X(a),Y(postTop(zz)-.15),{c:'#F1471E',w:1.4});});
+    b+=tx(X((xs[0]+xs[1])/2),Y(0)+22,'B1 تربيط',{s:9,c:'#F1471E',b:1});}
+  if(T.bld==='H'){
+    b+=ln(X(0),Y(M.clearH+M.ridge),X(M.L),Y(M.clearH+M.ridge),{c:'#9aa6b0',w:1.2,dash:1});
+    b+=tx(X(M.L*.5),Y(M.clearH+M.ridge)-7,'خط الجملون',{s:9,c:'#5b6b7a'});}
+  b+=dimV(Y(0),Y(yEdge),X(0)-26,yEdge.toFixed(2));
+  if(xs.length>1)b+=dimH(X(xs[0]),X(xs[1]),Y(0)+32,(xs[1]-xs[0]).toFixed(2));
+  b+=dimH(X(0),X(M.L),Y(0)+54,M.L.toFixed(2)+' م');
+  b+=tx(W/2,26,rear?'واجهة خلفية (الجهة المرتفعة)':'واجهة أمامية (الجهة المنخفضة)',{s:12,b:1,c:'#0B2239'});
+  b+=tx(W-mx,H-12,'الأعمدة البعيدة مرسومة متقطعة',{s:9,a:'end',c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function snap(th,ph){
+  const t0=theta,p0=phi;
+  if(th!==undefined){theta=th;phi=ph;place();}
+  renderer.render(scene,camera);
+  let d='';try{d=renderer.domElement.toDataURL('image/png');}catch(e){d='';}
+  theta=t0;phi=p0;place();renderer.render(scene,camera);
+  return d;}
+function sheet3D(){
+  const views=[['منظور عام',-1.05,1.0],['من الجانب',0,1.40],['من الخلف',-Math.PI/2,1.42],['من الأمام',Math.PI/2,1.42]];
+  let h='<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px">';
+  views.forEach(([n,t,p])=>{const d=snap(t,p);
+    h+=`<div style="flex:1 1 46%;min-width:200px;border:1px solid #dbe2e9;border-radius:6px;overflow:hidden">
+     <div style="font-size:10px;font-weight:800;background:#f4f7fa;padding:3px 6px;color:#0B2239">${n}</div>
+     ${d?`<img src="${d}" style="width:100%;display:block">`:'<div style="padding:18px;font-size:11px;color:#5b6b7a">تعذّر التقاط المنظر</div>'}</div>`;});
+  return h+'</div>';}
+
+/* ---------- 12-ب. الخرائط التنفيذية ---------- */
+function shop(){
+  const d=new Date(),T=TPL[M.tpl],cl=cutList();
+  const tb=(no,ttl)=>`<div class="tb"><span>${ttl}</span><span>${M.project||'مشروع'} · ${T.n}</span><span>لوحة ${no} · ${d.toLocaleDateString('en-GB')}</span></div>`;
+  ovTop('shop');
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(48)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">خرائط تنفيذية للورشة والفورمان</div>
+   <div style="font-size:10.5px;color:#5b6b7a">القياسات بالمتر ما لم يُذكر غيرها · RHS/SHS · S235 · ${M.project||'—'}</div></div></div>
+  <div class="sheet">${tb('01','مخطط أفقي')}${sheetPlan()}</div>
+  <div class="sheet">${tb('02','مقطع عرضي A-A')}${sheetSection()}</div>
+  <div class="sheet">${tb('03','واجهة خلفية')}${sheetElev('rear')}</div>
+  <div class="sheet">${tb('04','واجهة أمامية / جانبية')}${sheetElev('front')}</div>
+  <div class="sheet">${tb('05','تفصيل الجمالون')}${sheetTruss()}</div>
+  <div class="sheet">${tb('06','تفاصيل الوصلات والتثبيت')}${sheetDetail()}</div>
+  <div class="sheet">${tb('07','مناظير ثلاثية الأبعاد')}${sheet3D()}</div>
+
+  <h2>قائمة القطع (Cutting List)</h2>
+  <table><tr><th>الرمز</th><th>العنصر</th><th>المقطع</th><th>الطول (م)</th><th>العدد</th><th>إجمالي (م)</th><th>الوزن (كغ)</th></tr>
+   ${cl.rows}<tr style="background:#f2f5f8"><td colspan="6"><b>وزن القطع</b></td><td class="n"><b>${cl.tw.toFixed(0)}</b></td></tr></table>
+
+  <h2>جدول الأرجل والتثبيت</h2>
+  <table><tr><th>الرجل</th><th>X من مرجع السطح (م)</th><th>Z (م)</th><th>الصف</th><th>نوع التثبيت</th><th>الموضع</th></tr>
+   ${(R.g.legs||[]).map((p,i)=>{const front=p[1]<M.S/2;
+     const fx=front?M.fix:(M.fix2==='same'?M.fix:M.fix2);
+     const nm={base:'قاعدة 300×300×10 + 4×M14',beam:'بليتتان 200×200×10 + 8×M16 على الكمرة',through:'ثروبولت 2×M16 لكل صف',parapet:'كتيفتان على العمامة + M14',wall:'بليتة ارتكاز 250×250×10',hangar:'كلامب + M12',ballast:'وزن باطوني'}[fx]||fx;
+     return `<tr><td class="n">L${i+1}</td><td class="n">${(M.bOX+p[0]).toFixed(2)}</td><td class="n">${(M.bOZ+p[1]).toFixed(2)}</td><td>${front?'أمامي':'خلفي'}</td><td>${nm}</td><td>${legState(p[0],p[1],p[2]).t}</td></tr>`;}).join('')}
+  </table>
+  <div class="note">إحداثيات الأرجل مقيسة من الزاوية المرجعية للسطح (الزاوية 0,0 في مخطط السطح). تُعلَّم كلها بالليزر قبل أي ثقب.</div>
+
+  <h2>تعليمات التنفيذ للفورمان</h2>
+  <ol>
+   <li><b>التخطيط:</b> اضبط محور الإطار ① بالليزر ثم علّم الباقي على ${(R.g.bx&&R.g.bx.length>1?(R.g.bx[1]-R.g.bx[0]).toFixed(2):'—')} م. تحقّق من تساوي القطرين — الفرق المسموح 10 مم.</li>
+   <li><b>القواعد:</b> ${R.fixTxt}. لا تثقب على بعد أقل من 10 سم من حافة الباطون.</li>
+   <li><b>الأعمدة:</b> ${M.secP} شاقولية بميزان ليزر، انحراف مسموح 1:500. شدّ المسامير قبل أي لحام علوي.</li>
+   <li><b>الجمالونات:</b> تُجمّع أرضاً على قالب ثم تُرفع. اللحام 6 مم كامل المحيط في كل عقدة.</li>
+   <li><b>الربط بالعمود:</b> الجمالون على <b>جانب</b> العمود بكتيفة 8 مم — لا فوقه (لوحة 06).</li>
+   <li><b>التربيط B1:</b> إلزامي في البحرين الطرفيين قبل نهاية يوم التركيب — الهيكل غير مستقر بدونه.</li>
+   <li><b>كتفا التقوية K2:</b> عند كل زاوية علوية كتفان 50×50 بطول ${(M.knee*100).toFixed(0)} مم — واحد في مستوى الجمالون وآخر في مستوى المداد، قصّ 45° ولحام كامل المحيط (لوحة 06 تفصيل 4).</li>
+   <li><b>الغطاء:</b> ${T.cover==='pv'?`${PVINFO.r} صف × ${PVINFO.c} لوح ${PVINFO.o==='port'?'بورتريه':'عرضاني'}، فرجة 2 سم بين الألواح و5 سم بين الصفوف، كلامب وسطي 20 مم.`:'حسب لوحة 01.'}</li>
+   <li><b>الحماية:</b> ${M.coat==='galv'?'جلفنة ساخنة بعد إنهاء كل اللحامات.':'أساس زنك + وجهان نهائي، واللحامات تُنظّف وتُدهن موقعياً.'}</li>
+   <li><b>التسليم:</b> صوّر كل قاعدة قبل التغطية وسلّم قائمة القطع مؤشّرة.</li>
+  </ol>
+  <div class="note">أي تعديل ميداني على المقاطع أو البحور يعود إلى المهندس قبل التنفيذ. التوقيع على التقرير الفني لا يغطي تعديلات غير معتمدة.</div>
+  <div class="foot">م. أحمد محمد ناصر — OEA 36359 · iCOOL Trading &amp; Contracting · 03 715 512 · iCOOL Steel Studio v2 — ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');}
+
+/* ---------- 12-ج. دراسة الكلفة (مستند منفصل) ---------- */
+function costReport(){
+  const d=new Date(),T=TPL[M.tpl];
+  let boq='',steelKg=0,steelCost=0;
+  Object.keys(QTY).sort().forEach(k=>{
+    const m=QTY[k],kg=m*SEC[k].w,c=kg*M.price; steelKg+=kg; steelCost+=c;
+    boq+=`<tr><td class="n">${k}</td><td class="n">${m.toFixed(1)}</td><td class="n">${SEC[k].w.toFixed(2)}</td><td class="n">${kg.toFixed(0)}</td><td class="n">${M.price.toFixed(2)}</td><td class="n">${c.toFixed(0)}</td></tr>`;});
+  const plK=R.plateKg,plC=plK*M.price*1.25;
+  const totKg=steelKg+plK;
+  const fab=totKg*M.fab;
+  const coat=M.coat==='galv'?totKg*.55:(M.coat==='paint'?R.coatArea*5.5:0);
+  const anch=ANCH*M.pAnch;
+  const pv=(T.cover==='pv'&&M.pvPrice>0)?NP*PANEL.Wp*M.pvPrice:0;
+  const sub=steelCost+plC+fab+coat+anch+pv;
+  const cont=sub*M.cont/100, marg=(sub+cont)*M.marg/100;
+  const net=sub+cont+marg, vat=net*M.vat/100, grand=net+vat;
+  ovTop('cost');
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(52)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">دراسة كلفة — هيكل حديدي</div>
+   <div style="font-size:10.5px;color:#5b6b7a">مستند تجاري منفصل عن التقرير الفني · iCOOL · 03 715 512</div></div></div>
+  <table><tr><th>المشروع</th><td>${M.project||'—'}</td><th>العميل</th><td>${M.client||'—'}</td></tr>
+   <tr><th>النموذج</th><td>${T.n}</td><th>التاريخ</th><td>${d.toLocaleDateString('en-GB')}</td></tr>
+   <tr><th>الأبعاد</th><td>${M.L.toFixed(2)} × ${M.S.toFixed(2)} م</td><th>المساحة</th><td>${R.area.toFixed(1)} م²</td></tr></table>
+
+  <h2>1 — جدول كميات الحديد</h2>
+  <table><tr><th>المقطع</th><th>الطول (م)</th><th>كغ/م</th><th>الوزن (كغ)</th><th>$/كغ</th><th>المبلغ ($)</th></tr>
+   ${boq}
+   <tr><td class="n">بليتات وقواعد (${PLATES})</td><td class="n">—</td><td class="n">—</td><td class="n">${plK.toFixed(0)}</td><td class="n">${(M.price*1.25).toFixed(2)}</td><td class="n">${plC.toFixed(0)}</td></tr>
+   <tr style="background:#f2f5f8"><td colspan="3"><b>مجموع الحديد</b></td><td class="n"><b>${totKg.toFixed(0)}</b></td><td></td><td class="n"><b>${(steelCost+plC).toFixed(0)}</b></td></tr></table>
+
+  <h2>2 — بنود التكلفة</h2>
+  <table><tr><th>البند</th><th>الأساس</th><th>المبلغ ($)</th></tr>
+   <tr><td>حديد خام + بليتات</td><td>${totKg.toFixed(0)} كغ</td><td class="n">${(steelCost+plC).toFixed(0)}</td></tr>
+   <tr><td>تصنيع وتركيب</td><td>${totKg.toFixed(0)} كغ × ${M.fab.toFixed(2)}</td><td class="n">${fab.toFixed(0)}</td></tr>
+   <tr><td>الحماية (${M.coat==='galv'?'جلفنة':(M.coat==='paint'?'دهان':'بدون')})</td><td>${M.coat==='galv'?totKg.toFixed(0)+' كغ × 0.55':R.coatArea.toFixed(1)+' م² × 5.5'}</td><td class="n">${coat.toFixed(0)}</td></tr>
+   <tr><td>مسامير وتثبيت</td><td>${ANCH} × ${M.pAnch.toFixed(1)}</td><td class="n">${anch.toFixed(0)}</td></tr>
+   ${pv>0?`<tr><td>الألواح الشمسية</td><td>${NP} × 660Wp × ${M.pvPrice.toFixed(2)} $/Wp</td><td class="n">${pv.toFixed(0)}</td></tr>`:''}
+   <tr style="background:#f2f5f8"><td colspan="2"><b>المجموع المباشر</b></td><td class="n"><b>${sub.toFixed(0)}</b></td></tr>
+   <tr><td>احتياطي</td><td>${M.cont}%</td><td class="n">${cont.toFixed(0)}</td></tr>
+   <tr><td>هامش الربح</td><td>${M.marg}%</td><td class="n">${marg.toFixed(0)}</td></tr>
+   <tr><td>صافي قبل الضريبة</td><td>—</td><td class="n">${net.toFixed(0)}</td></tr>
+   ${M.vat?`<tr><td>الضريبة</td><td>${M.vat}%</td><td class="n">${vat.toFixed(0)}</td></tr>`:''}
+   <tr style="background:#0B2239;color:#fff"><td colspan="2"><b>الإجمالي</b></td><td class="n" style="color:#fff"><b>$${grand.toFixed(0)}</b></td></tr></table>
+
+  <h2>3 — مؤشرات الكلفة</h2>
+  <div class="kpi">
+   <div><span>لكل م² مسقوف</span><b>$${(grand/Math.max(R.area,1)).toFixed(0)}</b></div>
+   <div><span>لكل كغ حديد</span><b>$${(grand/Math.max(totKg,1)).toFixed(2)}</b></div>
+   <div><span>وزن الحديد لكل م²</span><b>${R.kgm2.toFixed(1)} كغ</b></div>
+   ${R.kwp>0?`<div><span>لكل kWp</span><b>$${(grand/R.kwp).toFixed(0)}</b></div>`:''}
+   ${R.kwp>0?`<div><span>القدرة</span><b>${R.kwp.toFixed(2)} kWp</b></div>`:''}
+   <div><span>المساحة</span><b>${R.area.toFixed(1)} م²</b></div>
+  </div>
+
+  <h2>4 — شروط تجارية</h2>
+  <ul>
+   <li>الأسعار بالدولار الأميركي نقداً وصالحة 15 يوماً من تاريخه (تقلّب سعر الحديد).</li>
+   <li>لا تشمل: الأعمال المدنية والقواعد الباطونية، الإنفرتر والكابلات ولوحات الحماية، النقل الاستثنائي، الرافعة إن لزمت فوق 6 م.</li>
+   <li>مدة التنفيذ التقديرية: ${Math.max(5,Math.round(totKg/450))} أيام عمل بعد اعتماد الخرائط التنفيذية.</li>
+   <li>الدفع المقترح: 50% دفعة أولى · 30% عند وصول الحديد المصنّع · 20% عند التسليم.</li>
+   <li>${M.coat==='galv'?'الجلفنة تُضيف 5-7 أيام على البرنامج.':'الدهان يتم في الورشة قبل النقل.'}</li>
+  </ul>
+  <div class="note">أسعار الوحدة مُدخلة من المستخدم داخل المنصة وتُحدَّث قبل كل عرض. هذه دراسة كلفة داخلية ويمكن تحويلها إلى عرض سعر رسمي.</div>
+  <div class="foot">iCOOL Trading &amp; Contracting — 03 715 512 · info.icool.lb@gmail.com · دراسة كلفة منفصلة — ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');}
+
+function closeOv(){document.getElementById('ov').classList.remove('open');}
+
+/* ---------- 13. الواجهة ---------- */
+let TAB='design';
+const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
+function drawTabs(){
+  const el=document.getElementById('tabs');el.innerHTML='';
+  CATS.forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;
+    if(M.cat===id&&TAB==='design')b.className='on';
+    b.onclick=()=>{M.cat=id;TAB='design';pick(Object.keys(TPL).find(k=>TPL[k].cat===id));};el.appendChild(b);});
+  const sp=document.createElement('span');sp.style.cssText='width:8px;flex:0 0 8px';el.appendChild(sp);
+  TABS.slice(1).forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;b.className='o'+(TAB===id?' on':'');
+    b.onclick=()=>{TAB=id;drawTabs();dock();};el.appendChild(b);});}
+function applyTpl(k){
+  Object.keys(BASE).forEach(p=>M[p]=BASE[p]);
+  Object.keys(TPL[k].d||{}).forEach(p=>M[p]=TPL[k].d[p]);}
+function pick(k){
+  M.tpl=k;M.cat=TPL[k].cat;TAB='design';applyTpl(k);
+  drawTabs();build();fit();dock();}
+function dock(){
+  const el=document.getElementById('dock');el.innerHTML='';
+  const grp=n=>{const d=document.createElement('div');d.className='grp';d.textContent=n;el.appendChild(d);};
+  const tip=h=>{const d=document.createElement('div');d.className='tip';d.innerHTML=h;el.appendChild(d);};
+  if(TAB==='design'){
+    grp('النموذج');
+    const row=document.createElement('div');row.className='chips';
+    Object.keys(TPL).filter(k=>TPL[k].cat===M.cat).forEach(k=>{
+      const b=document.createElement('button');b.textContent=TPL[k].n;if(M.tpl===k)b.className='on';
+      b.onclick=()=>pick(k);row.appendChild(b);});
+    el.appendChild(row);
+    tip(TPL[M.tpl].desc);
+    grp('بيانات المشروع');['project','client','site','muni','parcel','permit'].forEach(k=>field(el,k));
+    grp('الأبعاد');TPL[M.tpl].f.filter(k=>F[k].t==='r').forEach(k=>field(el,k));
+    grp('المقاطع والخيارات');TPL[M.tpl].f.filter(k=>k.startsWith('sec')||k==='diag'||k==='orient').forEach(k=>field(el,k));
+    grp('الأحمال والرياح');['wind','terrain','phi','snow'].forEach(k=>field(el,k));
+    if(TPL[M.tpl].f.includes('fix')){grp('التثبيت');field(el,'fix');}
+    grp('التقوية والمحيط');field(el,'knee');
+    if(['S4','S5','S6'].indexOf(M.tpl)>=0||SITE){field(el,'bldH');field(el,'win');}
+    grp('الحماية');field(el,'coat');
+  } else if(TAB==='bld'){
+    grp('السطح — القياسات الحقيقية');
+    tip('أدخل أبعاد السطح كما قِست في الموقع. للسطح بقصّة اختر «حرف L» وحدّد a و b وزاوية القصّة. المبنى والعمامة يُبنيان تلقائياً بنفس المحيط.');
+    ['bOn','bShape','bA','bB'].forEach(k=>field(el,k));
+    if(M.bShape==='L')['ba','bb','bCorner'].forEach(k=>field(el,k));
+    ['bRot'].forEach(k=>field(el,k));
+    grp('الطوابق والعمامة');['bF','bFH','bPar','bParT','win'].forEach(k=>field(el,k));
+    if(SITE){const t=document.createElement('table');
+      t.innerHTML=`<tr><th>مساحة السطح</th><td class="n">${SITE.area.toFixed(2)} م²</td></tr>
+       <tr><th>الإطار المحيط</th><td class="n">${SITE.bb[0].toFixed(2)} × ${SITE.bb[1].toFixed(2)} م</td></tr>
+       <tr><th>ارتفاع المبنى</th><td class="n">${(M.bF*M.bFH).toFixed(2)} م</td></tr>`;
+      el.appendChild(t);}
+    grp('موضع الهيكل على السطح');
+    ['bOX','bOZ'].forEach(k=>field(el,k));
+    const cb=document.createElement('div');cb.className='chips';
+    [['توسيط الهيكل',()=>{if(SITE){M.bOX=+((SITE.bb[0]-M.L)/2).toFixed(2);M.bOZ=+((SITE.bb[1]-M.S)/2).toFixed(2);build();dock();}}],
+     ['ملء السطح',()=>{if(SITE){M.L=+Math.max(2,SITE.bb[0]-2*.6).toFixed(2);M.S=+Math.max(1.5,SITE.bb[1]-2*.6).toFixed(2);M.bOX=.6;M.bOZ=.6;build();fit();dock();}}]
+    ].forEach(([n,fn])=>{const b=document.createElement('button');b.textContent=n;b.onclick=fn;cb.appendChild(b);});
+    el.appendChild(cb);
+    grp('الأرجل والتثبيت');
+    ['nPost','pInset'].forEach(k=>field(el,k));
+    field(el,'fix'); field(el,'fix2');
+    field(el,'knee');
+    if(LEGS.length){const t=document.createElement('table');
+      let r='<tr><th>#</th><th>X (م)</th><th>Z (م)</th><th>الحالة</th></tr>';
+      LEGS.forEach((p,i)=>{const st=legState(p[0],p[1],p[2]);
+        const tg=st.s==='ok'?'t-ok':(st.s==='warn'?'t-w':'t-b');
+        r+=`<tr><td class="n">L${i+1}</td><td class="n">${(M.bOX+p[0]).toFixed(2)}</td><td class="n">${(M.bOZ+p[1]).toFixed(2)}</td>
+        <td><span class="tag ${tg}">${st.t}</span></td></tr>`;});
+      t.innerHTML=r;el.appendChild(t);}
+    if(VAL.msgs.length){const d=document.createElement('div');d.className='note';
+      d.innerHTML='<b>تنبيهات:</b><br>• '+VAL.msgs.join('<br>• ');el.appendChild(d);}
+  } else if(TAB==='img'){
+    grp('تحويل صورة إلى مخطط 3D');
+    tip('1) ارفع صورة المخطط أو صورة جوية للسطح.<br>2) اضغط «مقياس» ثم انقر نقطتين معلومتي البعد وأدخل المسافة بالمتر.<br>3) اضغط «محيط» وانقر زوايا السطح بالترتيب.<br>4) «توليد» يبني المخطط في 3D ويلائم الهيكل داخله.');
+    const fi=document.createElement('input');fi.type='file';fi.accept='image/*';
+    fi.onchange=e=>loadTrace(e.target.files[0]);
+    const r1=document.createElement('div');r1.className='f';
+    const l1=document.createElement('label');l1.textContent='صورة المخطط';r1.appendChild(l1);r1.appendChild(fi);el.appendChild(r1);
+    const ch=document.createElement('div');ch.className='chips';
+    [['مقياس','scale'],['محيط','poly'],['تراجع','undo'],['تصفير','clr'],['توليد','gen']].forEach(([n,m])=>{
+      const b=document.createElement('button');b.textContent=n;
+      if(TR.mode===m&&(m==='scale'||m==='poly'))b.className='on';
+      b.onclick=()=>{
+        if(m==='undo'){TR.pts.pop();paint();}
+        else if(m==='clr'){TR.pts=[];TR.p1=TR.p2=null;TR.sc=null;paint();}
+        else if(m==='gen'){siteFromTrace();}
+        else {TR.mode=m;if(m==='scale'){TR.p1=TR.p2=null;}dock();}
+      };ch.appendChild(b);});
+    el.appendChild(ch);
+    const cv=document.createElement('canvas');cv.id='trace';el.appendChild(cv);
+    cv.addEventListener('click',onTrace);
+    const st=document.createElement('div');st.className='tip';st.id='trst';el.appendChild(st);
+    paint();
+    if(SITE){const b=document.createElement('button');b.textContent='حذف مخطط الموقع';b.className='o';
+      b.onclick=()=>{SITE=null;clr(gSite);build();fit();dock();};el.appendChild(b);}
+  } else if(TAB==='ai'){
+    grp('تعديل التصميم بالوصف');
+    tip('اكتب بالعربي ما تريد. أمثلة:<br>• «موقف سيارات طول 18 بحر 5.5 ميل 12 أعمدة 120x120»<br>• «هنغار طول 30 بحر 15 ارتفاع صافي 6 جملون 2.2»<br>• «برغولا كابولي طول 6 بحر 3 ثروبولت»<br>• «بدون أرجل بين حائطين بحر 7.4 ريح 120 بدون أقطار»<br>• «الارتفاع الامامي 1.8 والخلفي 2.8 ألواح بورتريه»');
+    const w=document.createElement('div');w.id='cmd';
+    const ta=document.createElement('textarea');ta.placeholder='اكتب الوصف هنا…';
+    const b=document.createElement('button');b.textContent='طبّق';b.className='o on';
+    b.onclick=()=>{if(ta.value.trim())aiApply(ta.value);};
+    w.appendChild(ta);w.appendChild(b);el.appendChild(w);
+    grp('سجل التعديلات');
+    const lg=document.createElement('div');lg.id='log';el.appendChild(lg);
+    tip('المحرّك يعمل محلياً على الجهاز بدون إنترنت: يفهم الأرقام والوحدات والمقاطع وأسماء النماذج وطرق التثبيت. أي وصف لا يفهمه يخبرك به بدل تنفيذ تخمين.');
+  } else if(TAB==='out'){
+    grp('المخرجات');
+    [['التقرير الفني الموقّع — بلدية / نقابة (بدون تسعير)',report],
+     ['الخرائط التنفيذية (7 لوحات + قائمة قطع)',shop],
+     ['دراسة الكلفة — مستند منفصل',costReport]].forEach(([n,fn])=>{
+      const b=document.createElement('button');b.textContent=n;b.className='o on';b.style.cssText='display:block;width:100%;margin:6px 0;padding:10px';
+      b.onclick=fn;el.appendChild(b);});
+    tip('التقرير الفني موجّه إلى البلدية ونقابة المهندسين وخالٍ من أي تسعير، ويتضمن سلسلة رياح كاملة (EN 1991-1-4) واستقراراً عاماً وتصريحاً موقّعاً. الكلفة في مستند منفصل.');
+    grp('معطيات التسعير');['price','fab','pAnch','pvPrice','cont','marg','vat'].forEach(k=>field(el,k));
+    grp('ملخص سريع');
+    const t=document.createElement('table');
+    t.innerHTML=`<tr><th>وزن الحديد</th><td class="n">${R.tot.toFixed(0)} كغ</td></tr>
+     <tr><th>كغ/م²</th><td class="n">${R.kgm2.toFixed(1)}</td></tr>
+     <tr><th>الاستغلال</th><td class="n">${(R.util*100).toFixed(0)}%</td></tr>
+     <tr><th>الهبوط</th><td class="n">L/${R.defR.toFixed(0)}</td></tr>
+     <tr><th>شدّ المسامير</th><td class="n">${R.boltT.toFixed(1)} kN</td></tr>
+     <tr><th>التكلفة</th><td class="n">$${R.total.toFixed(0)}</td></tr>`;
+    el.appendChild(t);
+  } else if(TAB==='id'){
+    grp('الهوية البصرية');
+    tip('الشعار المرسوم داخل المنصة تقريبي. ارفع ملف الشعار الرسمي (PNG بخلفية شفافة) ليُستخدم في كل التقارير والخرائط.');
+    const f1=document.createElement('input');f1.type='file';f1.accept='image/*';
+    f1.onchange=e=>rd(e.target.files[0],s=>{LOGO_IMG=s;save();document.getElementById('logoBox').innerHTML=logoHTML(32);dock();});
+    const r1=document.createElement('div');r1.className='f';const l1=document.createElement('label');l1.textContent='شعار iCOOL';
+    r1.appendChild(l1);r1.appendChild(f1);el.appendChild(r1);
+    const f2=document.createElement('input');f2.type='file';f2.accept='image/*';
+    f2.onchange=e=>rd(e.target.files[0],s=>{SIGN_IMG=s;save();dock();});
+    const r2=document.createElement('div');r2.className='f';const l2=document.createElement('label');l2.textContent='التوقيع/الختم';
+    r2.appendChild(l2);r2.appendChild(f2);el.appendChild(r2);
+    const pv=document.createElement('div');pv.style.cssText='margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:8px';
+    pv.innerHTML=logoHTML(46)+(SIGN_IMG?`<br><img src="${SIGN_IMG}" style="max-height:60px;margin-top:6px">`:'');
+    el.appendChild(pv);
+    if(LOGO_IMG||SIGN_IMG){const b=document.createElement('button');b.textContent='حذف الملفات المرفوعة';
+      b.onclick=()=>{LOGO_IMG=SIGN_IMG=null;save();document.getElementById('logoBox').innerHTML=logoHTML(32);dock();};el.appendChild(b);}
+  }
+}
+function field(el,k){
+  const f=F[k];if(!f)return;
+  const row=document.createElement('div');row.className='f';
+  const lab=document.createElement('label');lab.textContent=f.l;row.appendChild(lab);
+  if(f.t==='r'){
+    const i=document.createElement('input');i.type='range';i.min=f.min;i.max=f.max;i.step=f.st;i.value=M[k];
+    const v=document.createElement('div');v.className='v';v.textContent=(+M[k]).toFixed(2);
+    i.oninput=()=>{M[k]=+i.value;v.textContent=(+M[k]).toFixed(2);build();};
+    row.appendChild(i);row.appendChild(v);
+  }else if(f.t==='s'){
+    const s=document.createElement('select');
+    f.o.forEach(o=>{const val=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;
+      const op=document.createElement('option');op.value=val;op.textContent=t;
+      if(String(M[k])===String(val))op.selected=true;s.appendChild(op);});
+    s.onchange=()=>{M[k]=f.num?+s.value:s.value;build();};row.appendChild(s);
+  }else{
+    const i=document.createElement('input');i.type='text';i.value=M[k]||'';
+    i.oninput=()=>{M[k]=i.value;};row.appendChild(i);}
+  el.appendChild(row);}
+
+/* ---------- تتبّع الصورة ---------- */
+function rd(f,cb){if(!f)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(f);}
+function loadTrace(f){rd(f,s=>{const im=new Image();im.onload=()=>{TR.img=im;TR.pts=[];TR.sc=null;paint();};im.src=s;});}
+function paint(){
+  const cv=document.getElementById('trace');if(!cv)return;
+  const W=cv.parentElement.clientWidth-24||320;
+  cv.width=W;cv.height=Math.round(W*0.72);
+  const c=cv.getContext('2d');
+  c.fillStyle='#f7f9fb';c.fillRect(0,0,cv.width,cv.height);
+  if(TR.img){
+    const r=Math.min(cv.width/TR.img.width,cv.height/TR.img.height);
+    TR.dw=TR.img.width*r;TR.dh=TR.img.height*r;TR.ox=(cv.width-TR.dw)/2;TR.oy=(cv.height-TR.dh)/2;
+    c.drawImage(TR.img,TR.ox,TR.oy,TR.dw,TR.dh);
+  }else{c.fillStyle='#9aa6b0';c.font='13px Tajawal';c.textAlign='center';
+    c.fillText('ارفع صورة المخطط أولاً',cv.width/2,cv.height/2);}
+  if(TR.p1&&TR.p2){c.strokeStyle='#F1471E';c.lineWidth=2;c.beginPath();
+    c.moveTo(TR.p1.x,TR.p1.y);c.lineTo(TR.p2.x,TR.p2.y);c.stroke();}
+  if(TR.pts.length){
+    c.strokeStyle='#0066A7';c.fillStyle='rgba(0,102,167,.14)';c.lineWidth=2;
+    c.beginPath();TR.pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));
+    if(TR.pts.length>2)c.closePath();c.fill();c.stroke();
+    c.fillStyle='#0066A7';TR.pts.forEach((p,i)=>{c.beginPath();c.arc(p.x,p.y,4,0,7);c.fill();});}
+  const st=document.getElementById('trst');
+  if(st)st.innerHTML=`الوضع: <b>${TR.mode==='scale'?'مقياس':'محيط'}</b> · نقاط: ${TR.pts.length} · `+
+    (TR.sc?`المقياس: ${TR.sc.toFixed(1)} px/م`:'<b style="color:#c02617">لا مقياس بعد</b>');}
+function onTrace(e){
+  const cv=e.target,r=cv.getBoundingClientRect();
+  const p={x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};
+  if(TR.mode==='scale'){
+    if(!TR.p1){TR.p1=p;}
+    else{TR.p2=p;
+      const d=prompt('المسافة الحقيقية بين النقطتين بالمتر:','8.07');
+      const v=parseFloat(num(String(d||'')).replace(',','.'));
+      if(v>0){TR.sc=Math.hypot(TR.p2.x-TR.p1.x,TR.p2.y-TR.p1.y)/v;}
+      TR.mode='poly';}
+  }else TR.pts.push(p);
+  paint();}
+
+/* ---------- تخزين ---------- */
+function save(){try{localStorage.setItem('icool_ss',JSON.stringify({LOGO_IMG,SIGN_IMG}));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem('icool_ss')||'{}');
+  if(s.LOGO_IMG)LOGO_IMG=s.LOGO_IMG; if(s.SIGN_IMG)SIGN_IMG=s.SIGN_IMG;}catch(e){}}
+
+/* ---------- كاميرا ---------- */
+let rho=24,theta=-1.05,phi=1.02,tgt=new THREE.Vector3(5,1.5,3);
+function place(){camera.position.set(tgt.x+rho*Math.sin(phi)*Math.cos(theta),tgt.y+rho*Math.cos(phi),tgt.z+rho*Math.sin(phi)*Math.sin(theta));camera.lookAt(tgt);}
+function fit(){const T=TPL[M.tpl];
+  const hi=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2||M.h1);
+  tgt.set(M.L/2,hi*.45,M.S/2);rho=Math.max(M.L,M.S)*1.85+5;place();}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;
+  if(w<10||h<10)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',()=>{resize();paint();});
+if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);
+const el=renderer.domElement;let drag=false,lx=0,ly=0,pinch=0;
+const dst=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+function down(x,y){drag=true;lx=x;ly=y;}
+function mv(x,y){if(!drag)return;theta-=(x-lx)*.008;phi=Math.max(.07,Math.min(1.55,phi-(y-ly)*.006));lx=x;ly=y;place();}
+el.addEventListener('mousedown',e=>down(e.clientX,e.clientY));
+addEventListener('mousemove',e=>mv(e.clientX,e.clientY));
+addEventListener('mouseup',()=>drag=false);
+el.addEventListener('wheel',e=>{e.preventDefault();rho=Math.max(3,Math.min(300,rho+e.deltaY*.03));place();},{passive:false});
+el.addEventListener('touchstart',e=>{if(e.touches.length===1)down(e.touches[0].clientX,e.touches[0].clientY);else if(e.touches.length===2){drag=false;pinch=dst(e);}},{passive:true});
+el.addEventListener('touchmove',e=>{e.preventDefault();
+ if(e.touches.length===1)mv(e.touches[0].clientX,e.touches[0].clientY);
+ else if(e.touches.length===2){const d=dst(e);rho=Math.max(3,Math.min(300,rho*(pinch/d)));pinch=d;place();}},{passive:false});
+el.addEventListener('touchend',()=>drag=false,{passive:true});
+document.getElementById('vCover').onclick=e=>{gC.visible=!gC.visible;e.target.classList.toggle('on',gC.visible);};
+document.getElementById('vDim').onclick=e=>{gD.visible=!gD.visible;e.target.classList.toggle('on',gD.visible);};
+document.getElementById('vSite').onclick=e=>{const v=!gSite.visible;gSite.visible=v;gB.visible=v;e.target.classList.toggle('on',v);};
+document.getElementById('vFit').onclick=fit;
+document.getElementById('vDock').onclick=e=>{
+  const d=document.getElementById('dock');d.classList.toggle('min');
+  e.target.textContent=d.classList.contains('min')?'▲':'▼';setTimeout(resize,260);};
+
+/* ---------- تشغيل ---------- */
+load();
+document.getElementById('logoBox').innerHTML=logoHTML(32);
+drawTabs();build();fit();dock();resize();
+(function loop(){requestAnimationFrame(loop);renderer.render(scene,camera);})();
+</script>
+</body>
+</html>
