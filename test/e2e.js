@@ -210,6 +210,94 @@ ok(arr.gov,'المصفوفة الحاكمة مُعلَّمة');
 ok(arr.west&&arr.cols,'أسماء المصفوفات تظهر في الجدول وفي أعمدة التظليل');
 ok(arr.note,'ملاحظة أن الكميات مجموع كل المصفوفات موجودة');
 
+console.log('\n[9] محرّك الإنتاجية — بيروت، سطح خالٍ من العوائق');
+const en=await pg.evaluate(()=>{
+  M.lat=33.8938;M.lon=35.5018;M.tz=2;M.north=0;M.ghiY=1900;
+  M.bShape='rect';M.bA=60;M.bB=40;M.bRot=0;M.bPar=0;OBS=[];
+  ARR=[];AI=0;M.tpl='S1';applyTpl('S1');
+  M.L=12;M.S=6;M.h1=2.2;M.h2=3.4;M.bOX=2;M.bOZ=2;M.az=180;build();
+  const ghiSum=[...Array(12)].reduce((a,_,m)=>a+ghiMonth(m)*MDAYS[m],0);
+  const south=energyAll();
+  const mk=az=>{M.az=az;build();return energyAll().year;};
+  const east=mk(90),north=mk(0),west=mk(270);
+  M.az=180;build();
+  const h2=M.h2;M.h2=M.h1;build();const flat=energyAll().year;M.h2=h2;build();
+  const E=energyAll();
+  return {ghiSum,year:E.year,kwp:E.kwp,spec:E.spec,pr:E.arrays[0].pr,
+    tilt:E.arrays[0].tilt,poaY:E.arrays[0].poaY,
+    worst:E.worstM,best:E.monT.indexOf(Math.max(...E.monT)),
+    worstN:MFULL[E.worstM],bestN:MFULL[E.monT.indexOf(Math.max(...E.monT))],
+    south:south.year,east,north,west,flat,der:sysDerate()};});
+ok(Math.abs(en.ghiSum-1900)<1,'مجموع الإشعاع الشهري = المُدخل السنوي',en.ghiSum.toFixed(1)+' kWh/م²');
+ok(en.tilt>10&&en.tilt<14,'الميل المحسوب من h1/h2 ≈ 11.3°',en.tilt.toFixed(1)+'°');
+ok(en.poaY>en.ghiSum,'الإشعاع على المستوى المائل أعلى من الأفقي',
+   en.poaY.toFixed(0)+' مقابل '+en.ghiSum.toFixed(0));
+ok(en.spec>1200&&en.spec<1900,'الإنتاج النوعي ضمن المجال الواقعي للبنان',Math.round(en.spec)+' kWh/kWp');
+ok(en.pr>0.65&&en.pr<0.90,'معامل الأداء PR واقعي',(en.pr*100).toFixed(1)+'%');
+ok(en.south>en.east&&en.east>en.north,'الجنوب أعلى إنتاجاً من الشرق ومن الشمال',
+   'ج='+Math.round(en.south)+' ق='+Math.round(en.east)+' ش='+Math.round(en.north));
+ok(Math.abs(en.east-en.west)/en.east<0.02,'الشرق والغرب متقاربان (تناظر حول الجنوب)',
+   'ق='+Math.round(en.east)+' غ='+Math.round(en.west));
+ok(en.south>en.flat,'الميل نحو الجنوب أفضل من المستوي الأفقي',
+   Math.round(en.south)+' مقابل '+Math.round(en.flat));
+ok(en.worst===11&&en.best>=5&&en.best<=6,'أسوأ شهر كانون الأول وأفضله حزيران/تموز',
+   'أسوأ='+en.worstN+' أفضل='+en.bestN);
+ok(Math.abs(en.der-0.89)<0.02,'معامل الفقد الثابت ≈ 89%',(en.der*100).toFixed(1)+'%');
+
+console.log('\n[9ب] أثر التظليل على الإنتاج');
+const shE=await pg.evaluate(()=>{
+  const before=energyAll().year;
+  OBS=[{poly:[[0,16],[60,16],[60,30],[0,30]],h:14,base:-9,kind:'bldg',name:'برج جنوبي'}];
+  build();
+  const after=energyAll();
+  OBS=[];build();
+  return {before,after:after.year,loss:after.arrays[0].shLossY,
+    pct:1-after.year/before};});
+ok(shE.after<shE.before*0.75,'برج جنوبي بارتفاع 14 م يخفض الإنتاج بوضوح',
+   Math.round(shE.before)+' → '+Math.round(shE.after)+' kWh ('+(shE.pct*100).toFixed(0)+'%−)');
+ok(shE.loss>0,'فقد التظليل السنوي مسجّل',Math.round(shE.loss)+' kWh');
+
+console.log('\n[9ج] الأحمال والبطاريات والتشريج');
+const sys=await pg.evaluate(()=>{
+  M.sysType='hybrid';M.loadD=30;M.loadNight=45;M.loadPk=6;
+  M.batChem='lifepo4';M.batV=48;M.batVm=51.2;M.batAh=200;M.batDays=1;M.batDoD=90;
+  M.pVoc=45.9;M.pVmp=38.4;M.pTcV=-0.25;M.tMin=0;M.tCellMax=70;
+  M.invVmax=1000;M.invVmin=200;M.invIsc=30;M.invMppt=2;M.invKW=10;
+  const B=batCalc(),ST=stringCalc(),L=loadCalc(),Z=sizePanels();
+  return {night:L.night,needAh:B.needAh,ser:B.ser,par:B.par,n:B.n,
+    usable:B.usable,cRate:B.cRate,iPk:B.iPk,
+    vocC:ST.vocC,vmpH:ST.vmpH,nMax:ST.nMax,nMin:ST.nMin,best:ST.best,
+    needOff:Z.needOff,needGrid:Z.needGrid,have:Z.have};});
+ok(Math.abs(sys.night-13.5)<.01,'الحمل الليلي 45% من 30 kWh',sys.night.toFixed(2)+' kWh');
+ok(Math.abs(sys.needAh-325.5)<1,'السعة المطلوبة = 13500/(48×0.9×0.96)',sys.needAh.toFixed(1)+' Ah');
+ok(sys.ser===1&&sys.par===2&&sys.n===2,'التشريج 1 توالي × 2 توازي',sys.ser+'س × '+sys.par+'ط');
+ok(Math.abs(sys.usable-16.59)<.05,'الطاقة المستعملة ≈ 16.6 kWh',sys.usable.toFixed(2));
+ok(Math.abs(sys.iPk-125)<1,'تيار الذروة = 6000/48',sys.iPk.toFixed(0)+' A');
+ok(Math.abs(sys.vocC-48.77)<.05,'Voc البارد عند 0°م',sys.vocC.toFixed(2)+' V');
+ok(Math.abs(sys.vmpH-34.08)<.05,'Vmp الساخن عند خلية 70°م',sys.vmpH.toFixed(2)+' V');
+ok(sys.nMax===20&&sys.nMin===6,'حدود السلسلة 6 — 20 لوح',sys.nMin+'—'+sys.nMax);
+ok(!!sys.best&&sys.best.n>=sys.nMin&&sys.best.n<=sys.nMax,'اقتُرح تشريج ضمن الحدود',
+   sys.best?sys.best.n+' × '+sys.best.str:'—');
+ok(!!sys.best&&sys.best.vmax<=1000&&sys.best.vmp>=200,'جهد السلسلة ضمن نافذة المحوّل',
+   sys.best?sys.best.vmax.toFixed(0)+'V بارد · '+sys.best.vmp.toFixed(0)+'V ساخن':'—');
+ok(sys.needOff>0&&sys.needGrid>0&&sys.needOff>sys.needGrid,
+   'ألواح أسوأ شهر أكثر من ألواح المعادلة السنوية',sys.needOff+' مقابل '+sys.needGrid);
+
+console.log('\n[9د] مستند الإنتاجية');
+const erp=await pg.evaluate(()=>{
+  const errs=[];let h='';
+  try{energyReport();h=document.getElementById('ovBody').innerHTML;}catch(e){errs.push(e.message);}
+  return {errs,len:h.length,svg:(h.match(/<svg/g)||[]).length,
+    bars:(h.match(/<title>/g)||[]).length,
+    sec:['معطيات المنظومة','الإنتاجية الشهرية','أداء كل مصفوفة','تغطية الأحمال',
+         'البطاريات والتشريج','تشريج الألواح على المحوّل','أساس الحساب وحدوده']
+        .every(t=>h.includes(t)),
+    lim:/ليست محاكاة 8760/.test(h)};});
+ok(erp.errs.length===0,'المستند يُبنى بلا استثناء',erp.errs.join(' | ')||'نظيف');
+ok(erp.sec,'كل الفصول السبعة موجودة');
+ok(erp.svg>=1&&erp.bars>=12,'الرسم البياني الشهري موجود مع تلميحات لكل عمود',erp.bars+' تلميح');
+ok(erp.lim,'حدود الدراسة مذكورة صراحة (ليست محاكاة 8760 ساعة)');
+
 console.log('\n[7] تبويب KML في الواجهة');
 const ui=await pg.evaluate(()=>{
   closeOv();TAB='kml';drawTabs();dock();

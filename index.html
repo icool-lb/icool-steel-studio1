@@ -186,7 +186,13 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
  diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
  slatGap:.12,clearH:5,ridge:1.9,
- lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1,az:180};
+ lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1,az:180,
+ sysType:'hybrid',ghiY:1900,albedo:.20,noct:45,pTcP:-0.34,shFac:2,
+ lSoil:3,lMis:2,lWire:2,lInv:3,lAvail:1,
+ pWp:660,pVoc:45.9,pVmp:38.4,pIsc:18.3,pImp:17.2,pTcV:-0.25,
+ tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
+ loadD:30,loadNight:45,loadPk:6,
+ batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
 let KML_POLY=null,KMLP=[],OBS=[],OBSW=[],GEO=null,SUN={alt:0,az:180,up:false},SUNT=null,SHW=null;
 let ARR=[],AI=0,ARES=[],NOGRND=false;
@@ -312,6 +318,39 @@ const F={
  tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
  north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
  az:{l:'سمت الألواح (° من الشمال)',t:'r',min:0,max:359,st:1},
+ sysType:{l:'نوع المنظومة',t:'s',o:[['offgrid','مستقلة off-grid'],['hybrid','هجينة مع بطاريات'],['ongrid','مربوطة بالشبكة بلا بطاريات']]},
+ ghiY:{l:'الإشعاع الأفقي السنوي (kWh/م²)',t:'n',st:10,min:800,max:2600},
+ albedo:{l:'انعكاس الأرض ρ',t:'r',min:.05,max:.5,st:.01},
+ noct:{l:'NOCT للّوح (°م)',t:'r',min:40,max:50,st:.5},
+ pTcP:{l:'معامل حرارة القدرة (%/°م)',t:'n',st:.01,min:-.6,max:-.2},
+ shFac:{l:'أثر التظليل الكهربائي',t:'s',num:1,o:[['1','1.0 — أوبتمايزر أو مايكرو'],['1.5','1.5 — سلاسل قصيرة'],['2','2.0 — سلاسل تقليدية'],['3','3.0 — سلسلة واحدة طويلة']]},
+ lSoil:{l:'فقد الغبار %',t:'r',min:0,max:10,st:.5},
+ lMis:{l:'فقد عدم التطابق %',t:'r',min:0,max:8,st:.5},
+ lWire:{l:'فقد الأسلاك DC %',t:'r',min:0,max:8,st:.5},
+ lInv:{l:'فقد المحوّل %',t:'r',min:0,max:10,st:.5},
+ lAvail:{l:'التوقّف والصيانة %',t:'r',min:0,max:8,st:.5},
+ pWp:{l:'قدرة اللوح (Wp)',t:'n',st:5,min:200,max:800},
+ pVoc:{l:'Voc اللوح (فولت)',t:'n',st:.1,min:20,max:70},
+ pVmp:{l:'Vmp اللوح (فولت)',t:'n',st:.1,min:15,max:60},
+ pIsc:{l:'Isc اللوح (أمبير)',t:'n',st:.1,min:2,max:25},
+ pImp:{l:'Imp اللوح (أمبير)',t:'n',st:.1,min:2,max:25},
+ pTcV:{l:'معامل حرارة Voc (%/°م)',t:'n',st:.01,min:-.5,max:-.1},
+ tMin:{l:'أدنى حرارة تصميم (°م)',t:'r',min:-15,max:15,st:1},
+ tCellMax:{l:'أقصى حرارة خلية (°م)',t:'r',min:50,max:90,st:1},
+ invVmax:{l:'أقصى جهد DC للمحوّل (V)',t:'n',st:10,min:150,max:1500},
+ invVmin:{l:'أدنى جهد MPPT (V)',t:'n',st:5,min:60,max:600},
+ invIsc:{l:'أقصى تيار لكل MPPT (A)',t:'n',st:1,min:5,max:60},
+ invMppt:{l:'عدد مداخل MPPT',t:'r',min:1,max:6,st:1},
+ invKW:{l:'قدرة المحوّل (kW)',t:'n',st:.5,min:1,max:200},
+ loadD:{l:'الاستهلاك اليومي (kWh)',t:'n',st:.5,min:0,max:5000},
+ loadNight:{l:'حصّة الليل من الاستهلاك %',t:'r',min:0,max:100,st:5},
+ loadPk:{l:'أقصى حمل لحظي (kW)',t:'n',st:.5,min:0,max:500},
+ batChem:{l:'نوع البطارية',t:'s',o:[['lifepo4','ليثيوم LiFePO4'],['agm','رصاص AGM'],['gel','رصاص جل'],['flood','رصاص سائل']]},
+ batV:{l:'جهد المنظومة (V)',t:'s',num:1,o:[['12','12'],['24','24'],['48','48'],['51.2','51.2'],['96','96'],['192','192']]},
+ batVm:{l:'جهد وحدة البطارية (V)',t:'n',st:.1,min:2,max:200},
+ batAh:{l:'سعة وحدة البطارية (Ah)',t:'n',st:5,min:20,max:2000},
+ batDays:{l:'أيام الاستقلالية',t:'r',min:.5,max:5,st:.5},
+ batDoD:{l:'عمق التفريغ المسموح %',t:'r',min:20,max:95,st:1},
  srH:{l:'ارتفاع بيت الدرج (م)',t:'r',min:.5,max:6,st:.05},
  sMon:{l:'الشهر',t:'s',num:1,o:[['1','كانون الثاني'],['2','شباط'],['3','آذار'],['4','نيسان'],['5','أيار'],['6','حزيران'],['7','تموز'],['8','آب'],['9','أيلول'],['10','تشرين الأول'],['11','تشرين الثاني'],['12','كانون الأول']]},
  sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
@@ -691,7 +730,7 @@ function compute(g,qty,np,plates){
   const ballast=wWind*area*1.5/9.81*1000;
   const coatArea=Object.keys(qty).reduce((a,k)=>a+qty[k]*2*(SEC[k].b+SEC[k].h),0);
   const coatCost=M.coat==='galv'?tot*.55:(M.coat==='paint'?coatArea*5.5:0);
-  const steelCost=tot*M.price,fabCost=tot*M.fab,kwp=np*PANEL.Wp/1e3;
+  const steelCost=tot*M.price,fabCost=tot*M.fab,kwp=np*(+M.pWp||PANEL.Wp)/1e3;
   const upTot=WD.wGl*area, wTot=tot*.00981+ (TPL[M.tpl].cover==='pv'?np*PANEL.kg*.00981:0);
   const FS=wTot/Math.max(upTot,.001);
   const ecc=(T.bld==='H')?0:WD.Fh*area*0.25*(T.bld==='B'?M.S:M.S);
@@ -702,7 +741,8 @@ function compute(g,qty,np,plates){
 /* ---------- 7. البناء ---------- */
 const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee',
   'secT','secB','secW','secP','secR','clearH','ridge','slatGap','az'];
-function arrPhi(a){return (180-(northDeg()+(+a.az||0)))*Math.PI/180;}
+function azOf(a){const v=+(a&&a.az);return isFinite(v)?((v%360)+360)%360:180;}
+function arrPhi(a){return (180-(northDeg()+azOf(a)))*Math.PI/180;}
 function newArr(nm){
   const a={name:nm||('مصفوفة '+(ARR.length+1)),x:+M.bOX||0,z:+M.bOZ||0};
   ARRF.forEach(k=>a[k]=M[k]);return a;}
@@ -1362,6 +1402,179 @@ function cutList(){
      <td class="n">${p.len.toFixed(2)}</td><td class="n">${p.q}</td><td class="n">${(p.len*p.q).toFixed(1)}</td><td class="n">${wt.toFixed(0)}</td></tr>`;});
   return {rows,tw,n:items.length};}
 
+/* ---------- 8ج. الطاقة: الإنتاجية · الأحمال · البطاريات · التشريج ---------- */
+const MDAYS=[31,28,31,30,31,30,31,31,30,31,30,31];
+const MNAME=['ك2','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','ت1','ت2','ك1'];
+const MFULL=['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
+const MREP=[17,47,75,105,135,162,198,228,258,288,318,344];
+/* شكل الإشعاع الأفقي الشهري (kWh/م²/يوم) — ساحل لبنان، يُعاير على المجموع السنوي المُدخل */
+const GHI_SHAPE=[2.6,3.4,4.7,5.9,7.0,7.8,7.7,7.1,6.0,4.6,3.2,2.4];
+const TAMB=[14,14,16,19,22,25,27,28,27,24,19,16];
+const GHI_BASE=GHI_SHAPE.reduce((a,v,i)=>a+v*MDAYS[i],0);
+const CHEM={lifepo4:{n:'ليثيوم LiFePO4',dod:.90,eta:.96,cyc:6000,cmax:1.0,vm:51.2},
+ agm:{n:'رصاص AGM',dod:.50,eta:.85,cyc:800,cmax:.30,vm:12},
+ gel:{n:'رصاص جل',dod:.50,eta:.85,cyc:1000,cmax:.25,vm:12},
+ flood:{n:'رصاص سائل',dod:.50,eta:.80,cyc:1200,cmax:.20,vm:12}};
+
+function ghiMonth(m){return GHI_SHAPE[m]*((+M.ghiY||1900)/GHI_BASE);}
+function erbsKd(Kt){
+  if(Kt<=0)return 1;
+  if(Kt<0.715)return Math.max(.05,Math.min(1,1-0.2727*Kt+2.4495*Kt*Kt-11.9514*Kt*Kt*Kt+9.3879*Kt*Kt*Kt*Kt));
+  return .143;}
+/* نسبة المساحة المظللة عند وضع شمسي معطى */
+function shadeFracSun(a,alt,az,nx,nz){
+  if(!(alt>1))return 1;
+  nx=nx||7;nz=nz||5;let tot=0,sh=0;
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){
+    const lx=a.L*(i+.5)/nx,lz=a.S*(j+.5)/nz,p=arrPt(a,lx,lz);
+    tot++; if(shadedAt(p[0],p[1],panelYA(a,lz),alt,az))sh++;}
+  return tot?sh/tot:0;}
+/* ميل مستوى الألواح بالدرجات لمصفوفة */
+function arrTilt(a){
+  const T=TPL[a.tpl]||TPL[M.tpl];
+  if(T.flat)return 0;
+  if(T.bld==='H')return Math.atan2(+M.ridge||0,Math.max(+a.S,.1)/2)/RAD;
+  return Math.atan2(Math.abs((+a.h2)-(+a.h1)),Math.max(+a.S,.1))/RAD;}
+function sysDerate(){
+  const f=[M.lSoil,M.lMis,M.lWire,M.lInv,M.lAvail].map(v=>1-(+v||0)/100);
+  return f.reduce((x,y)=>x*y,1);}
+
+/* محاكاة ساعية على يوم ممثّل لكل شهر */
+function yieldArray(a,kwp){
+  const lat=+M.lat,la=lat*RAD,beta=arrTilt(a)*RAD,tcP=(+M.pTcP||-0.34)/100;
+  const rho=+M.albedo||.2,noct=+M.noct||45,der=sysDerate(),shf=+M.shFac||2;
+  const azp=azOf(a);
+  const nrm=[Math.sin(beta)*Math.sin(azp*RAD),Math.sin(beta)*Math.cos(azp*RAD),Math.cos(beta)];
+  const mon=[];let yr=0,poaY=0,ghiY=0,shLossY=0;
+  for(let m=0;m<12;m++){
+    const n=MREP[m],H=ghiMonth(m);
+    const dec=0.4093*Math.sin(2*Math.PI*(284+n)/365);
+    let cw=-Math.tan(la)*Math.tan(dec);cw=Math.max(-1,Math.min(1,cw));
+    const ws=Math.acos(cw);
+    const Gon=1.367*(1+0.033*Math.cos(2*Math.PI*n/365));
+    const H0=(24/Math.PI)*Gon*(Math.cos(la)*Math.cos(dec)*Math.sin(ws)+ws*Math.sin(la)*Math.sin(dec));
+    const Kt=Math.max(.05,Math.min(.85,H/Math.max(H0,.01)));
+    const Hd=H*erbsKd(Kt);
+    const wsd=ws/RAD;
+    const aa=0.409+0.5016*Math.sin((wsd-60)*RAD), bb=0.6609-0.4767*Math.sin((wsd-60)*RAD);
+    const den=Math.sin(ws)-ws*Math.cos(ws);
+    let Ed=0,poaD=0,Eun=0;
+    for(let hr=0.5;hr<24;hr+=1){
+      const w=(hr-12)*15*RAD;
+      if(Math.abs(w)>=ws)continue;
+      const cz=Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(w);
+      if(cz<=0.02)continue;
+      const alt=Math.asin(Math.min(1,cz))/RAD;
+      let ca=(Math.sin(dec)-cz*Math.sin(la))/Math.max(1e-6,Math.cos(Math.asin(cz))*Math.cos(la));
+      ca=Math.max(-1,Math.min(1,ca));
+      let az=Math.acos(ca)/RAD; if(w>0)az=360-az;
+      const rt=Math.max(0,(Math.PI/24)*(aa+bb*Math.cos(w))*(Math.cos(w)-Math.cos(ws))/Math.max(den,1e-6));
+      const rd=Math.max(0,(Math.PI/24)*(Math.cos(w)-Math.cos(ws))/Math.max(den,1e-6));
+      const I=rt*H, Id=Math.min(I,rd*Hd), Ib=Math.max(0,I-Id);
+      if(I<=0.001)continue;
+      const sv=[Math.cos(alt*RAD)*Math.sin(az*RAD),Math.cos(alt*RAD)*Math.cos(az*RAD),Math.sin(alt*RAD)];
+      const cosT=Math.max(0,sv[0]*nrm[0]+sv[1]*nrm[1]+sv[2]*nrm[2]);
+      const Rb=Math.min(6,cosT/Math.max(cz,.05));
+      const I0=Gon*cz;
+      const Ai=Math.max(0,Math.min(1,Ib/Math.max(I0,.001)));
+      const f=Math.sqrt(Math.max(0,Ib/I));
+      const poa=Ib*Rb
+        + Id*((1-Ai)*((1+Math.cos(beta))/2)*(1+f*Math.pow(Math.sin(beta/2),3))+Ai*Rb)
+        + I*rho*(1-Math.cos(beta))/2;
+      if(poa<=0)continue;
+      const Tc=TAMB[m]+(noct-20)/0.8*poa;
+      const pdc=kwp*poa*(1+tcP*(Tc-25));
+      const shf0=shadeFracSun(a,alt,az);
+      const loss=Math.max(0,Math.min(1,shf0*shf));
+      poaD+=poa; Eun+=Math.max(0,pdc)*der; Ed+=Math.max(0,pdc)*der*(1-loss);}
+    const d=MDAYS[m];
+    mon.push({m,ghi:H,poa:poaD,Ed,E:Ed*d,Eun:Eun*d,days:d,
+      sh:Eun>0?(1-Ed/Eun):0,tamb:TAMB[m]});
+    yr+=Ed*d; poaY+=poaD*d; ghiY+=H*d; shLossY+=(Eun-Ed)*d;}
+  const pr=(poaY*kwp>0)?yr/(poaY*kwp):0;
+  return {mon,year:yr,poaY,ghiY,shLossY,pr,kwp,tilt:arrTilt(a),az:azp,
+    spec:kwp>0?yr/kwp:0,worst:mon.reduce((x,y)=>y.Ed<x.Ed?y:x,mon[0])};}
+
+function energyAll(){
+  const out=[];let tot=0,kwp=0;
+  ARES.forEach(r=>{
+    const a=r.arr;
+    if(!TPL[a.tpl]||TPL[a.tpl].cover!=='pv')return;
+    const k=(r.np||0)*(+M.pWp||PANEL.Wp)/1000;
+    if(k<=0)return;
+    const y=yieldArray(a,k);y.name=a.name;y.np=r.np;
+    out.push(y);tot+=y.year;kwp+=k;});
+  const monT=[];
+  for(let m=0;m<12;m++)monT.push(out.reduce((s,y)=>s+y.mon[m].E,0));
+  return {arrays:out,year:tot,kwp,monT,
+    spec:kwp>0?tot/kwp:0,
+    worstM:monT.length?monT.indexOf(Math.min(...monT)):0};}
+
+/* ---- الأحمال والبطاريات والتشريج ---- */
+function loadCalc(){
+  const d=+M.loadD||0, nightPc=(+M.loadNight||0)/100;
+  return {day:d, night:d*nightPc, dayPart:d*(1-nightPc), peak:+M.loadPk||0, year:d*365};}
+function batCalc(){
+  const c=CHEM[M.batChem]||CHEM.lifepo4;
+  const dod=(+M.batDoD||c.dod*100)/100, eta=c.eta;
+  const L=loadCalc();
+  const V=+M.batV||48, vm=+M.batVm||c.vm, ah=+M.batAh||200;
+  const needWh=L.night*(+M.batDays||1)*1000;
+  const needAh=needWh/Math.max(V*dod*eta,1);
+  const ser=Math.max(1,Math.round(V/Math.max(vm,1)));
+  const par=Math.max(1,Math.ceil(needAh/Math.max(ah,1)));
+  const n=ser*par;
+  const bankAh=par*ah, usable=bankAh*V*dod*eta/1000;
+  const iPk=L.peak*1000/Math.max(V,1);
+  const cRate=iPk/Math.max(bankAh,1);
+  const vErr=Math.abs(ser*vm-V)>0.6;
+  return {c,dod,eta,V,vm,ah,ser,par,n,bankAh,usable,needAh,needWh,iPk,cRate,vErr,
+    days:+M.batDays||1,autonomy:L.night>0?usable/L.night:0,
+    kwhNom:n*vm*ah/1000};}
+function stringCalc(){
+  const tcv=(+M.pTcV||-0.25)/100;
+  const tMin=+M.tMin, tMax=+M.tCellMax;
+  const vocC=(+M.pVoc||45.9)*(1+tcv*(tMin-25));
+  const vmpH=(+M.pVmp||38.4)*(1+tcv*(tMax-25));
+  const nMax=Math.floor((+M.invVmax||1000)/Math.max(vocC,1));
+  const nMin=Math.ceil((+M.invVmin||200)/Math.max(vmpH,1));
+  const npTot=ARES.reduce((a,r)=>a+((TPL[r.arr.tpl]&&TPL[r.arr.tpl].cover==='pv')?(r.np||0):0),0);
+  const mppt=Math.max(1,+M.invMppt||2);
+  let best=null;
+  for(let n=Math.max(1,nMin);n<=Math.max(nMin,nMax);n++){
+    const str=Math.ceil(npTot/n);
+    if(str<1)continue;
+    const perM=Math.ceil(str/mppt);
+    const iStr=perM*(+M.pIsc||18.3);
+    const waste=n*str-npTot;
+    const sc={n,str,perM,iStr,waste,
+      vmax:vocC*n,vmp:vmpH*n,
+      okI:iStr<=(+M.invIsc||30)+1e-9,
+      okV:vocC*n<=(+M.invVmax||1000)&&vmpH*n>=(+M.invVmin||200)};
+    if(!sc.okV)continue;
+    if(!best||(sc.okI&&!best.okI)||(sc.okI===best.okI&&sc.waste<best.waste))best=sc;}
+  return {vocC,vmpH,nMax,nMin,npTot,mppt,best,tMin,tMax,
+    kwp:npTot*(+M.pWp||PANEL.Wp)/1000};}
+function sizePanels(){
+  const L=loadCalc(),E=energyAll();
+  const der=1;
+  const per=E.kwp>0?E.year/E.kwp:0;                 // kWh/kWp/سنة
+  const wp=(+M.pWp||PANEL.Wp)/1000;
+  let worstDaily=0,annualPer=0;
+  if(E.arrays.length){
+    const ref=E.arrays[0];
+    const w=ref.worst;
+    worstDaily=(w.Ed/Math.max(ref.kwp,.001))*wp;    // kWh/لوح/يوم في أسوأ شهر
+    annualPer=(ref.year/Math.max(ref.kwp,.001))*wp; // kWh/لوح/سنة
+  }
+  const bat=batCalc();
+  const rt=bat.eta;
+  const needOff=worstDaily>0?Math.ceil(L.day/ (worstDaily*rt)):0;
+  const needGrid=annualPer>0?Math.ceil(L.year/annualPer):0;
+  return {L,E,per,worstDaily,annualPer,needOff,needGrid,
+    have:E.arrays.reduce((a,y)=>a+y.np,0),
+    cover:L.year>0?E.year/L.year:0};}
+
 /* ---------- لوحة الظلال + فصل التقرير ---------- */
 function sheetShadow(){
   const W=760,H=470,mx=64,my=52;
@@ -1415,7 +1628,7 @@ function arraysTable(){
     r+=`<tr${x===gov?' style="background:#fff3ee"':''}>
       <td>${a.name||('مصفوفة '+(i+1))}${x===gov?' <b>(حاكمة)</b>':''}</td><td>${T.n||a.tpl}</td>
       <td class="n">${(+a.L).toFixed(2)} × ${(+a.S).toFixed(2)}</td>
-      <td class="n">${Math.round(+a.az||0)}°</td><td class="n">${x.tdeg.toFixed(1)}°</td>
+      <td class="n">${Math.round(azOf(a))}°</td><td class="n">${x.tdeg.toFixed(1)}°</td>
       <td class="n">${x.np||0}</td><td class="n">${x.kwp.toFixed(2)}</td>
       <td class="n">${x.tot.toFixed(0)}</td>
       <td class="n">${(x.util*100).toFixed(0)}%</td><td class="n">L/${x.defR.toFixed(0)}</td>
@@ -1476,7 +1689,7 @@ function shadowSection(){
 
   ${pv&&SITE&&pvArr.length?`<h3>8-2 نسبة التظليل على مستوى الألواح — 21 كانون الأول</h3>
   <table><tr><th>الساعة</th><th>ارتفاع الشمس</th><th>سمت الشمس</th>
-   ${pvArr.map(a=>`<th>${a.name||'المصفوفة'}<br><span style="font-weight:400">${Math.round(+a.az||0)}°</span></th>`).join('')}</tr>${sh}</table>
+   ${pvArr.map(a=>`<th>${a.name||'المصفوفة'}<br><span style="font-weight:400">${Math.round(azOf(a))}°</span></th>`).join('')}</tr>${sh}</table>
   <p>${worstA&&pvArr.length>1?`أسوأ حالة في «${worstA}». `:''}${worst<=0.05
     ? `<b>النتيجة:</b> التظليل الذاتي لا يتجاوز ${(worst*100).toFixed(0)}% خلال نافذة الإنتاج في أقصر أيام السنة — الموضع المقترح للهيكل مقبول من ناحية الظل.`
     : (worst<=0.2
@@ -1493,13 +1706,176 @@ function shadowSection(){
   </ul>
 `;}
 
+/* ---------- 8د. رسم ومستند الإنتاجية ---------- */
+const PVCOL=['#0066A7','#F1471E','#00A06B','#7A5CC4'];
+function chartMonthly(E){
+  const W=760,H=300,ml=64,mr=18,mt=26,mb=46;
+  const pw=W-ml-mr,ph=H-mt-mb;
+  const tot=E.monT;
+  const mx=Math.max(...tot,1);
+  const step=Math.pow(10,Math.floor(Math.log10(mx)));
+  const nice=Math.ceil(mx/step*1.02)*step;
+  const Y=v=>mt+ph-(v/nice)*ph;
+  let b='';
+  for(let i=0;i<=4;i++){const v=nice*i/4;
+    b+=ln(ml,Y(v),W-mr,Y(v),{c:'#e6ebf0',w:1});
+    b+=tx(ml-8,Y(v)+3.5,Math.round(v).toLocaleString('en-US'),{s:9,a:'end',c:'#5b6b7a'});}
+  b+=ln(ml,Y(0),W-mr,Y(0),{c:'#b6c1cb',w:1.2});
+  const bw=pw/12,bar=Math.min(30,bw*.6);
+  E.monT.forEach((v,m)=>{
+    const cx=ml+bw*(m+.5),x0=cx-bar/2;
+    let acc=0;
+    E.arrays.forEach((y,ai)=>{
+      const val=y.mon[m].E; if(val<=0)return;
+      const y1=Y(acc+val),y0=Y(acc),h=Math.max(0,y0-y1-(ai?2:0));
+      const top=(ai===E.arrays.length-1);
+      b+=`<path d="${top
+        ?`M${x0.toFixed(1)},${(y1+4).toFixed(1)} a4,4 0 0 1 4,-4 h${(bar-8).toFixed(1)} a4,4 0 0 1 4,4 v${(h-4).toFixed(1)} h${(-bar).toFixed(1)} Z`
+        :`M${x0.toFixed(1)},${y1.toFixed(1)} h${bar.toFixed(1)} v${h.toFixed(1)} h${(-bar).toFixed(1)} Z`}"
+        fill="${PVCOL[ai%PVCOL.length]}"><title>${y.name||'مصفوفة'} · ${MFULL[m]} · ${Math.round(val).toLocaleString('en-US')} kWh</title></path>`;
+      acc+=val;});
+    if(v>0)b+=tx(cx,Y(v)-6,Math.round(v).toLocaleString('en-US'),{s:8.5,b:1,c:'#16222e'});
+    b+=tx(cx,H-mb+16,MNAME[m],{s:9.5,c:'#5b6b7a'});});
+  b+=tx(ml-8,mt-10,'kWh',{s:9,a:'end',c:'#5b6b7a'});
+  if(E.arrays.length>1){
+    let lx=ml;
+    E.arrays.forEach((y,ai)=>{
+      b+=`<rect x="${lx}" y="${H-16}" width="11" height="11" rx="2" fill="${PVCOL[ai%PVCOL.length]}"/>`;
+      b+=tx(lx+15,H-7,(y.name||('مصفوفة '+(ai+1)))+' · '+Math.round(y.az)+'°',{s:9,a:'start',c:'#5b6b7a'});
+      lx+=Math.max(120,(y.name||'').length*7+90);});}
+  return SV(W,H,b);}
+
+function energyReport(){
+  const d=new Date(),E=energyAll(),Z=sizePanels(),B=batCalc(),ST=stringCalc(),L=loadCalc();
+  const der=sysDerate(),bat=(M.sysType!=='ongrid');
+  ovTop('energy');
+  const monRows=E.arrays.length?E.monT.map((v,m)=>{
+    const shl=E.arrays.reduce((a,y)=>a+(y.mon[m].Eun-y.mon[m].E),0);
+    const un=E.arrays.reduce((a,y)=>a+y.mon[m].Eun,0);
+    return `<tr><td>${MFULL[m]}</td><td class="n">${ghiMonth(m).toFixed(2)}</td>
+     <td class="n">${(E.arrays[0].mon[m].poa).toFixed(2)}</td><td class="n">${TAMB[m]}</td>
+     <td class="n">${Math.round(v).toLocaleString('en-US')}</td>
+     <td class="n">${(v/MDAYS[m]).toFixed(1)}</td>
+     <td class="n">${un>0?(shl/un*100).toFixed(1):'0.0'}%</td></tr>`;}).join(''):'';
+  const arrRows=E.arrays.map((y,i)=>`<tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${PVCOL[i%PVCOL.length]}"></span> ${y.name||('مصفوفة '+(i+1))}</td>
+    <td class="n">${y.np}</td><td class="n">${y.kwp.toFixed(2)}</td>
+    <td class="n">${Math.round(y.az)}°</td><td class="n">${y.tilt.toFixed(1)}°</td>
+    <td class="n">${Math.round(y.year).toLocaleString('en-US')}</td>
+    <td class="n">${Math.round(y.spec)}</td><td class="n">${(y.pr*100).toFixed(0)}%</td>
+    <td class="n">${(y.shLossY/Math.max(y.year+y.shLossY,1)*100).toFixed(1)}%</td></tr>`).join('');
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(48)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">تقرير الإنتاجية والمنظومة الكهروضوئية</div>
+   <div style="font-size:10.5px;color:#5b6b7a">${M.project||'مشروع'} · ${M.site||'—'} · ${d.toLocaleDateString('en-GB')}</div></div></div>
+
+  <h2>1 — معطيات المنظومة</h2>
+  <div class="kpi">
+   <div><span>نوع المنظومة</span><b>${({offgrid:'مستقلة',hybrid:'هجينة',ongrid:'مربوطة بالشبكة'})[M.sysType]}</b></div>
+   <div><span>القدرة المركّبة</span><b>${E.kwp.toFixed(2)} kWp</b></div>
+   <div><span>عدد الألواح</span><b>${Z.have} × ${(+M.pWp||660)}Wp</b></div>
+   <div><span>عدد المصفوفات</span><b>${E.arrays.length}</b></div>
+   <div><span>الإنتاج السنوي</span><b>${Math.round(E.year).toLocaleString('en-US')} kWh</b></div>
+   <div><span>الإنتاج النوعي</span><b>${Math.round(E.spec)} kWh/kWp</b></div>
+   <div><span>الإشعاع الأفقي</span><b>${(+M.ghiY)} kWh/م²·سنة</b></div>
+   <div><span>الموقع</span><b>${(+M.lat).toFixed(3)}، ${(+M.lon).toFixed(3)}</b></div>
+  </div>
+  ${E.arrays.length?'':'<div class="note">لا توجد مصفوفة كهروضوئية في المشروع — اختر نموذجاً من فئة «طاقة» لتفعيل هذا التقرير.</div>'}
+
+  <h2>2 — الإنتاجية الشهرية</h2>
+  <div class="sheet"><div class="tb"><span>الإنتاج الشهري (kWh)</span><span>${M.project||'مشروع'}</span>
+   <span>${Math.round(E.year).toLocaleString('en-US')} kWh/سنة</span></div>${chartMonthly(E)}</div>
+  <table><tr><th>الشهر</th><th>إشعاع أفقي kWh/م²·يوم</th><th>إشعاع على المستوى المائل</th><th>حرارة °م</th>
+   <th>الإنتاج kWh</th><th>يومي وسطي kWh</th><th>فقد التظليل</th></tr>${monRows}
+   <tr style="background:#f2f5f8"><td><b>السنة</b></td><td class="n"><b>${((+M.ghiY)/365).toFixed(2)}</b></td>
+   <td class="n">—</td><td class="n">—</td>
+   <td class="n"><b>${Math.round(E.year).toLocaleString('en-US')}</b></td>
+   <td class="n"><b>${(E.year/365).toFixed(1)}</b></td>
+   <td class="n"><b>${E.arrays.length?(E.arrays.reduce((a,y)=>a+y.shLossY,0)/Math.max(E.year+E.arrays.reduce((a,y)=>a+y.shLossY,0),1)*100).toFixed(1):'0.0'}%</b></td></tr></table>
+
+  <h2>3 — أداء كل مصفوفة</h2>
+  <table><tr><th>المصفوفة</th><th>ألواح</th><th>kWp</th><th>السمت</th><th>الميل</th>
+   <th>kWh/سنة</th><th>kWh/kWp</th><th>PR</th><th>فقد التظليل</th></tr>${arrRows}</table>
+  <table><tr><th>مصدر الفقد</th><th>القيمة</th><th>مصدر الفقد</th><th>القيمة</th></tr>
+   <tr><td>الغبار والاتساخ</td><td class="n">${M.lSoil}%</td><td>عدم التطابق</td><td class="n">${M.lMis}%</td></tr>
+   <tr><td>أسلاك DC</td><td class="n">${M.lWire}%</td><td>المحوّل</td><td class="n">${M.lInv}%</td></tr>
+   <tr><td>التوقّف والصيانة</td><td class="n">${M.lAvail}%</td><td><b>مجمل معامل الأداء الثابت</b></td><td class="n"><b>${(der*100).toFixed(1)}%</b></td></tr>
+   <tr><td>معامل حرارة القدرة</td><td class="n">${M.pTcP}%/°م</td><td>معامل أثر التظليل الكهربائي</td><td class="n">×${M.shFac}</td></tr></table>
+
+  <h2>4 — تغطية الأحمال</h2>
+  <table><tr><th>البند</th><th>القيمة</th><th>البند</th><th>القيمة</th></tr>
+   <tr><td>الاستهلاك اليومي</td><td class="n">${L.day.toFixed(1)} kWh</td><td>الاستهلاك السنوي</td><td class="n">${Math.round(L.year).toLocaleString('en-US')} kWh</td></tr>
+   <tr><td>حصّة الليل</td><td class="n">${M.loadNight}% = ${L.night.toFixed(1)} kWh</td><td>أقصى حمل لحظي</td><td class="n">${L.peak.toFixed(1)} kW</td></tr>
+   <tr><td>إنتاج اللوح في أسوأ شهر</td><td class="n">${Z.worstDaily.toFixed(2)} kWh/يوم</td>
+       <td>إنتاج اللوح سنوياً</td><td class="n">${Math.round(Z.annualPer)} kWh</td></tr>
+   <tr><td><b>ألواح لتغطية الحمل يومياً في أسوأ شهر</b></td><td class="n"><b>${Z.needOff||'—'}</b></td>
+       <td><b>ألواح لمعادلة الاستهلاك السنوي</b></td><td class="n"><b>${Z.needGrid||'—'}</b></td></tr>
+   <tr><td>المركّب فعلياً</td><td class="n">${Z.have}</td>
+       <td>نسبة التغطية السنوية</td><td class="n">${(Z.cover*100).toFixed(0)}%</td></tr></table>
+  <p>${!E.arrays.length?'—':(M.sysType==='ongrid'
+    ? `المنظومة مربوطة بالشبكة: المرجع هو معادلة الاستهلاك السنوي — المطلوب <b>${Z.needGrid}</b> لوحاً والمركّب <b>${Z.have}</b>، أي تغطية <b>${(Z.cover*100).toFixed(0)}%</b>.`
+    : `المنظومة ${M.sysType==='offgrid'?'مستقلة':'هجينة'}: المرجع هو أسوأ شهر (${MFULL[E.worstM]}) حتى لا تنقطع التغذية شتاءً — المطلوب <b>${Z.needOff}</b> لوحاً والمركّب <b>${Z.have}</b>.
+       ${Z.have>=Z.needOff?'<b>الكفاية متحقّقة.</b>':`<b>يلزم ${Z.needOff-Z.have} لوحاً إضافياً</b> أو خفض الحمل الليلي أو القبول بمولّد مساند في ${MFULL[E.worstM]}.`}`)}</p>
+
+  ${bat?`<h2>5 — البطاريات والتشريج</h2>
+  <table><tr><th>البند</th><th>القيمة</th><th>البند</th><th>القيمة</th></tr>
+   <tr><td>النوع</td><td class="n">${B.c.n}</td><td>عمق التفريغ DoD</td><td class="n">${(B.dod*100).toFixed(0)}%</td></tr>
+   <tr><td>كفاءة الشحن/التفريغ</td><td class="n">${(B.eta*100).toFixed(0)}%</td><td>عمر تقريبي</td><td class="n">${B.c.cyc.toLocaleString('en-US')} دورة</td></tr>
+   <tr><td>جهد المنظومة</td><td class="n">${B.V} V</td><td>أيام الاستقلالية</td><td class="n">${B.days}</td></tr>
+   <tr><td>الطاقة الليلية المطلوبة</td><td class="n">${(B.needWh/1000).toFixed(1)} kWh</td>
+       <td>السعة المطلوبة</td><td class="n">${Math.round(B.needAh)} Ah @ ${B.V}V</td></tr>
+   <tr><td>وحدة البطارية</td><td class="n">${B.vm} V / ${B.ah} Ah</td>
+       <td><b>التشريج</b></td><td class="n"><b>${B.ser} على التوالي × ${B.par} على التوازي = ${B.n} وحدة</b></td></tr>
+   <tr><td>سعة البنك الاسمية</td><td class="n">${B.kwhNom.toFixed(1)} kWh (${B.bankAh} Ah)</td>
+       <td>الطاقة القابلة للاستعمال</td><td class="n">${B.usable.toFixed(1)} kWh</td></tr>
+   <tr><td>تيار الذروة</td><td class="n">${B.iPk.toFixed(0)} A</td>
+       <td>معدّل التفريغ</td><td class="n">${B.cRate.toFixed(2)}C (الحدّ ${B.c.cmax}C)</td></tr>
+   <tr><td>الاستقلالية الفعلية</td><td class="n">${B.autonomy.toFixed(1)} ليلة</td>
+       <td>سعة الشاحن المقترحة</td><td class="n">≥ ${Math.ceil(B.bankAh*0.2)} A</td></tr></table>
+  ${B.vErr?`<div class="note"><b>تنبيه:</b> ${B.ser} × ${B.vm}V = ${(B.ser*B.vm).toFixed(1)}V لا تساوي جهد المنظومة ${B.V}V — اختر وحدة بجهد يقبل القسمة أو عدّل جهد المنظومة.</div>`:''}
+  ${B.cRate>B.c.cmax?`<div class="note"><b>تنبيه:</b> تيار الذروة يعطي ${B.cRate.toFixed(2)}C وهو أعلى من حدّ ${B.c.n} (${B.c.cmax}C) — زد عدد السلاسل المتوازية إلى ${Math.ceil(B.iPk/(B.c.cmax*B.ah))} أو ارفع جهد المنظومة.</div>`:''}`:''}
+
+  <h2>${bat?'6':'5'} — تشريج الألواح على المحوّل</h2>
+  <table><tr><th>البند</th><th>القيمة</th><th>البند</th><th>القيمة</th></tr>
+   <tr><td>Voc عند ${ST.tMin}°م</td><td class="n">${ST.vocC.toFixed(1)} V</td>
+       <td>Vmp عند خلية ${ST.tMax}°م</td><td class="n">${ST.vmpH.toFixed(1)} V</td></tr>
+   <tr><td>أقصى عدد ألواح بالسلسلة</td><td class="n">${ST.nMax}</td>
+       <td>أدنى عدد ألواح بالسلسلة</td><td class="n">${ST.nMin}</td></tr>
+   ${ST.best?`<tr style="background:#fff3ee"><td><b>التشريج المقترح</b></td>
+     <td class="n"><b>${ST.best.n} لوح × ${ST.best.str} سلسلة</b></td>
+     <td>توزيعها على ${ST.mppt} MPPT</td><td class="n">${ST.best.perM} سلسلة لكل مدخل</td></tr>
+   <tr><td>جهد السلسلة البارد Voc</td><td class="n">${ST.best.vmax.toFixed(0)} V / ${M.invVmax} V</td>
+       <td>جهد السلسلة الساخن Vmp</td><td class="n">${ST.best.vmp.toFixed(0)} V / ${M.invVmin} V</td></tr>
+   <tr><td>تيار المدخل</td><td class="n">${ST.best.iStr.toFixed(1)} A / ${M.invIsc} A</td>
+       <td>ألواح فائضة عن التشريج</td><td class="n">${ST.best.waste}</td></tr>`
+   :'<tr><td colspan="4">لا يوجد تشريج يحقّق حدود المحوّل — راجع Voc واللوح وجهود المحوّل.</td></tr>'}
+   <tr><td>نسبة DC/AC</td><td class="n">${(+M.invKW)>0?(ST.kwp/(+M.invKW)).toFixed(2):'—'}</td>
+       <td>قدرة المحوّل</td><td class="n">${M.invKW} kW</td></tr></table>
+  ${ST.best&&!ST.best.okI?`<div class="note"><b>تنبيه:</b> تيار المدخل ${ST.best.iStr.toFixed(1)}A يتجاوز حدّ ${M.invIsc}A — وزّع السلاسل على مداخل أكثر أو استعمل محوّلاً أكبر.</div>`:''}
+  ${ST.best&&ST.best.waste>0?`<div class="note">${ST.best.waste} لوحاً لا تكتمل بها سلسلة — إما إضافتها أو نقصها ليصبح العدد ${ST.best.n*ST.best.str} أو ${ST.best.n*(ST.best.str-1)}.</div>`:''}
+
+  <h2>${bat?'7':'6'} — أساس الحساب وحدوده</h2>
+  <ul>
+   <li>الإشعاع الشهري يُبنى على شكل توزيع ساحلي لبناني معاير على المجموع السنوي المُدخل (${M.ghiY} kWh/م²). <b>أدخل قيمة موقعك الفعلية من PVGIS أو NASA POWER</b> لنتيجة دقيقة.</li>
+   <li>الإشعاع الساعي يُشتقّ من اليومي بمعادلتَي Collares-Pereira &amp; Rabl وLiu &amp; Jordan، والمكوّن المنتشر بعلاقة Erbs، والإسقاط على المستوى المائل بنموذج HDKR.</li>
+   <li>المحاكاة على يوم ممثّل لكل شهر (أيام Klein) بخطوة ساعة، ولكل مصفوفة سمتها وميلها الفعليان.</li>
+   <li>حرارة الخلية بنموذج NOCT، وقدرة اللوح تُصحَّح بمعامل ${M.pTcP}%/°م.</li>
+   <li>فقد التظليل محسوب هندسياً من العوائق المُدخلة (بيت الدرج، العمامة، المباني المجاورة) لكل ساعة، ومضروب بمعامل ${M.shFac} لأن التظليل الجزئي على سلسلة يخفض إنتاجها أكثر من نسبة المساحة المظللة.</li>
+   <li><b>ليست محاكاة 8760 ساعة بملف طقس TMY</b>: لا غيوم فعلية ولا غبار موسمي ولا انعكاس من محيط خاص. اعتبرها تقديراً هندسياً للمفاضلة بين الخيارات وتحديد الأحجام، بهامش ±10%.</li>
+   <li>حساب البطارية يغطّي الحمل الليلي فقط مضروباً بأيام الاستقلالية؛ الأحمال النهارية مفترض تغذيتها من الإنتاج المباشر.</li>
+   <li>التشريج يتحقّق من حدود الجهد والتيار فقط. القواطع والفيوزات ومقاطع الكابلات وهبوط الجهد تُحسب منفصلة قبل التنفيذ.</li>
+  </ul>
+  <div class="foot">iCOOL Trading &amp; Contracting — م. أحمد محمد ناصر OEA 36359 · 03 715 512 · info.icool.lb@gmail.com · ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('ov').scrollTop=0;}
+
 /* ---------- 11. التقرير الفني (بلدية / نقابة المهندسين) — بدون تسعير ---------- */
 function ovTop(cur){
   document.getElementById('ovTop').innerHTML=
    `<button onclick="closeOv()">✕ إغلاق</button><button onclick="window.print()">🖶 طباعة / PDF</button>`+
    (cur!=='rep'?`<button onclick="report()">التقرير الفني</button>`:'')+
    (cur!=='shop'?`<button onclick="shop()">الخرائط التنفيذية</button>`:'')+
-   (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'');}
+   (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'')+
+   (cur!=='energy'?`<button onclick="energyReport()">الإنتاجية والمنظومة</button>`:'');}
 
 function report(){
   const T=TPL[M.tpl],d=new Date(),W=R.WD;
@@ -1864,7 +2240,7 @@ function closeOv(){document.getElementById('ov').classList.remove('open');}
 
 /* ---------- 13. الواجهة ---------- */
 let TAB='design';
-const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
+const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['pv','الطاقة والبطاريات'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
 function drawTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
   CATS.forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;
@@ -1887,7 +2263,7 @@ function dock(){
     grp('المصفوفات — هياكل متعددة باتجاهات مختلفة');
     const arw=document.createElement('div');arw.className='chips';
     ARR.forEach((a,i)=>{const b=document.createElement('button');
-      b.textContent=(a.name||('مصفوفة '+(i+1)))+' · '+Math.round(+a.az||0)+'°';
+      b.textContent=(a.name||('مصفوفة '+(i+1)))+' · '+Math.round(azOf(a))+'°';
       if(i===AI)b.className='on';
       b.onclick=()=>{syncToArr();AI=i;applyArr(ARR[i]);M.cat=TPL[M.tpl].cat;
         drawTabs();build();fit();dock();};
@@ -2113,6 +2489,67 @@ function dock(){
         : 'لا يوجد عائق أعلى من مستوى الألواح عند منتصف الهيكل — لا ظلّ ذاتيّ يُذكر عند الظهيرة.');
       if(VAL.msgs.length){const d=document.createElement('div');d.className='note';
         d.innerHTML='<b>تنبيهات:</b><br>• '+VAL.msgs.join('<br>• ');el.appendChild(d);}}
+  } else if(TAB==='pv'){
+    const E=energyAll(),Z=sizePanels(),B=batCalc(),ST=stringCalc(),L=loadCalc();
+    grp('المنظومة والموقع');
+    ['sysType','ghiY'].forEach(k=>field(el,k));
+    tip('أدخل <b>الإشعاع الأفقي السنوي</b> لموقعك من PVGIS أو NASA POWER. الشكل الشهري معاير عليه. الموقع وخط العرض يؤخذان من تبويب «KML والظلال».');
+    if(!E.arrays.length)tip('<b>لا توجد مصفوفة كهروضوئية.</b> اختر نموذجاً من فئة «طاقة» في تبويب التصميم لتفعيل حسابات الإنتاج.');
+    else{
+      const t=document.createElement('table');
+      t.innerHTML=`<tr><th>القدرة المركّبة</th><td class="n">${E.kwp.toFixed(2)} kWp · ${Z.have} لوح</td></tr>
+       <tr><th>الإنتاج السنوي</th><td class="n">${Math.round(E.year).toLocaleString('en-US')} kWh</td></tr>
+       <tr><th>الإنتاج النوعي</th><td class="n">${Math.round(E.spec)} kWh/kWp</td></tr>
+       <tr><th>أسوأ شهر</th><td class="n">${MFULL[E.worstM]} · ${Math.round(E.monT[E.worstM]).toLocaleString('en-US')} kWh</td></tr>
+       <tr><th>فقد التظليل</th><td class="n">${(E.arrays.reduce((a,y)=>a+y.shLossY,0)/Math.max(E.year+E.arrays.reduce((a,y)=>a+y.shLossY,0),1)*100).toFixed(1)}%</td></tr>`;
+      el.appendChild(t);}
+
+    grp('اللوح الكهروضوئي');
+    ['pWp','pVoc','pVmp','pIsc','pImp','pTcV','pTcP','noct'].forEach(k=>field(el,k));
+
+    grp('الفقد وأثر التظليل');
+    ['lSoil','lMis','lWire','lInv','lAvail','albedo','shFac'].forEach(k=>field(el,k));
+    tip('مجمل معامل الأداء الثابت الآن <b>'+(sysDerate()*100).toFixed(1)+'%</b> قبل حرارة الخلايا والتظليل. معامل التظليل يضاعف أثر المساحة المظللة لأن سلسلة واحدة مظللة جزئياً تخسر أكثر من نسبة مساحتها.');
+
+    grp('الأحمال');
+    ['loadD','loadNight','loadPk'].forEach(k=>field(el,k));
+    if(E.arrays.length){
+      const t2=document.createElement('table');
+      t2.innerHTML=`<tr><th>الاستهلاك السنوي</th><td class="n">${Math.round(L.year).toLocaleString('en-US')} kWh</td></tr>
+       <tr><th>ألواح لأسوأ شهر</th><td class="n">${Z.needOff||'—'}</td></tr>
+       <tr><th>ألواح لمعادلة السنة</th><td class="n">${Z.needGrid||'—'}</td></tr>
+       <tr><th>المركّب فعلياً</th><td class="n">${Z.have}</td></tr>
+       <tr><th>التغطية السنوية</th><td class="n"><span class="tag ${Z.cover>=1?'t-ok':(Z.cover>=.7?'t-w':'t-b')}">${(Z.cover*100).toFixed(0)}%</span></td></tr>`;
+      el.appendChild(t2);}
+
+    if(M.sysType!=='ongrid'){
+      grp('البطاريات والتشريج');
+      ['batChem','batV','batVm','batAh','batDays','batDoD'].forEach(k=>field(el,k));
+      const t3=document.createElement('table');
+      t3.innerHTML=`<tr><th>السعة المطلوبة</th><td class="n">${Math.round(B.needAh)} Ah @ ${B.V}V</td></tr>
+       <tr><th>التشريج</th><td class="n"><b>${B.ser} توالي × ${B.par} توازي = ${B.n} وحدة</b></td></tr>
+       <tr><th>سعة البنك</th><td class="n">${B.kwhNom.toFixed(1)} kWh اسمية · ${B.usable.toFixed(1)} kWh مستعملة</td></tr>
+       <tr><th>معدّل التفريغ</th><td class="n"><span class="tag ${B.cRate<=B.c.cmax?'t-ok':'t-b'}">${B.cRate.toFixed(2)}C / ${B.c.cmax}C</span></td></tr>
+       <tr><th>الاستقلالية الفعلية</th><td class="n">${B.autonomy.toFixed(1)} ليلة</td></tr>`;
+      el.appendChild(t3);
+      if(B.vErr){const d=document.createElement('div');d.className='note';
+        d.innerHTML='<b>تنبيه:</b> '+B.ser+' × '+B.vm+'V = '+(B.ser*B.vm).toFixed(1)+'V لا تساوي جهد المنظومة '+B.V+'V.';el.appendChild(d);}}
+
+    grp('المحوّل والتشريج');
+    ['invKW','invVmax','invVmin','invIsc','invMppt','tMin','tCellMax'].forEach(k=>field(el,k));
+    const t4=document.createElement('table');
+    t4.innerHTML=`<tr><th>Voc عند ${ST.tMin}°م</th><td class="n">${ST.vocC.toFixed(1)} V</td></tr>
+     <tr><th>حدود السلسلة</th><td class="n">${ST.nMin} — ${ST.nMax} لوح</td></tr>
+     ${ST.best?`<tr><th>المقترح</th><td class="n"><b>${ST.best.n} × ${ST.best.str} سلسلة</b> · ${ST.best.perM}/MPPT</td></tr>
+     <tr><th>تيار المدخل</th><td class="n"><span class="tag ${ST.best.okI?'t-ok':'t-b'}">${ST.best.iStr.toFixed(1)} A / ${M.invIsc} A</span></td></tr>
+     <tr><th>فائض عن التشريج</th><td class="n">${ST.best.waste} لوح</td></tr>`
+     :'<tr><th>المقترح</th><td class="n"><span class="tag t-b">لا يوجد تشريج ضمن حدود المحوّل</span></td></tr>'}
+     <tr><th>نسبة DC/AC</th><td class="n">${(+M.invKW)>0?(ST.kwp/(+M.invKW)).toFixed(2):'—'}</td></tr>`;
+    el.appendChild(t4);
+
+    const rb=document.createElement('button');rb.textContent='فتح تقرير الإنتاجية والمنظومة';
+    rb.className='o on';rb.style.cssText='display:block;width:100%;margin:8px 0;padding:10px';
+    rb.onclick=energyReport;el.appendChild(rb);
   } else if(TAB==='ai'){
     grp('تعديل التصميم بالوصف');
     tip('اكتب بالعربي ما تريد. أمثلة:<br>• «موقف سيارات طول 18 بحر 5.5 ميل 12 أعمدة 120x120»<br>• «هنغار طول 30 بحر 15 ارتفاع صافي 6 جملون 2.2»<br>• «برغولا كابولي طول 6 بحر 3 ثروبولت»<br>• «بدون أرجل بين حائطين بحر 7.4 ريح 120 بدون أقطار»<br>• «الارتفاع الامامي 1.8 والخلفي 2.8 ألواح بورتريه»');
@@ -2128,7 +2565,8 @@ function dock(){
     grp('المخرجات');
     [['التقرير الفني الموقّع — بلدية / نقابة (بدون تسعير)',report],
      ['الخرائط التنفيذية (8 لوحات + قائمة قطع)',shop],
-     ['دراسة الكلفة — مستند منفصل',costReport]].forEach(([n,fn])=>{
+     ['دراسة الكلفة — مستند منفصل',costReport],
+     ['تقرير الإنتاجية والمنظومة — إنتاج · أحمال · بطاريات · تشريج',energyReport]].forEach(([n,fn])=>{
       const b=document.createElement('button');b.textContent=n;b.className='o on';b.style.cssText='display:block;width:100%;margin:6px 0;padding:10px';
       b.onclick=fn;el.appendChild(b);});
     tip('التقرير الفني موجّه إلى البلدية ونقابة المهندسين وخالٍ من أي تسعير، ويتضمن سلسلة رياح كاملة (EN 1991-1-4) واستقراراً عاماً وتصريحاً موقّعاً. الكلفة في مستند منفصل.');
