@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+<Placemark><name>السطح</name><Polygon><outerBoundaryIs><LinearRing><coordinates>
+35.5010000,33.8930000,0 35.5013234,33.8930000,0 35.5013234,33.8932699,0 35.5010000,33.8932699,0 35.5010000,33.8930000,0
+</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+<Placemark><name>بيت الدرج</name><Polygon><outerBoundaryIs><LinearRing><coordinates>
+35.5010540,33.8932160,0 35.5011620,33.8932160,0 35.5011620,33.8932699,0 35.5010540,33.8932699,0 35.5010540,33.8932160,0
+</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+</Document></kml>

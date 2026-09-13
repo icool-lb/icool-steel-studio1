@@ -185,15 +185,26 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  L:12,S:6,h1:2.2,h2:3.4,bay:2.5,td:.5,over:.5,
  secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
  diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
- slatGap:.12,clearH:5,ridge:1.9};
+ slatGap:.12,clearH:5,ridge:1.9,
+ lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
+let KML_POLY=null,KMLP=[],OBS=[],OBSW=[],GEO=null,SUN={alt:0,az:180,up:false},SUNT=null,SHW=null;
 function inPoly(x,z,p){let c=false;
   for(let i=0,j=p.length-1;i<p.length;j=i++){const a=p[i],b=p[j];
     if(((a[1]>z)!==(b[1]>z))&&(x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0]))c=!c;}return c;}
+function xfPoly(p,t,mx,mz){
+  return p.map(q=>{const x=t?q[0]*Math.cos(t)-q[1]*Math.sin(t):q[0],
+                   z=t?q[0]*Math.sin(t)+q[1]*Math.cos(t):q[1];
+                   return [x-mx,z-mz];});}
+function unXf(q){
+  if(!SITE)return[q[0],q[1]];
+  const t=-(SITE.t||0),x=q[0]+(SITE.mx||0),z=q[1]+(SITE.mz||0);
+  return t?[x*Math.cos(t)-z*Math.sin(t),x*Math.sin(t)+z*Math.cos(t)]:[x,z];}
 function makeSite(){
-  if(!M.bOn){SITE=null;return;}
+  if(!M.bOn){SITE=null;OBSW=[];return;}
   let p;
-  if(M.bShape==='trace'&&TRACE_POLY)p=TRACE_POLY.map(q=>[q[0],q[1]]);
+  if(M.bShape==='kml'&&KML_POLY)p=KML_POLY.map(q=>[q[0],q[1]]);
+  else if(M.bShape==='trace'&&TRACE_POLY)p=TRACE_POLY.map(q=>[q[0],q[1]]);
   else if(M.bShape==='L'){
     const A=M.bA,B=M.bB,a=Math.min(M.ba,A-.3),b=Math.min(M.bb,B-.3);
     p=[[0,0],[A,0],[A,B],[a,B],[a,B-b],[0,B-b]];
@@ -202,13 +213,15 @@ function makeSite(){
     if(M.bCorner==='SE')p=p.map(q=>[A-q[0],B-q[1]]);
   }else p=[[0,0],[M.bA,0],[M.bA,M.bB],[0,M.bB]];
   const r=(M.bRot|0)%360;
-  if(r){const t=r*Math.PI/180;
-    p=p.map(q=>[q[0]*Math.cos(t)-q[1]*Math.sin(t),q[0]*Math.sin(t)+q[1]*Math.cos(t)]);
-    const mx=Math.min(...p.map(q=>q[0])),mz=Math.min(...p.map(q=>q[1]));
-    p=p.map(q=>[q[0]-mx,q[1]-mz]);}
+  let t=0,mx=0,mz=0;
+  if(r){t=r*Math.PI/180;
+    const q=p.map(a=>[a[0]*Math.cos(t)-a[1]*Math.sin(t),a[0]*Math.sin(t)+a[1]*Math.cos(t)]);
+    mx=Math.min(...q.map(a=>a[0]));mz=Math.min(...q.map(a=>a[1]));
+    p=q.map(a=>[a[0]-mx,a[1]-mz]);}
   let A2=0;for(let i=0;i<p.length;i++){const u=p[i],v=p[(i+1)%p.length];A2+=u[0]*v[1]-v[0]*u[1];}
   const xs=p.map(q=>q[0]),zs=p.map(q=>q[1]);
-  SITE={poly:p,area:Math.abs(A2/2),bb:[Math.max(...xs),Math.max(...zs)],H:M.bF*M.bFH};}
+  SITE={poly:p,area:Math.abs(A2/2),bb:[Math.max(...xs),Math.max(...zs)],H:M.bF*M.bFH,t,mx,mz};
+  OBSW=OBS.map(o=>({h:+o.h||0,kind:o.kind,name:o.name,poly:xfPoly(o.poly,t,mx,mz)}));}
 function distPoly(x,z,P){let d=1e9;
   for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];
     const vx=b[0]-a[0],vz=b[1]-a[1],l2=vx*vx+vz*vz||1;
@@ -239,7 +252,12 @@ function validate(){
   if(cov>85)VAL.msgs.push('الهيكل يغطي '+cov.toFixed(0)+'% من السطح — اترك ممر صيانة 60 سم على الأقل.');
   const need=(M.bF*M.bFH>0)?0:0;
   if(M.bPar>0&&Math.max(M.h1,M.h2)<M.bPar+.25)
-    VAL.msgs.push('الحافة الأمامية للألواح أدنى من العمامة + 25 سم — احتمال تظليل شتوي.');}
+    VAL.msgs.push('الحافة الأمامية للألواح أدنى من العمامة + 25 سم — احتمال تظليل شتوي.');
+  if(TPL[M.tpl].cover==='pv'&&(OBSW.length||M.bPar>0)){
+    const w=[10,12,14].map(h=>shadeFrac(12,21,h).frac);
+    const mx=Math.max(...w);
+    if(mx>.35)VAL.ok=false;
+    if(mx>.10)VAL.msgs.push('تظليل شتوي: حتى '+(mx*100).toFixed(0)+'% من مساحة الألواح مظللة في 21 كانون الأول بين 10:00 و14:00 — راجع تبويب «KML والظلال».');}}
 
 const F={
  L:{l:'الطول (م)',t:'r',min:2,max:60,st:.1}, S:{l:'البحر / العرض (م)',t:'r',min:1.5,max:30,st:.05},
@@ -270,7 +288,7 @@ const F={
  knee:{l:'كتف تقوية 50×50 (م)',t:'r',min:0,max:1.2,st:.05},
  win:{l:'إظهار الشبابيك',t:'s',o:[['1','نعم'],['0','لا']],num:1},
  bOn:{l:'إظهار المبنى',t:'s',o:[['1','نعم'],['0','لا']],num:1},
- bShape:{l:'شكل السطح',t:'s',o:[['rect','مستطيل'],['L','حرف L (بقصّة)'],['trace','من الصورة']]},
+ bShape:{l:'شكل السطح',t:'s',o:[['rect','مستطيل'],['L','حرف L (بقصّة)'],['trace','من الصورة'],['kml','من Google Earth (KML)']]},
  bA:{l:'الضلع A (م)',t:'r',min:2,max:60,st:.01},
  bB:{l:'الضلع B (م)',t:'r',min:2,max:60,st:.01},
  ba:{l:'القصّة — عرض a (م)',t:'r',min:.2,max:40,st:.01},
@@ -285,7 +303,17 @@ const F={
  bOZ:{l:'موضع الهيكل — Z (م)',t:'r',min:0,max:40,st:.05},
  nPost:{l:'عدد الأرجل لكل صف',t:'r',min:2,max:8,st:1},
  pInset:{l:'دخول الرجل عن الطرف (م)',t:'r',min:0,max:2,st:.05},
- fix2:{l:'تثبيت الصف الخلفي',t:'s',o:[['same','مثل الأمامي'],['base','قاعدة + كيميائي'],['beam','بليتة 200×200×10 + M16'],['through','ثروبولت'],['parapet','كتائف العمامة'],['ballast','وزن باطوني']]}};
+ fix2:{l:'تثبيت الصف الخلفي',t:'s',o:[['same','مثل الأمامي'],['base','قاعدة + كيميائي'],['beam','بليتة 200×200×10 + M16'],['through','ثروبولت'],['parapet','كتائف العمامة'],['ballast','وزن باطوني']]},
+ lat:{l:'خط العرض °',t:'n',st:.00001,min:-66,max:66},
+ lon:{l:'خط الطول °',t:'n',st:.00001,min:-180,max:180},
+ tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
+ north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
+ srH:{l:'ارتفاع بيت الدرج (م)',t:'r',min:.5,max:6,st:.05},
+ sMon:{l:'الشهر',t:'s',num:1,o:[['1','كانون الثاني'],['2','شباط'],['3','آذار'],['4','نيسان'],['5','أيار'],['6','حزيران'],['7','تموز'],['8','آب'],['9','أيلول'],['10','تشرين الأول'],['11','تشرين الثاني'],['12','كانون الأول']]},
+ sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
+ sHour:{l:'الساعة المحلية',t:'r',min:4,max:20,st:.25},
+ sunOn:{l:'بوصلة وأشعة الشمس',t:'s',o:[['1','إظهار'],['0','إخفاء']],num:1},
+ shadow:{l:'ظلال حيّة في 3D',t:'s',o:[['1','تشغيل'],['0','إيقاف']],num:1}};
 
 const TPL={
  S1:{cat:'solar',n:'مظلة أرضية — أعمدة الجهتين',cover:'pv',bld:'A',
@@ -332,6 +360,7 @@ const scene=new THREE.Scene(); scene.background=new THREE.Color(0xe9eff5);
 const camera=new THREE.PerspectiveCamera(45,1,.05,900);
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,canvas:document.getElementById('gl')});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 scene.add(new THREE.HemisphereLight(0xffffff,0x93a3b0,.95));
 const D1=new THREE.DirectionalLight(0xffffff,.55); D1.position.set(14,22,10); scene.add(D1);
 const D2=new THREE.DirectionalLight(0xffffff,.2); D2.position.set(-11,9,-9); scene.add(D2);
@@ -669,7 +698,7 @@ function build(){
   makeSite();
   const T=TPL[M.tpl];T.id=M.tpl;
   const g=T.bld==='A'?builderA(T):T.bld==='B'?builderB(T):T.bld==='C'?builderC(T):builderH(T);
-  compute(g);g.legs=LEGS.slice();validate();drawSite();dims(T,g);badge();}
+  compute(g);g.legs=LEGS.slice();validate();drawSite();dims(T,g);badge();drawSun();applyShadows();}
 function dims(T,g){
   const L=M.L,S=M.S,hi=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2);
   gD.add(dLine(V(0,-.45,S+.7),V(L,-.45,S+.7)));
@@ -736,12 +765,260 @@ function drawSite(){
           const p1=V(a[0]+(b[0]-a[0])*u0,y,a[1]+(b[1]-a[1])*u0);
           const p2=V(a[0]+(b[0]-a[0])*u1,y,a[1]+(b[1]-a[1])*u1);
           gSite.add(tube(p1,p2,M.bParT+.08,1.25,MAT.win));}}}}
+  // العوائق على السطح: بيت الدرج · الخزانات
+  OBSW.forEach(o=>{
+    if(!(o.h>0)||o.poly.length<3)return;
+    const s2=new THREE.Shape();
+    o.poly.forEach((q,i)=>{const X=q[0]-M.bOX,Z=q[1]-M.bOZ; i?s2.lineTo(X,Z):s2.moveTo(X,Z);});
+    const m2=new THREE.Mesh(new THREE.ExtrudeGeometry(s2,{depth:o.h,bevelEnabled:false}),
+      o.kind==='tank'?MAT.obs2:MAT.obs);
+    m2.rotation.x=Math.PI/2; m2.position.y=o.h; gSite.add(m2);
+    const cxz=o.poly.reduce((a,q)=>[a[0]+q[0],a[1]+q[1]],[0,0]);
+    gSite.add(lbl((o.name||ROLE[o.kind]||'عائق')+' '+o.h.toFixed(2)+' م',
+      V(cxz[0]/o.poly.length-M.bOX,o.h+.5,cxz[1]/o.poly.length-M.bOZ),'#8c5a13',1.7));});
   gSite.add(lbl('السطح '+SITE.area.toFixed(1)+' م²'+(H>0?' · '+M.bF+' طوابق · '+H.toFixed(1)+' م':''),
     V(SITE.bb[0]*.5-M.bOX,M.bPar+.45,-M.bOZ-.8),'#5b6b7a',1.8));
   // خط حدود الهيكل على السطح
   [[0,0],[M.L,0],[M.L,M.S],[0,M.S]].forEach((p,i,arr)=>{
     const q=arr[(i+1)%4];
     gSite.add(tube(V(p[0],.02,p[1]),V(q[0],.02,q[1]),.04,.02,MAT.brace));});}
+
+/* ---------- 8ب. KML · الاتجاه · الشمس ودراسة الظلال ---------- */
+const RAD=Math.PI/180;
+MAT.obs=new THREE.MeshLambertMaterial({color:0xb9b2a3});
+MAT.obs2=new THREE.MeshLambertMaterial({color:0xa9b4bd});
+MAT.sunM=new THREE.MeshBasicMaterial({color:0xF2A81D});
+MAT.ray=new THREE.LineBasicMaterial({color:0xF2A81D});
+MAT.nline=new THREE.LineBasicMaterial({color:0x0066A7});
+const gSun=new THREE.Group(); scene.add(gSun);
+const SUNL=new THREE.DirectionalLight(0xfff1d2,.95);
+SUNL.castShadow=true; SUNL.shadow.mapSize.set(1024,1024); SUNL.shadow.bias=-0.0009;
+scene.add(SUNL); scene.add(SUNL.target);
+
+/* اتجاهات البوصلة داخل المشهد: الشمال −Z عندما north=0 */
+function northDeg(){return (+M.north||0)+(M.bShape==='kml'?((M.bRot|0)%360):0);}
+function bearing(b){const t=(northDeg()+b)*RAD;return [Math.sin(t),-Math.cos(t)];}
+
+/* ---- موقع الشمس (NOAA مبسّط) ---- */
+function doy(mo,dy){const d=new Date(2001,(mo|0)-1,dy|0);return Math.floor((d-new Date(2001,0,0))/864e5);}
+function decEot(n,hr){
+  const g=(2*Math.PI/365)*(n-1+((hr||12)-12)/24);
+  const eot=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)
+      -0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const dec=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)
+      -0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)
+      -0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+  return {eot,dec};}
+function solar(lat,lon,tz,mo,dy,hr){
+  const {eot,dec}=decEot(doy(mo,dy),hr),la=lat*RAD;
+  const H=((hr*60+eot+4*(lon-15*tz))/4-180)*RAD;
+  let s=Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(H);
+  s=Math.max(-1,Math.min(1,s));
+  const alt=Math.asin(s)/RAD,ca=Math.cos(Math.asin(s));
+  let c=(Math.sin(dec)-s*Math.sin(la))/Math.max(1e-7,ca*Math.cos(la));
+  c=Math.max(-1,Math.min(1,c));
+  let az=Math.acos(c)/RAD; if(H>0)az=360-az;
+  return {alt,az,dec:dec/RAD,eot,H:H/RAD};}
+function sunTimes(lat,lon,tz,mo,dy){
+  const {eot,dec}=decEot(doy(mo,dy),12),la=lat*RAD;
+  const noon=12-eot/60-(lon-15*tz)/15;
+  let c=(Math.cos(90.833*RAD)-Math.sin(la)*Math.sin(dec))/Math.max(1e-7,Math.cos(la)*Math.cos(dec));
+  if(c>1)return{rise:null,set:null,noon};
+  if(c<-1)return{rise:0,set:24,noon};
+  const H0=Math.acos(Math.max(-1,Math.min(1,c)))/RAD/15;
+  return {rise:noon-H0,set:noon+H0,noon};}
+function hhmm(h){if(h==null||!isFinite(h))return'—';
+  let m=Math.round(h*60);m=(m%1440+1440)%1440;
+  return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function updateSun(){
+  const s=solar(+M.lat,+M.lon,+M.tz,+M.sMon,+M.sDay,+M.sHour);
+  SUN={alt:s.alt,az:s.az,up:s.alt>0,dec:s.dec,eot:s.eot};
+  SUNT=sunTimes(+M.lat,+M.lon,+M.tz,+M.sMon,+M.sDay);}
+/* اتجاه أفقي نحو الشمس داخل المشهد */
+function sunHoriz(az){return bearing(az===undefined?SUN.az:az);}
+function sunDir3(){const a=SUN.alt*RAD,h=sunHoriz();
+  return new THREE.Vector3(h[0]*Math.cos(a),Math.sin(a),h[1]*Math.cos(a));}
+
+/* ---- هندسة الظل ---- */
+function segInt(a,b,c,d){
+  const rx=b[0]-a[0],rz=b[1]-a[1],sx=d[0]-c[0],sz=d[1]-c[1];
+  const den=rx*sz-rz*sx; if(Math.abs(den)<1e-12)return false;
+  const t=((c[0]-a[0])*sz-(c[1]-a[1])*sx)/den;
+  const u=((c[0]-a[0])*rz-(c[1]-a[1])*rx)/den;
+  return t>=0&&t<=1&&u>=0&&u<=1;}
+function segHits(a,b,poly){
+  if(inPoly(b[0],b[1],poly))return true;
+  for(let i=0;i<poly.length;i++)if(segInt(a,b,poly[i],poly[(i+1)%poly.length]))return true;
+  return false;}
+/* ارتفاع مستوى الألواح فوق السطح عند z محلي داخل الهيكل */
+function panelY(z){
+  const T=TPL[M.tpl];
+  if(T.bld==='H')return +M.clearH||0;
+  if(T.flat)return +M.h1;
+  const zz=Math.max(0,Math.min(M.S,z));
+  return M.h2+(M.h1-M.h2)*(zz/Math.max(M.S,.001));}
+/* هل النقطة (X,Z) بإحداثيات السطح وعلى ارتفاع y مظللة؟ */
+function shadedAt(X,Z,y,alt,az){
+  const A=alt===undefined?SUN.alt:alt;
+  if(!(A>1))return true;
+  const tn=Math.tan(A*RAD),h=sunHoriz(az);
+  for(const o of OBSW){
+    const dh=o.h-y; if(dh<=.02)continue;
+    const d=dh/tn; if(!isFinite(d))continue;
+    if(segHits([X,Z],[X+d*h[0],Z+d*h[1]],o.poly))return true;}
+  if(SITE&&M.bPar>0){
+    const dh=M.bPar-y;
+    if(dh>.02){const d=dh/tn,b=[X+d*h[0],Z+d*h[1]],P=SITE.poly;
+      if(!inPoly(b[0],b[1],P))return true;
+      for(let i=0;i<P.length;i++)if(segInt([X,Z],b,P[i],P[(i+1)%P.length]))return true;}}
+  return false;}
+/* نسبة مساحة الألواح المظللة عند ساعة معيّنة */
+function shadeFrac(mo,dy,hr){
+  const s=solar(+M.lat,+M.lon,+M.tz,mo,dy,hr);
+  if(!(s.alt>1))return {alt:s.alt,az:s.az,frac:1,dark:1};
+  const nx=13,nz=9;let tot=0,sh=0;
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++){
+    const lx=M.L*(i+.5)/nx,lz=M.S*(j+.5)/nz;
+    tot++; if(shadedAt(M.bOX+lx,M.bOZ+lz,panelY(lz),s.alt,s.az))sh++;}
+  return {alt:s.alt,az:s.az,frac:tot?sh/tot:0,dark:0};}
+/* غلاف محدّب لظل منشور رأسي على مستوى السطح */
+function hull(pts){
+  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(p.length<3)return p;
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[];for(const q of p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
+  const up=[];for(let i=p.length-1;i>=0;i--){const q=p[i];
+    while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
+  lo.pop();up.pop();return lo.concat(up);}
+function shadowHull(poly,h,alt,az){
+  if(!(h>0)||!(alt>1))return null;
+  const d=h/Math.tan(alt*RAD); if(!isFinite(d)||d>500)return null;
+  const s=sunHoriz(az);
+  return hull(poly.concat(poly.map(p=>[p[0]-d*s[0],p[1]-d*s[1]])));}
+
+/* ---- رسم الشمس والبوصلة في 3D ---- */
+function drawSun(){
+  clr(gSun); updateSun();
+  const bbx=SITE?SITE.bb[0]:M.L,bbz=SITE?SITE.bb[1]:M.S;
+  const cx=bbx/2-(SITE?M.bOX:0),cz=bbz/2-(SITE?M.bOZ:0);
+  const rad=Math.max(Math.max(bbx,bbz)*.62,5);
+  const tg=new THREE.Vector3(cx,0,cz),dist=Math.max(rad*3.2,34);
+  SUNL.target.position.copy(tg); SUNL.target.updateMatrixWorld();
+  SUNL.position.copy(tg).add(sunDir3().multiplyScalar(dist));
+  const c=SUNL.shadow.camera;
+  c.left=-rad*2;c.right=rad*2;c.top=rad*2;c.bottom=-rad*2;c.near=1;c.far=dist*2.4;
+  c.updateProjectionMatrix();
+  const live=!!(+M.shadow&&SUN.up&&SUN.alt>1);
+  SUNL.visible=live; SUNL.intensity=live?.95:0;
+  D1.intensity=live?.20:.55; D2.intensity=live?.09:.2;
+  if(!+M.sunOn)return;
+  const y=.06;
+  [[0,'شمال','#0066A7'],[180,'جنوب','#F1471E'],[90,'شرق','#5b6b7a'],[270,'غرب','#5b6b7a']].forEach(([b,n,col])=>{
+    const v=bearing(b),x2=cx+v[0]*rad,z2=cz+v[1]*rad;
+    gSun.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      [V(cx,y,cz),V(x2,y,z2)]),b===0?MAT.nline:MAT.edge));
+    gSun.add(lbl(n,V(cx+v[0]*(rad+.9),y+.5,cz+v[1]*(rad+.9)),col,b===0||b===180?1.5:1.1));});
+  if(SUN.up&&SUN.alt>0){
+    const dir=sunDir3(),sp=new THREE.Vector3(cx,0,cz).add(dir.clone().multiplyScalar(rad*1.35));
+    const sm=new THREE.Mesh(new THREE.SphereGeometry(Math.max(rad*.055,.22),14,10),MAT.sunM);
+    sm.position.copy(sp); gSun.add(sm);
+    gSun.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(cx,0,cz),sp]),MAT.ray));
+    gSun.add(lbl('الشمس '+SUN.alt.toFixed(0)+'° · سمت '+SUN.az.toFixed(0)+'°',
+      sp.clone().setY(sp.y+.75),'#F2A81D',1.9));
+  }else{
+    gSun.add(lbl('الشمس تحت الأفق '+hhmm(+M.sHour),V(cx,1.2,cz),'#5b6b7a',2));}}
+function applyShadows(){
+  const on=!!(+M.shadow&&SUN.up&&SUN.alt>1);
+  [gS,gC,gB,gSite].forEach(g=>g.traverse(o=>{if(o.isMesh){o.castShadow=on;o.receiveShadow=on;}}));}
+
+/* ---- قراءة KML ---- */
+function tagsOf(root,name){
+  let a=[].slice.call(root.getElementsByTagName(name));
+  if(!a.length)a=[].slice.call(root.getElementsByTagName('*')).filter(e=>e.localName===name);
+  return a;}
+function kmlRing(t){
+  const r=t.trim().split(/\s+/).map(x=>x.split(','))
+    .filter(a=>a.length>=2).map(a=>[parseFloat(a[0]),parseFloat(a[1])])
+    .filter(a=>isFinite(a[0])&&isFinite(a[1]));
+  if(r.length>1&&Math.abs(r[0][0]-r[r.length-1][0])<1e-12&&Math.abs(r[0][1]-r[r.length-1][1])<1e-12)r.pop();
+  return r;}
+function llToLocal(ring,lat0,lon0){
+  const mLat=111132.92-559.82*Math.cos(2*lat0*RAD)+1.175*Math.cos(4*lat0*RAD);
+  const mLon=111412.84*Math.cos(lat0*RAD)-93.5*Math.cos(3*lat0*RAD);
+  return ring.map(p=>[(p[0]-lon0)*mLon,-(p[1]-lat0)*mLat]);}
+function polyArea(p){let a=0;for(let i=0;i<p.length;i++){const u=p[i],v=p[(i+1)%p.length];a+=u[0]*v[1]-v[0]*u[1];}return Math.abs(a/2);}
+function parseKML(txt){
+  const doc=new DOMParser().parseFromString(txt,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('الملف ليس KML صالحاً.');
+  const out=[];
+  tagsOf(doc,'Placemark').forEach(pm=>{
+    const ne=tagsOf(pm,'name')[0],nm=ne?ne.textContent.trim():'';
+    const push=(ring)=>{if(ring.length>=3)out.push({name:nm,ring});};
+    tagsOf(pm,'Polygon').forEach(pg=>{
+      const ob=tagsOf(pg,'outerBoundaryIs')[0]||pg;
+      const co=tagsOf(ob,'coordinates')[0];
+      if(co)push(kmlRing(co.textContent));});
+    tagsOf(pm,'LineString').forEach(ls=>{
+      const co=tagsOf(ls,'coordinates')[0];
+      if(co)push(kmlRing(co.textContent));});});
+  if(!out.length)throw new Error('لا يوجد أي مضلّع في الملف. ارسم السطح كمضلّع (Polygon) في Google Earth ثم Save Place As → .kml');
+  return out;}
+const ROLE={roof:'السطح',stair:'بيت الدرج',tank:'خزان مياه',obs:'عائق آخر',skip:'تجاهل'};
+const ROLE_H={stair:2.60,tank:1.20,obs:1.00};
+function loadKML(f){
+  if(!f)return;
+  if(/\.kmz$/i.test(f.name)){log('KMZ غير مدعوم — في Google Earth اختر Save Place As ثم KML بدل KMZ.',1);return;}
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const raw=parseKML(String(r.result));
+      const c=raw[0].ring.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]);
+      const lon0=c[0]/raw[0].ring.length,lat0=c[1]/raw[0].ring.length;
+      KMLP=raw.map(o=>{const xy=llToLocal(o.ring,lat0,lon0);
+        return {name:o.name,ring:o.ring,area:polyArea(xy),lat0,lon0,role:'skip',h:2.60};});
+      let bi=0;KMLP.forEach((o,i)=>{if(o.area>KMLP[bi].area)bi=i;});
+      KMLP.forEach((o,i)=>{
+        if(i===bi){o.role='roof';return;}
+        if(/درج|stair|staircase|penthouse/i.test(o.name)){o.role='stair';o.h=ROLE_H.stair;}
+        else if(/خزان|tank|water/i.test(o.name)){o.role='tank';o.h=ROLE_H.tank;}
+        else {o.role='obs';o.h=ROLE_H.obs;}});
+      log('KML: '+KMLP.length+' مضلّع. الأكبر ('+KMLP[bi].area.toFixed(1)+' م²) اعتُبر السطح. راجع الأدوار ثم اضغط «تطبيق».');
+      dock();
+    }catch(e){log('KML: '+e.message,1);}};
+  r.onerror=()=>log('تعذّر قراءة الملف.',1);
+  r.readAsText(f);}
+function kmlApply(){
+  const sel=KMLP.filter(o=>o.role!=='skip');
+  const roof=sel.find(o=>o.role==='roof');
+  if(!roof){log('حدّد مضلّعاً واحداً كـ «السطح» قبل التطبيق.',1);return;}
+  if(sel.filter(o=>o.role==='roof').length>1){log('يوجد أكثر من مضلّع بدور «السطح» — اختر واحداً فقط.',1);return;}
+  const lat0=roof.lat0,lon0=roof.lon0;
+  const rp=llToLocal(roof.ring,lat0,lon0);
+  const mnx=Math.min(...rp.map(p=>p[0])),mnz=Math.min(...rp.map(p=>p[1]));
+  KML_POLY=rp.map(p=>[p[0]-mnx,p[1]-mnz]);
+  OBS=sel.filter(o=>o!==roof).map(o=>({
+    poly:llToLocal(o.ring,lat0,lon0).map(p=>[p[0]-mnx,p[1]-mnz]),
+    h:+o.h||1,kind:o.role,name:o.name||ROLE[o.role]}));
+  GEO={lat:lat0,lon:lon0,n:sel.length,file:1};
+  M.lat=+lat0.toFixed(5);M.lon=+lon0.toFixed(5);
+  M.bShape='kml';M.bOn=1;M.bRot=0;M.north=0;
+  makeSite();
+  const m=.6;
+  M.L=+Math.max(2,SITE.bb[0]-2*m).toFixed(2);
+  M.S=+Math.max(1.5,Math.min(SITE.bb[1]-2*m,12)).toFixed(2);
+  M.bOX=m;M.bOZ=m;
+  build();fit();dock();
+  log('تم بناء السطح من KML: '+SITE.area.toFixed(1)+' م² · '+OBS.length+' عائق · مرجع '+lat0.toFixed(5)+'، '+lon0.toFixed(5)+'. الشمال مأخوذ من Google Earth.');}
+function addStair(){
+  if(!SITE){log('حدّد السطح أولاً.',1);return;}
+  const cx=SITE.bb[0]*.5,cz=SITE.bb[1]*.25,a=2.6,b=3.2;
+  const rect={x:cx,z:cz,a,b};
+  OBS.push({rect,poly:rectPoly(rect),h:+M.srH,kind:'stair',name:'بيت الدرج'});
+  build();dock();}
+function rectPoly(r){
+  const q=[[r.x-r.a/2,r.z-r.b/2],[r.x+r.a/2,r.z-r.b/2],[r.x+r.a/2,r.z+r.b/2],[r.x-r.a/2,r.z+r.b/2]];
+  return q.map(p=>unXf(p));}
+function obsSync(o){if(o.rect)o.poly=rectPoly(o.rect);}
 
 /* ---------- 9. محرّك الأوامر العربي ---------- */
 const AR='٠١٢٣٤٥٦٧٨٩';
@@ -1017,6 +1294,106 @@ function cutList(){
      <td class="n">${p.len.toFixed(2)}</td><td class="n">${p.q}</td><td class="n">${(p.len*p.q).toFixed(1)}</td><td class="n">${wt.toFixed(0)}</td></tr>`;});
   return {rows,tw,n:items.length};}
 
+/* ---------- لوحة الظلال + فصل التقرير ---------- */
+function sheetShadow(){
+  const W=760,H=470,mx=64,my=52;
+  if(!SITE)return SV(W,H,tx(W/2,H/2,'لم يُحدَّد السطح — استورد ملف KML أو أدخل أبعاد السطح',{s:12,c:'#5b6b7a'}));
+  const times=[[9,'#F1471E'],[12,'#0066A7'],[15,'#7a5cc4']];
+  const shp=[];let parLine=null;
+  times.forEach(([hr,col])=>{
+    const s=solar(+M.lat,+M.lon,+M.tz,12,21,hr);
+    OBSW.forEach(o=>{const hl=shadowHull(o.poly,o.h,s.alt,s.az);
+      if(hl)shp.push({hl,col});});
+    if(hr===12&&M.bPar>0&&s.alt>1){
+      const d=M.bPar/Math.tan(s.alt*RAD),v=sunHoriz(s.az);
+      parLine={p:SITE.poly.map(q=>[q[0]-d*v[0],q[1]-d*v[1]]),d};}});
+  const all=SITE.poly.concat(...shp.map(s=>s.hl));
+  const mnx=Math.min(...all.map(p=>p[0])),mxx=Math.max(...all.map(p=>p[0]));
+  const mnz=Math.min(...all.map(p=>p[1])),mxz=Math.max(...all.map(p=>p[1]));
+  const sc=Math.min((W-2*mx)/Math.max(mxx-mnx,1),(H-2*my-26)/Math.max(mxz-mnz,1));
+  const X=x=>mx+(x-mnx)*sc,Z=z=>my+(z-mnz)*sc;
+  const pth=p=>'M'+p.map(q=>X(q[0]).toFixed(1)+','+Z(q[1]).toFixed(1)).join(' L')+' Z';
+  let b='';
+  shp.forEach(s=>{b+=`<path d="${pth(s.hl)}" fill="${s.col}" fill-opacity=".15" stroke="${s.col}" stroke-width="1" stroke-dasharray="4 3"/>`;});
+  if(parLine)b+=`<path d="${pth(parLine.p)}" fill="none" stroke="#0066A7" stroke-width="1" stroke-dasharray="2 3"/>`;
+  b+=`<path d="${pth(SITE.poly)}" fill="none" stroke="#0B2239" stroke-width="2"/>`;
+  OBSW.forEach(o=>{
+    b+=`<path d="${pth(o.poly)}" fill="#b9b2a3" stroke="#6b6152" stroke-width="1.2"/>`;
+    const c=o.poly.reduce((a,q)=>[a[0]+q[0],a[1]+q[1]],[0,0]);
+    b+=tx(X(c[0]/o.poly.length),Z(c[1]/o.poly.length)+3,(o.name||'عائق')+' h='+(+o.h).toFixed(2),{s:8,b:1,c:'#3a3225'});});
+  b+=`<rect x="${X(M.bOX).toFixed(1)}" y="${Z(M.bOZ).toFixed(1)}" width="${(M.L*sc).toFixed(1)}" height="${(M.S*sc).toFixed(1)}" fill="none" stroke="#F1471E" stroke-width="1.6" stroke-dasharray="6 3"/>`;
+  b+=tx(X(M.bOX+M.L/2),Z(M.bOZ+M.S/2),'الهيكل '+M.L.toFixed(2)+'×'+M.S.toFixed(2),{s:9,b:1,c:'#F1471E'});
+  const nv=bearing(0),sv2=bearing(180),ax=W-50,ay=62,r=25;
+  b+=`<circle cx="${ax}" cy="${ay}" r="${r}" fill="#fff" stroke="#c9d3db" stroke-width="1"/>`;
+  b+=ln(ax,ay,ax+nv[0]*r,ay+nv[1]*r,{c:'#0066A7',w:2.2});
+  b+=tx(ax+nv[0]*(r+10),ay+nv[1]*(r+10)+3,'ش',{s:11,b:1,c:'#0066A7'});
+  b+=tx(ax+sv2[0]*(r+10),ay+sv2[1]*(r+10)+3,'ج',{s:11,b:1,c:'#F1471E'});
+  let ly=H-34;
+  b+=tx(mx,ly,'ظلال 21 كانون الأول:',{s:9,b:1,a:'start'});
+  times.forEach(([hr,col],i)=>{const x0=mx+108+i*108;
+    b+=`<rect x="${x0}" y="${ly-8}" width="15" height="9" fill="${col}" fill-opacity=".15" stroke="${col}" stroke-width="1"/>`;
+    b+=tx(x0+20,ly,hhmm(hr),{s:9,a:'start'});});
+  if(parLine)b+=tx(W-mx,ly,'--- حدّ ظل العمامة ظهراً ('+parLine.d.toFixed(2)+' م)',{s:8.5,a:'end',c:'#0066A7'});
+  b+=tx(W/2,H-11,'الظل مُسقط على مستوى السطح كغلاف محدّب لمنشور رأسي. مستوى الألواح أعلى من السطح، فالظل الواقع عليها أقصر — النسب المئوية في التقرير محسوبة على مستوى الألواح.',{s:8,c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function shadowSection(){
+  const pv=TPL[M.tpl].cover==='pv';
+  const src=(M.bShape==='kml'&&GEO&&GEO.file)
+    ? `مستورد من Google Earth (KML): المرجع <b>${GEO.lat.toFixed(5)}، ${GEO.lon.toFixed(5)}</b>، والشمال الحقيقي مأخوذ من إحداثيات الملف${(M.bRot|0)?` مع تدوير المخطط ${M.bRot|0}° (البوصلة تدور معه)`:''}.`
+    : `مُدخل يدوياً: الشمال على <b>${northDeg().toFixed(0)}°</b> من أعلى المخطط، والموقع <b>${(+M.lat).toFixed(4)}، ${(+M.lon).toFixed(4)}</b>. لدقّة أعلى استورد ملف KML من Google Earth.`;
+  const days=[[12,21,'21 كانون الأول (الانقلاب الشتوي)'],[3,21,'21 آذار (الاعتدال)'],[6,21,'21 حزيران (الانقلاب الصيفي)']];
+  let dr='';
+  days.forEach(([mo,dy,nm])=>{
+    const st=sunTimes(+M.lat,+M.lon,+M.tz,mo,dy),noon=solar(+M.lat,+M.lon,+M.tz,mo,dy,st.noon);
+    dr+=`<tr><td>${nm}</td><td class="n">${hhmm(st.rise)}</td><td class="n">${hhmm(st.set)}</td>
+     <td class="n">${noon.alt.toFixed(1)}°</td><td class="n">${st.rise!=null?(st.set-st.rise).toFixed(1):'—'}</td></tr>`;});
+  let ob='';
+  OBSW.forEach(o=>{
+    const s=solar(+M.lat,+M.lon,+M.tz,12,21,12),dh=o.h;
+    const sl=(s.alt>1)?(dh/Math.tan(s.alt*RAD)).toFixed(2)+' م':'—';
+    ob+=`<tr><td>${o.name||ROLE[o.kind]||'عائق'}</td><td>${ROLE[o.kind]||'—'}</td>
+     <td class="n">${(+o.h).toFixed(2)}</td><td class="n">${polyArea(o.poly).toFixed(1)}</td><td class="n">${sl}</td></tr>`;});
+  if(M.bPar>0){const s=solar(+M.lat,+M.lon,+M.tz,12,21,12);
+    ob+=`<tr><td>العمامة المحيطة</td><td>عمامة</td><td class="n">${(+M.bPar).toFixed(2)}</td>
+     <td class="n">محيطية</td><td class="n">${s.alt>1?(M.bPar/Math.tan(s.alt*RAD)).toFixed(2)+' م':'—'}</td></tr>`;}
+  let sh='',worst=0,worstH=null;
+  if(pv&&SITE){
+    [9,10,11,12,13,14,15].forEach(h=>{
+      const f=shadeFrac(12,21,h);
+      if(!f.dark&&f.frac>worst){worst=f.frac;worstH=h;}
+      sh+=`<tr><td class="n">${hhmm(h)}</td><td class="n">${f.alt.toFixed(1)}°</td>
+       <td class="n">${f.alt>0?f.az.toFixed(0)+'°':'—'}</td>
+       <td class="n">${f.dark?'تحت الأفق':(f.frac*100).toFixed(0)+'%'}</td></tr>`;});}
+  return `
+  <h2>8 — التوجيه ودراسة الظلال</h2>
+  <p><b>مصدر الاتجاه:</b> ${src}</p>
+  <table><tr><th>اليوم المرجعي</th><th>الشروق</th><th>الغروب</th><th>أقصى ارتفاع للشمس</th><th>طول النهار (س)</th></tr>${dr}</table>
+  <p style="font-size:10.5px;color:#5b6b7a">الأوقات بالتوقيت المحلي UTC+${(+M.tz)} وبدون توقيت صيفي؛ إن كان التوقيت الصيفي سارياً أضف ساعة.</p>
+
+  <h3>8-1 العوائق على السطح وأطوال ظلالها</h3>
+  ${ob?`<table><tr><th>العنصر</th><th>النوع</th><th>الارتفاع (م)</th><th>المساحة (م²)</th><th>طول الظل ظهر 21/12</th></tr>${ob}</table>
+   <p style="font-size:10.5px;color:#5b6b7a">طول الظل مقيس أفقياً من قاعدة العائق على مستوى السطح عند الظهيرة الشمسية لأقصر يوم في السنة — وهو الحدّ الأسوأ.</p>`
+   :`<p>لا توجد عوائق مسجّلة على السطح (بيت درج أو خزان أو ما شابه) ${M.bPar>0?'عدا العمامة':''}.</p>`}
+
+  ${pv&&SITE?`<h3>8-2 نسبة التظليل على مستوى الألواح — 21 كانون الأول</h3>
+  <table><tr><th>الساعة</th><th>ارتفاع الشمس</th><th>سمت الشمس</th><th>المساحة المظللة</th></tr>${sh}</table>
+  <p>${worst<=0.05
+    ? `<b>النتيجة:</b> التظليل الذاتي لا يتجاوز ${(worst*100).toFixed(0)}% خلال نافذة الإنتاج في أقصر أيام السنة — الموضع المقترح للهيكل مقبول من ناحية الظل.`
+    : (worst<=0.2
+      ? `<b>النتيجة:</b> يبلغ التظليل ${(worst*100).toFixed(0)}% عند الساعة ${hhmm(worstH)} في 21 كانون الأول. يُقبل مبدئياً، ويُنصح بإزاحة الهيكل بعيداً عن العائق أو رفع الحافة الأمامية.`
+      : `<b>النتيجة:</b> التظليل يبلغ ${(worst*100).toFixed(0)}% عند الساعة ${hhmm(worstH)} في 21 كانون الأول وهو مرتفع. يجب إعادة توزيع الهيكل أو رفعه قبل الاعتماد — التظليل الجزئي على سلسلة ألواح يخفض إنتاجها بما يفوق نسبة المساحة المظللة.`)}</p>`:''}
+
+  <h3>8-${pv&&SITE?'3':'2'} أساس الحساب وحدوده</h3>
+  <ul>
+   <li>موقع الشمس محسوب بخوارزمية NOAA المبسّطة: ميل الشمس ومعادلة الزمن بمتسلسلة فورييه، ثم الارتفاع والسمت من خط العرض وزاوية الساعة.</li>
+   <li>الظل مُسقط هندسياً على مستوى أفقي؛ كل عائق يُعامَل كمنشور رأسي بارتفاع ثابت.</li>
+   <li>${pv?'نسبة التظليل محسوبة بشبكة 13×9 نقطة على مستوى الألواح المائل، لا على مستوى السطح.':'الدراسة هنا للتوجيه وأطوال الظلال فقط.'}</li>
+   <li>لا تشمل الدراسة المباني المجاورة ولا الأشجار ولا الأبراج خارج حدود ملف KML؛ إن وُجدت عوائق خارجية مرتفعة فيجب إضافتها ودراستها منفصلة.</li>
+   <li>الانكسار الجوي والغيوم والغبار غير محسوبة — الدراسة هندسية بحتة لتحديد المواضع، لا لتقدير الإنتاج السنوي بالكيلوواط ساعة.</li>
+  </ul>
+`;}
+
 /* ---------- 11. التقرير الفني (بلدية / نقابة المهندسين) — بدون تسعير ---------- */
 function ovTop(cur){
   document.getElementById('ovTop').innerHTML=
@@ -1174,7 +1551,9 @@ function report(){
    <li>التربيط القطري في مستوى الأعمدة (B1) عنصر إنشائي لا زخرفي ولا يجوز حذفه في الموقع.</li>
   </ul>
 
-  <h2>8 — الخلاصة والتصريح</h2>
+  ${shadowSection()}
+
+  <h2>9 — الخلاصة والتصريح</h2>
   <p>بناءً على التحليل أعلاه، فإن الهيكل الموصوف${R.util<=1&&R.defR>=150?' <b>يستوفي</b> متطلبات المقاومة وقابلية الخدمة':' <b>يحتاج تعديلاً</b> قبل الاعتماد'}
   تحت التوليفة الحاكمة ${gov} بنسبة استغلال ${(R.util*100).toFixed(0)}% وهبوط L/${R.defR.toFixed(0)}،
   شرط تنفيذ تفاصيل التثبيت المذكورة في البند 6 والتربيط في البند 7.</p>
@@ -1281,6 +1660,7 @@ function shop(){
   <div class="sheet">${tb('05','تفصيل الجمالون')}${sheetTruss()}</div>
   <div class="sheet">${tb('06','تفاصيل الوصلات والتثبيت')}${sheetDetail()}</div>
   <div class="sheet">${tb('07','مناظير ثلاثية الأبعاد')}${sheet3D()}</div>
+  <div class="sheet">${tb('08','مخطط الظلال — 21 كانون الأول')}${sheetShadow()}</div>
 
   <h2>قائمة القطع (Cutting List)</h2>
   <table><tr><th>الرمز</th><th>العنصر</th><th>المقطع</th><th>الطول (م)</th><th>العدد</th><th>إجمالي (م)</th><th>الوزن (كغ)</th></tr>
@@ -1383,7 +1763,7 @@ function closeOv(){document.getElementById('ov').classList.remove('open');}
 
 /* ---------- 13. الواجهة ---------- */
 let TAB='design';
-const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
+const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
 function drawTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
   CATS.forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;
@@ -1474,6 +1854,122 @@ function dock(){
     paint();
     if(SITE){const b=document.createElement('button');b.textContent='حذف مخطط الموقع';b.className='o';
       b.onclick=()=>{SITE=null;clr(gSite);build();fit();dock();};el.appendChild(b);}
+  } else if(TAB==='kml'){
+    grp('استيراد السطح من Google Earth');
+    tip('في Google Earth (متصفح أو ديسكتوب): ارسم <b>مضلّعاً</b> على حدود السطح، ومضلّعاً آخر على <b>بيت الدرج</b> وأي خزان أو عائق. سمِّ كل واحد باسمه ثم <b>Save Place As → KML</b> (ليس KMZ) وارفع الملف هنا.<br>الإحداثيات الحقيقية تُقرأ من الملف، فيُضبط <b>الشمال</b> وخطا الطول والعرض تلقائياً — وهذا ما تقوم عليه دراسة الظلال.');
+    const fi=document.createElement('input');fi.type='file';fi.accept='.kml,application/vnd.google-earth.kml+xml,text/xml';
+    fi.onchange=e=>loadKML(e.target.files[0]);
+    const rk=document.createElement('div');rk.className='f';
+    const lk=document.createElement('label');lk.textContent='ملف KML';rk.appendChild(lk);rk.appendChild(fi);el.appendChild(rk);
+    if(KMLP.length){
+      const t=document.createElement('table');
+      t.innerHTML='<tr><th>المضلّع</th><th>المساحة</th><th>الدور</th><th>الارتفاع (م)</th></tr>';
+      KMLP.forEach((o,i)=>{
+        const tr=document.createElement('tr');
+        const td1=document.createElement('td');td1.textContent=o.name||('مضلّع '+(i+1));
+        const td2=document.createElement('td');td2.className='n';td2.textContent=o.area.toFixed(1)+' م²';
+        const td3=document.createElement('td');
+        const sl=document.createElement('select');
+        Object.keys(ROLE).forEach(r=>{const op=document.createElement('option');op.value=r;op.textContent=ROLE[r];
+          if(o.role===r)op.selected=true;sl.appendChild(op);});
+        sl.onchange=()=>{o.role=sl.value;if(ROLE_H[o.role])o.h=ROLE_H[o.role];dock();};
+        td3.appendChild(sl);
+        const td4=document.createElement('td');
+        if(o.role!=='roof'&&o.role!=='skip'){
+          const hi=document.createElement('input');hi.type='number';hi.step='.05';hi.min='0.2';hi.max='12';hi.value=o.h;
+          hi.style.width='70px';hi.oninput=()=>{const v=parseFloat(hi.value);if(isFinite(v))o.h=v;};
+          td4.appendChild(hi);}else td4.textContent='—';
+        [td1,td2,td3,td4].forEach(x=>tr.appendChild(x));t.appendChild(tr);});
+      el.appendChild(t);
+      const cb=document.createElement('div');cb.className='chips';
+      const ba=document.createElement('button');ba.textContent='تطبيق على المشروع';ba.className='o on';
+      ba.onclick=kmlApply;cb.appendChild(ba);
+      const bc=document.createElement('button');bc.textContent='إلغاء القائمة';
+      bc.onclick=()=>{KMLP=[];dock();};cb.appendChild(bc);
+      el.appendChild(cb);}
+    if(GEO&&GEO.file){const d=document.createElement('div');d.className='note';
+      d.innerHTML='مرجع الملف: <b>'+GEO.lat.toFixed(5)+'، '+GEO.lon.toFixed(5)+'</b> · '+GEO.n+' مضلّع مستورد.';el.appendChild(d);}
+
+    grp('الموقع الجغرافي والاتجاه');
+    ['lat','lon','tz'].forEach(k=>field(el,k));
+    if(M.bShape==='kml')tip('الاتجاه مأخوذ من KML: الشمال الحقيقي مضبوط تلقائياً. «تدوير السطح» في تبويب المبنى يدور المخطط والبوصلة معاً فيبقى الظل صحيحاً.');
+    else {field(el,'north');
+      tip('لا يوجد KML: أدخل اتجاه الشمال يدوياً. <b>0°</b> يعني الشمال نحو أعلى المخطط (−Z) والجنوب نحو أسفله.');}
+    field(el,'sunOn');field(el,'shadow');
+
+    grp('العوائق على السطح');
+    field(el,'srH');
+    const ab=document.createElement('div');ab.className='chips';
+    const b1=document.createElement('button');b1.textContent='+ بيت درج يدوي';b1.onclick=addStair;ab.appendChild(b1);
+    if(OBS.length){const b2=document.createElement('button');b2.textContent='حذف الكل';b2.className='o';
+      b2.onclick=()=>{OBS=[];build();dock();};ab.appendChild(b2);}
+    el.appendChild(ab);
+    if(!OBS.length)tip('لا توجد عوائق. استورد بيت الدرج من KML أو أضفه يدوياً ثم اضبط موضعه وأبعاده.');
+    OBS.forEach((o,i)=>{
+      const bx=document.createElement('div');bx.className='tip';
+      bx.innerHTML='<b>'+(o.name||ROLE[o.kind]||'عائق')+'</b>';
+      const mk=(lab,val,st,mn,mx,fn)=>{
+        const r=document.createElement('div');r.className='f';
+        const l=document.createElement('label');l.textContent=lab;r.appendChild(l);
+        const n=document.createElement('input');n.type='number';n.step=st;n.min=mn;n.max=mx;n.value=val;
+        n.oninput=()=>{const v=parseFloat(n.value);if(isFinite(v)){fn(v);obsSync(o);build();}};
+        r.appendChild(n);bx.appendChild(r);};
+      mk('الارتفاع (م)',o.h,.05,.2,12,v=>o.h=v);
+      if(o.rect){
+        mk('العرض a (م)',o.rect.a,.05,.5,30,v=>o.rect.a=v);
+        mk('العمق b (م)',o.rect.b,.05,.5,30,v=>o.rect.b=v);
+        mk('المركز X (م)',o.rect.x,.05,-50,90,v=>o.rect.x=v);
+        mk('المركز Z (م)',o.rect.z,.05,-50,90,v=>o.rect.z=v);
+      }else{
+        const nt=document.createElement('div');nt.style.cssText='font-size:10px;color:#5b6b7a;margin-top:4px';
+        nt.textContent='مضلّع من KML — الشكل والموضع من الملف، الارتفاع فقط قابل للتعديل.';bx.appendChild(nt);}
+      const bd=document.createElement('button');bd.textContent='حذف';bd.className='o';bd.style.marginTop='4px';
+      bd.onclick=()=>{OBS.splice(i,1);build();dock();};bx.appendChild(bd);
+      el.appendChild(bx);});
+
+    grp('الشمس — التاريخ والوقت');
+    ['sMon','sDay','sHour'].forEach(k=>field(el,k));
+    const qc=document.createElement('div');qc.className='chips';
+    [['21 كانون الأول',12,21],['21 آذار',3,21],['21 حزيران',6,21]].forEach(([n,mo,dy])=>{
+      const b=document.createElement('button');b.textContent=n;
+      if(+M.sMon===mo&&+M.sDay===dy)b.className='on';
+      b.onclick=()=>{M.sMon=mo;M.sDay=dy;build();dock();};qc.appendChild(b);});
+    const bn=document.createElement('button');bn.textContent='الآن';
+    bn.onclick=()=>{const d=new Date();M.sMon=d.getMonth()+1;M.sDay=d.getDate();
+      M.sHour=+(d.getHours()+d.getMinutes()/60).toFixed(2);build();dock();};qc.appendChild(bn);
+    el.appendChild(qc);
+    const ts=document.createElement('table');
+    ts.innerHTML=`<tr><th>ارتفاع الشمس</th><td class="n">${SUN.alt.toFixed(1)}°</td></tr>
+      <tr><th>سمت الشمس (من الشمال)</th><td class="n">${SUN.az.toFixed(1)}°</td></tr>
+      <tr><th>الشروق / الغروب</th><td class="n">${SUNT?hhmm(SUNT.rise)+' — '+hhmm(SUNT.set):'—'}</td></tr>
+      <tr><th>الظهيرة الشمسية</th><td class="n">${SUNT?hhmm(SUNT.noon):'—'}</td></tr>
+      <tr><th>ميل الشمس δ</th><td class="n">${(SUN.dec||0).toFixed(2)}°</td></tr>`;
+    el.appendChild(ts);
+
+    grp('دراسة الظلال على الألواح');
+    if(!SITE)tip('حدّد السطح أولاً (KML أو تبويب المبنى) لتفعيل دراسة الظل.');
+    else{
+      const hrs=[8,9,10,11,12,13,14,15,16];
+      const t2=document.createElement('table');
+      let r2='<tr><th>الساعة</th><th>ارتفاع °</th><th>سمت °</th><th>مظلّل %</th></tr>';
+      hrs.forEach(h=>{const f=shadeFrac(+M.sMon,+M.sDay,h);
+        const pc=f.dark?'—':(f.frac*100).toFixed(0);
+        const tg=f.dark?'':(f.frac<.05?'t-ok':(f.frac<.2?'t-w':'t-b'));
+        r2+=`<tr><td class="n">${hhmm(h)}</td><td class="n">${f.alt.toFixed(1)}</td>
+         <td class="n">${f.alt>0?f.az.toFixed(0):'—'}</td>
+         <td class="n">${tg?`<span class="tag ${tg}">${pc}%</span>`:'تحت الأفق'}</td></tr>`;});
+      t2.innerHTML=r2;el.appendChild(t2);
+      const w=shadeFrac(12,21,12);
+      const parts=[];
+      OBSW.forEach(o=>{const dh=o.h-panelY(M.S/2);
+        if(dh>.02&&w.alt>1)parts.push((o.name||ROLE[o.kind])+': '+(dh/Math.tan(w.alt*RAD)).toFixed(2)+' م');});
+      if(M.bPar>0){const dh=M.bPar-panelY(M.S);
+        if(dh>.02&&w.alt>1)parts.push('العمامة: '+(dh/Math.tan(w.alt*RAD)).toFixed(2)+' م');}
+      tip(parts.length
+        ? 'طول الظل عند ظهيرة 21 كانون الأول (أسوأ يوم) مقيساً من قاعدة العائق نحو الشمال:<br>• '+parts.join('<br>• ')+'<br>اجعل مقدّمة الألواح أبعد من هذه المسافة، أو ارفعها.'
+        : 'لا يوجد عائق أعلى من مستوى الألواح عند منتصف الهيكل — لا ظلّ ذاتيّ يُذكر عند الظهيرة.');
+      if(VAL.msgs.length){const d=document.createElement('div');d.className='note';
+        d.innerHTML='<b>تنبيهات:</b><br>• '+VAL.msgs.join('<br>• ');el.appendChild(d);}}
   } else if(TAB==='ai'){
     grp('تعديل التصميم بالوصف');
     tip('اكتب بالعربي ما تريد. أمثلة:<br>• «موقف سيارات طول 18 بحر 5.5 ميل 12 أعمدة 120x120»<br>• «هنغار طول 30 بحر 15 ارتفاع صافي 6 جملون 2.2»<br>• «برغولا كابولي طول 6 بحر 3 ثروبولت»<br>• «بدون أرجل بين حائطين بحر 7.4 ريح 120 بدون أقطار»<br>• «الارتفاع الامامي 1.8 والخلفي 2.8 ألواح بورتريه»');
@@ -1488,7 +1984,7 @@ function dock(){
   } else if(TAB==='out'){
     grp('المخرجات');
     [['التقرير الفني الموقّع — بلدية / نقابة (بدون تسعير)',report],
-     ['الخرائط التنفيذية (7 لوحات + قائمة قطع)',shop],
+     ['الخرائط التنفيذية (8 لوحات + قائمة قطع)',shop],
      ['دراسة الكلفة — مستند منفصل',costReport]].forEach(([n,fn])=>{
       const b=document.createElement('button');b.textContent=n;b.className='o on';b.style.cssText='display:block;width:100%;margin:6px 0;padding:10px';
       b.onclick=fn;el.appendChild(b);});
@@ -1536,6 +2032,12 @@ function field(el,k){
       const op=document.createElement('option');op.value=val;op.textContent=t;
       if(String(M[k])===String(val))op.selected=true;s.appendChild(op);});
     s.onchange=()=>{M[k]=f.num?+s.value:s.value;build();};row.appendChild(s);
+  }else if(f.t==='n'){
+    const i=document.createElement('input');i.type='number';i.step=f.st||1;
+    if(f.min!==undefined)i.min=f.min; if(f.max!==undefined)i.max=f.max;
+    i.value=M[k];
+    i.oninput=()=>{const v=parseFloat(i.value);if(isFinite(v)){M[k]=v;build();}};
+    row.appendChild(i);
   }else{
     const i=document.createElement('input');i.type='text';i.value=M[k]||'';
     i.oninput=()=>{M[k]=i.value;};row.appendChild(i);}
