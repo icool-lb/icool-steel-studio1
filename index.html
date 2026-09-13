@@ -77,12 +77,18 @@ td.n{text-align:left;direction:ltr;font-weight:700}
   #dock.min{width:0;padding:0}
 }
 @media print{
+  @page{size:A4;margin:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{height:auto!important;min-height:0!important;overflow:visible!important;background:#fff}
   #app{display:none!important}
-  #ov{position:static;display:block!important}
-  .otop{display:none}
-  .obody{max-width:100%;padding:0}
-  .sheet{page-break-inside:avoid}
-  h2{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #ov{position:static!important;inset:auto!important;display:block!important;overflow:visible!important;height:auto!important;z-index:auto}
+  .otop{display:none!important}
+  .obody{max-width:100%;margin:0;padding:14mm 12mm}
+  .sheet{page-break-inside:avoid;break-inside:avoid;overflow:visible}
+  tr,td,th{page-break-inside:avoid;break-inside:avoid}
+  thead{display:table-header-group}
+  h2,h3{page-break-after:avoid;break-after:avoid}
+  .foot{page-break-inside:avoid;break-inside:avoid}
 }
 </style>
 </head>
