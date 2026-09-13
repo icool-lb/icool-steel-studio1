@@ -125,11 +125,69 @@ ok(man.n===1&&man.rect&&man.poly===4,'أُضيف بيت درج مستطيل بأ
 ok(Math.abs(man.dx-5)<.01&&Math.abs(man.dz-4)<.01,'تعديل a و b ينعكس على المضلّع',man.dx.toFixed(2)+' × '+man.dz.toFixed(2));
 ok(man.h2===3.5,'تعديل الارتفاع ينتقل إلى OBSW',man.h2);
 
+console.log('\n[5ج] مصفوفات متعددة باتجاهات مختلفة');
+const mul=await pg.evaluate(()=>{
+  M.bShape='rect';M.bA=40;M.bB=30;M.bRot=0;M.north=0;M.bPar=0;OBS=[];
+  ARR=[];AI=0;M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;M.tpl='S1';applyTpl('S1');
+  M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;
+  build();
+  const one={n:ARR.length,tot:R.tot,np:NP,legs:LEGS.length,kwp:R.kwp};
+  // مصفوفة ثانية مطابقة لكن باتجاه الشرق
+  syncToArr();
+  const b=JSON.parse(JSON.stringify(ARR[0]));
+  b.name='شرقية';b.az=90;b.x=20;b.z=4;
+  ARR.push(b);AI=0;build();
+  const two={n:ARR.length,tot:R.tot,np:NP,legs:LEGS.length,kwp:R.kwp,
+    ares:ARES.length,azs:ARES.map(r=>r.arr.az)};
+  // امتداد أرجل المصفوفة الشرقية بإحداثيات السطح
+  const L2=LEGS.filter(p=>p[3]===1);
+  const xs=L2.map(p=>p[0]),zs=L2.map(p=>p[1]);
+  return {one,two,ex:{minx:Math.min(...xs),maxx:Math.max(...xs),
+                      minz:Math.min(...zs),maxz:Math.max(...zs),n:L2.length}};});
+ok(mul.one.n===1,'مصفوفة واحدة عند البداية',mul.one.n);
+ok(mul.two.n===2&&mul.two.ares===2,'أصبحتا مصفوفتين ولكل منهما تحقق مستقل',mul.two.ares);
+ok(Math.abs(mul.two.tot-2*mul.one.tot)<1,'وزن الحديد تضاعف بدقّة',
+   mul.one.tot.toFixed(0)+' → '+mul.two.tot.toFixed(0)+' كغ');
+ok(mul.two.np===2*mul.one.np&&Math.abs(mul.two.kwp-2*mul.one.kwp)<1e-6,
+   'عدد الألواح والقدرة تضاعفا',mul.one.np+' → '+mul.two.np+' لوح');
+ok(mul.two.legs===2*mul.one.legs,'الأرجل تضاعفت',mul.one.legs+' → '+mul.two.legs);
+ok(mul.two.azs.join(',')==='180,90','السمتان محفوظان لكل مصفوفة',mul.two.azs.join(' · '));
+ok(Math.abs(mul.ex.maxx-mul.ex.minx-6)<.01&&Math.abs(mul.ex.maxz-mul.ex.minz-10)<.01,
+   'المصفوفة الشرقية انقلب امتدادها (البحر على X والطول على Z)',
+   'X='+(mul.ex.maxx-mul.ex.minx).toFixed(2)+' Z='+(mul.ex.maxz-mul.ex.minz).toFixed(2));
+ok(Math.abs(mul.ex.minx-20)<.01&&Math.abs(mul.ex.maxz-4)<.01,
+   'ركن المصفوفة الشرقية عند (20، 4) كما حُدّد',
+   'minX='+mul.ex.minx.toFixed(2)+' maxZ='+mul.ex.maxz.toFixed(2));
+
+console.log('\n[5د] عائق مبنى مجاور مرتفع');
+const nb=await pg.evaluate(()=>{
+  ARR=[ARR[0]];AI=0;applyArr(ARR[0]);M.az=180;M.bOX=2;M.bOZ=2;M.L=10;M.S=6;M.bPar=0;
+  // مبنى مجاور جنوب السطح بارتفاع 12 م فوق سطحنا
+  OBS=[{poly:[[0,14],[30,14],[30,24],[0,24]],h:12,base:-9,kind:'bldg',name:'جار جنوبي'}];
+  build();
+  const A=32.69;                       // ظهيرة 21/12 في بيروت
+  const d=12/Math.tan(A*Math.PI/180);  // ≈ 18.6 م
+  return {d,
+    near:shadedAt(5,14-d*0.5,1.5,A,180),   // ضمن الظل
+    far: shadedAt(5,14-d-3,1.5,A,180),     // خارجه
+    frac:shadeFracA(ARR[0],12,21,12).frac,
+    base:OBSW[0].base,h:OBSW[0].h};});
+ok(nb.near===true,'نقطة ضمن ظل الجار الجنوبي = مظللة (طول الظل '+nb.d.toFixed(1)+' م)',nb.near);
+ok(nb.far===false,'نقطة أبعد من ظلّه = مشمسة',nb.far);
+ok(nb.base===-9&&nb.h===12,'منسوب القاعدة والقمّة محفوظان في OBSW','base='+nb.base+' h='+nb.h);
+ok(nb.frac>0.9,'الهيكل بكامله داخل ظل الجار ظهر 21/12',(nb.frac*100).toFixed(0)+'%');
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
+  // حالة معروفة: مصفوفتان + بيت درج + عمامة
+  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.9;M.north=0;M.bRot=0;
+  ARR=[ARR[0]];AI=0;applyArr(ARR[0]);M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;
+  OBS=[];build();addStair();
+  syncToArr();const b2=JSON.parse(JSON.stringify(ARR[0]));
+  b2.name='غربية';b2.az=225;b2.x=22;b2.z=6;ARR.push(b2);build();
   const errs=[];let rep='',shp='';
-  try{report();rep=document.getElementById('ovBody').innerHTML;}catch(e){errs.push('report: '+e.message);}
   try{shop();shp=document.getElementById('ovBody').innerHTML;}catch(e){errs.push('shop: '+e.message);}
+  try{report();rep=document.getElementById('ovBody').innerHTML;}catch(e){errs.push('report: '+e.message);}
   return {errs,hasSec:/التوجيه ودراسة الظلال/.test(rep),hasNine:/9 — الخلاصة/.test(rep),
     hasSheet:/مخطط الظلال/.test(shp),svg:(shp.match(/<svg/g)||[]).length,repLen:rep.length};});
 ok(out.errs.length===0,'التقرير والخرائط تُبنى بلا استثناء',out.errs.join(' | ')||'نظيف');
@@ -143,6 +201,14 @@ ok(det.stair,'فصل التقرير يسرد بيت الدرج المُضاف');
 ok(det.par,'يسرد العمامة المحيطة كعائق');
 ok(det.tbl,'يتضمّن جدول نسبة التظليل على مستوى الألواح');
 ok(det.lim,'يذكر حدود الدراسة صراحة (المباني المجاورة والأشجار)');
+const arr=await pg.evaluate(()=>{const h=document.getElementById('ovBody').innerHTML;
+  return {tbl:/1\.0 المصفوفات \(2 هياكل\)/.test(h),gov:/\(حاكمة\)/.test(h),
+    west:/غربية/.test(h),note:/مجموع كل المصفوفات/.test(h),
+    cols:/<th>غربية<br>/.test(h)};});
+ok(arr.tbl,'جدول المصفوفات يظهر عند وجود أكثر من هيكل');
+ok(arr.gov,'المصفوفة الحاكمة مُعلَّمة');
+ok(arr.west&&arr.cols,'أسماء المصفوفات تظهر في الجدول وفي أعمدة التظليل');
+ok(arr.note,'ملاحظة أن الكميات مجموع كل المصفوفات موجودة');
 
 console.log('\n[7] تبويب KML في الواجهة');
 const ui=await pg.evaluate(()=>{
