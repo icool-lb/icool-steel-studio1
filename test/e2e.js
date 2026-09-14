@@ -412,6 +412,87 @@ ok(sh2.seasons,'الأيام الأربعة المرجعية موجودة بأس
 ok(sh2.svg>=5,'خريطة حرارية + أربعة مخططات ظل',sh2.svg+' SVG');
 ok(sh2.lim,'حدود الدراسة مذكورة صراحة');
 
+console.log('\n[12] غرفة الكهرباء — الهندسة وقراءة DXF');
+const DXFTXT=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC',
+ '0','SECTION','2','ENTITIES','0','LWPOLYLINE','8','0','90','4','70','1',
+ '10','0.0','20','0.0','10','6000.0','20','0.0','10','6000.0','20','4000.0',
+ '10','0.0','20','4000.0','0','ENDSEC','0','EOF'].join('\n');
+const DXFNOU=DXFTXT.replace('9\n$INSUNITS\n70\n4\n','');
+const rm=await pg.evaluate(t=>{
+  ROOM.on=1;ROOM.poly=null;ROOM.W=6;ROOM.L=4;ROOM.H=3;EQP=[];
+  const w=roomWalls();
+  const inward=w.map(x=>{const m=wallPt(x,x.len/2);
+    return inPoly(m[0]+x.nx*0.1,m[1]+x.nz*0.1,roomPoly());});
+  const d1=parseDXF(t.a),d2=parseDXF(t.b);
+  const c1=dxfCandidates(d1,dxfScale(d1));
+  const c2=dxfCandidates(d2,dxfScale(d2));
+  roomFromPoly(c1[0].poly,'DXF');
+  const bb=roomBB();
+  return {area:6*4,got:polyArea([[0,0],[6,0],[6,4],[0,4]]),
+    nw:w.length,lens:w.map(x=>+x.len.toFixed(2)),inward,
+    u1:d1.units,sc1:dxfScale(d1),sc2:dxfScale(d2),
+    a1:+c1[0].area.toFixed(2),n1:c1[0].nm,
+    rarea:+roomArea().toFixed(2),rw:ROOM.W,rl:ROOM.L,
+    org:[+bb.x0.toFixed(3),+bb.z0.toFixed(3)]};},{a:DXFTXT,b:DXFNOU});
+ok(rm.nw===4&&rm.lens.join(',')==='6,4,6,4','المستطيل يعطي أربعة جدران بأطوال صحيحة',rm.lens.join(' · '));
+ok(rm.inward.every(Boolean),'كل نواظم الجدران تشير إلى داخل الغرفة');
+ok(rm.u1===4&&Math.abs(rm.sc1-0.001)<1e-9,'وحدة DXF تُقرأ من $INSUNITS (ملم)',rm.u1+' ⇒ ×'+rm.sc1);
+ok(Math.abs(rm.sc2-0.001)<1e-9,'وبدونها تُخمَّن من حجم الأرقام',' ×'+rm.sc2);
+ok(Math.abs(rm.a1-24)<0.01,'المضلّع المغلق = 24 م² (6×4)',rm.a1+' م²');
+ok(Math.abs(rm.rarea-24)<0.01&&rm.rw===6&&rm.rl===4,'الغرفة بُنيت من DXF بأبعادها',
+   rm.rw+'×'+rm.rl+' = '+rm.rarea+' م²');
+ok(rm.org[0]===0&&rm.org[1]===0,'المحيط أُزيح إلى الأصل',rm.org.join(','));
+
+console.log('\n[12ب] التوزيع التلقائي وتحقّق المسافات');
+const ly=await pg.evaluate(()=>{
+  // منظومة معلومة: مصفوفة PV + بطاريات
+  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=0;OBS=[];ARR=[];AI=0;
+  M.tpl='S1';applyTpl('S1');M.L=12;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;build();
+  M.sysType='hybrid';M.invModel='deye12';M.invKW=12;
+  M.batChem='lifepo4';M.batV=48;M.batVm=51.2;M.batAh=200;M.batDays=1;M.loadD=30;M.loadNight=45;
+  ROOM.poly=null;ROOM.W=7;ROOM.L=5;ROOM.H=3;ROOM.on=1;
+  ROOM.door={wall:0,off:.6,w:.9,h:2.1};ROOM.win={on:1,wall:2,off:1.2,w:1.2,h:1,sill:1.1};
+  autoLayout();
+  const v=roomCheck();
+  const kinds={};EQP.forEach(e=>kinds[e.kind]=(kinds[e.kind]||0)+1);
+  const P=roomPoly();
+  const inside=EQP.every(e=>eqFoot(e).every(q=>inPoly(q[0],q[1],P)));
+  // قطعة تخرج عن الغرفة عمداً
+  EQP.push({kind:'db',name:'خارج',tag:'X',x:20,z:20,rot:0,y:1.4});
+  const v2=roomCheck();
+  EQP.pop();
+  // قطعة تعترض الباب
+  const w0=roomWalls()[0],dc=wallPt(w0,ROOM.door.off+ROOM.door.w/2);
+  EQP.push({kind:'db',name:'أمام الباب',tag:'D',x:dc[0],z:dc[1],rot:0,y:1.4});
+  const v3=roomCheck();
+  EQP.pop();
+  return {n:EQP.length,kinds,inside,ok:v.ok,msgs:v.msgs.length,
+    inv:invCount(),bat:batCalc().n,
+    out:v2.msgs.some(m=>/خارج حدود الغرفة/.test(m)),
+    door:v3.msgs.some(m=>/يعترض الباب/.test(m))};});
+ok(ly.kinds.inv===ly.inv,'عدد الإنفرترات يطابق قدرة المنظومة',ly.inv+' إنفرتر');
+ok((ly.kinds.batw||0)===ly.bat,'عدد البطاريات يطابق حساب البنك',ly.bat+' وحدة');
+ok(ly.kinds.db>=1&&ly.kinds.earth===1&&ly.kinds.fan===1&&ly.kinds.ext===1,
+   'التابلوه والتأريض والتهوية والطفاية مضافة',Object.keys(ly.kinds).join(' · '));
+ok(ly.inside,'كل القطع داخل حدود الغرفة بعد التوزيع');
+ok(ly.out,'يُكشف خروج قطعة عن حدود الغرفة');
+ok(ly.door,'يُكشف اعتراض قطعة للباب');
+
+console.log('\n[12ج] مخططات الغرفة والتقرير');
+const rr2=await pg.evaluate(()=>{
+  const errs=[];let h='';
+  try{roomReport();h=document.getElementById('ovBody').innerHTML;}catch(e){errs.push(e.message);}
+  return {errs,svg:(h.match(/<svg/g)||[]).length,
+    secs:['بيانات الغرفة','المخطط الأفقي','واجهات الجدران','جدول المعدّات',
+          'تحقّق المسافات والسلامة','ملاحظات التنفيذ'].every(t=>h.includes(t)),
+    sched:eqSchedule().length,
+    elev:roomWalls().length,
+    dwg:/DWG لا يُقرأ/.test(document.getElementById('dock').innerHTML)};});
+ok(rr2.errs.length===0,'تقرير الغرفة يُبنى بلا استثناء',rr2.errs.join(' | ')||'نظيف');
+ok(rr2.secs,'الفصول الستة موجودة');
+ok(rr2.svg>=1+rr2.elev,'مخطط أفقي + واجهة لكل جدار',rr2.svg+' SVG لـ '+rr2.elev+' جدران');
+ok(rr2.sched>0,'جدول المعدّات يجمّع القطع المتشابهة',rr2.sched+' صنف');
+
 console.log('\n[7] تبويب KML في الواجهة');
 const ui=await pg.evaluate(()=>{
   closeOv();TAB='kml';drawTabs();dock();

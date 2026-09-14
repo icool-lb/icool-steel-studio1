@@ -112,6 +112,7 @@ td.n{text-align:left;direction:ltr;font-weight:700}
       <button id="vCover" class="on">غطاء</button>
       <button id="vDim" class="on">أبعاد</button>
       <button id="vSite" class="on">الموقع</button>
+      <button id="vRoom">الغرفة</button>
       <button id="vFit">ضبط</button>
       <button id="vDock">▼</button>
     </div>
@@ -202,7 +203,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  pWp:660,pVoc:45.9,pVmp:38.4,pIsc:18.3,pImp:17.2,pTcV:-0.25,
  tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
  loadD:30,loadNight:45,loadPk:6,
- batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90};
+ batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90,invModel:'deye12'};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
 let KML_POLY=null,KMLP=[],OBS=[],OBSW=[],GEO=null,SUN={alt:0,az:180,up:false},SUNT=null,SHW=null;
 let ARR=[],AI=0,ARES=[],NOGRND=false;
@@ -362,6 +363,7 @@ const F={
  batAh:{l:'سعة وحدة البطارية (Ah)',t:'n',st:5,min:20,max:2000},
  batDays:{l:'أيام الاستقلالية',t:'r',min:.5,max:5,st:.5},
  batDoD:{l:'عمق التفريغ المسموح %',t:'r',min:20,max:95,st:1},
+ invModel:{l:'طراز الإنفرتر',t:'s',o:[['deye5','Deye 5kW'],['deye6','Deye 6kW'],['deye8','Deye 8kW'],['deye12','Deye 12kW'],['deye16','Deye 16kW'],['deye30','Deye 30kW'],['deye50','Deye 50kW'],['gen','إنفرتر عام']]},
  srH:{l:'ارتفاع بيت الدرج (م)',t:'r',min:.5,max:6,st:.05},
  sMon:{l:'الشهر',t:'s',num:1,o:[['1','كانون الثاني'],['2','شباط'],['3','آذار'],['4','نيسان'],['5','أيار'],['6','حزيران'],['7','تموز'],['8','آب'],['9','أيلول'],['10','تشرين الأول'],['11','تشرين الثاني'],['12','كانون الأول']]},
  sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
@@ -865,6 +867,10 @@ function badge(){
 let TR={img:null,pts:[],sc:null,mode:'poly',p1:null,p2:null};
 function siteFromTrace(){
   if(TR.pts.length<3||!TR.sc){log('حدّد 3 نقاط على الأقل وأدخل مقياس معلوم.',1);return;}
+  if(TR.target==='room'){
+    const q=TR.pts.map(a=>[a.x/TR.sc,a.y/TR.sc]);
+    TR.target=null;TAB='room';drawTabs();
+    roomFromPoly(q,'صورة/PDF');setRoomView(true);return;}
   const p=TR.pts.map(q=>[q.x/TR.sc,q.y/TR.sc]);
   const xs=p.map(a=>a[0]),ys=p.map(a=>a[1]);
   const mnx=Math.min(...xs),mny=Math.min(...ys);
@@ -1840,6 +1846,560 @@ function shadowSection(){
   </ul>
 `;}
 
+/* ---------- 8ز. غرفة الكهرباء: مكتبة القطع · المخطط · التوزيع ---------- */
+const gRoom=new THREE.Group(); scene.add(gRoom);
+let ROOM={on:0,poly:null,H:3.0,W:5,L:4,src:'manual',
+  door:{wall:0,off:.6,w:.9,h:2.1},win:{on:1,wall:2,off:1.2,w:1.2,h:1.0,sill:1.1}};
+let EQP=[],EQSEL=-1,RVIEW=false,DXF=null;
+
+/* كتالوج الإنفرترات — أبعاد حقيقية بالملم */
+const INVLIB={
+ 'deye5':{n:'Deye 5kW',kw:5,w:330,h:590,d:240},'deye6':{n:'Deye 6kW',kw:6,w:330,h:590,d:240},
+ 'deye8':{n:'Deye 8kW',kw:8,w:350,h:610,d:250},'deye12':{n:'Deye 12kW',kw:12,w:420,h:690,d:280},
+ 'deye16':{n:'Deye 16kW',kw:16,w:470,h:740,d:300},'deye30':{n:'Deye 30kW',kw:30,w:560,h:820,d:330},
+ 'deye50':{n:'Deye 50kW',kw:50,w:600,h:900,d:360},'gen':{n:'إنفرتر عام',kw:10,w:450,h:700,d:280}};
+/* مكتبة قطع الغرفة — الأبعاد بالمتر، clr = المسافة الحرّة المطلوبة أمام القطعة */
+const EQLIB={
+ inv :{n:'إنفرتر',        mount:'wall',w:.47,h:.74,d:.30,y:1.20,clr:1.00,col:0xEDEEEF,face:'inv'},
+ batw:{n:'بطارية جدارية',  mount:'wall',w:.52,h:.65,d:.21,y:0.95,clr:0.80,col:0xF0F1F1,face:'bat'},
+ batc:{n:'خزانة بطاريات',  mount:'floor',w:.56,h:1.08,d:.36,y:0,  clr:0.80,col:0xF0F1F1,face:'bat'},
+ batr:{n:'رف بطاريات',     mount:'floor',w:.60,h:1.40,d:.42,y:0,  clr:1.00,col:0xE8EAEB,face:'bat'},
+ db  :{n:'تابلوه توزيع',   mount:'wall',w:.60,h:.80,d:.20,y:1.40,clr:1.00,col:0xF2F2F0,face:'db'},
+ acdb:{n:'صندوق حماية AC', mount:'wall',w:.30,h:.40,d:.16,y:1.50,clr:0.80,col:0xE6E8EA},
+ dcdb:{n:'صندوق حماية DC', mount:'wall',w:.30,h:.40,d:.16,y:1.50,clr:0.80,col:0xE6E8EA},
+ earth:{n:'بار التأريض',   mount:'wall',w:.40,h:.08,d:.06,y:0.35,clr:0.30,col:0xC08A2E},
+ ac  :{n:'مكيّف سبليت',    mount:'wall',w:.90,h:.30,d:.22,y:2.30,clr:0.30,col:0xF7F9FA},
+ fan :{n:'مروحة شفط',      mount:'wall',w:.35,h:.35,d:.16,y:2.40,clr:0.30,col:0xC8CFD5},
+ ext :{n:'طفاية حريق',     mount:'wall',w:.18,h:.52,d:.18,y:1.00,clr:0.30,col:0xC0392B},
+ light:{n:'إنارة سقف',     mount:'ceil',w:1.20,h:.09,d:.16,y:0,   clr:0,   col:0xF7FAFC},
+ tray:{n:'مسار كابلات',    mount:'wall',w:2.00,h:.10,d:.20,y:2.10,clr:0,   col:0xB9C2C9},
+ bench:{n:'طاولة خدمة',    mount:'floor',w:1.20,h:.80,d:.60,y:0,  clr:0.70,col:0x9A8F7D}};
+
+/* ---- وجوه مرسومة على canvas (منقولة عن منصة الغرفة) ---- */
+function eqCv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
+function eqTex(c){const t=new THREE.CanvasTexture(c);return t;}
+function rr2(x,gx,gy,w,h,r){x.beginPath();x.moveTo(gx+r,gy);x.arcTo(gx+w,gy,gx+w,gy+h,r);
+  x.arcTo(gx+w,gy+h,gx,gy+h,r);x.arcTo(gx,gy+h,gx,gy,r);x.arcTo(gx,gy,gx+w,gy,r);x.closePath();}
+function faceInv(label){
+  const c=eqCv(512,800),x=c.getContext('2d');
+  x.fillStyle='#F3F4F4';x.fillRect(0,0,512,800);
+  x.fillStyle='#ECEDEE';x.fillRect(0,470,512,330);
+  x.strokeStyle='#D2D5D7';x.lineWidth=3;x.beginPath();x.moveTo(0,470);x.lineTo(512,470);x.stroke();
+  x.fillStyle='#DCDEE0';rr2(x,146,120,220,150,14);x.fill();
+  x.fillStyle='#11161B';rr2(x,176,140,160,96,8);x.fill();
+  x.fillStyle='#2E7BD6';x.fillRect(190,158,60,8);x.fillRect(190,178,110,6);x.fillRect(190,194,80,6);
+  ['#3FCF6B','#3FCF6B','#3FA9E0','#E8B93B'].forEach((cc,i)=>{
+    x.fillStyle=cc;x.beginPath();x.arc(196+i*40,112,6,0,7);x.fill();});
+  x.fillStyle='#C9CDD0';for(let j=0;j<4;j++){rr2(x,182+j*40,288,30,22,5);x.fill();}
+  x.fillStyle='#0B5FBF';x.font='bold 58px Helvetica,Arial';x.textAlign='center';
+  x.fillText('iCOOL',256,400);
+  x.fillStyle='#7E868D';x.font='500 26px Helvetica,Arial';x.fillText(label||'',256,445);
+  x.fillStyle='#DADDDF';
+  for(let v=0;v<7;v++){x.fillRect(40,520+v*26,54,10);x.fillRect(418,520+v*26,54,10);}
+  x.fillStyle='#E2E4E6';rr2(x,120,640,272,110,8);x.fill();
+  x.strokeStyle='#CBCFD2';x.lineWidth=3;x.stroke();
+  x.fillStyle='#9AA1A7';x.font='bold 30px Helvetica,Arial';x.fillText('+   −',256,620);
+  return eqTex(c);}
+function faceBat(kwh,soc){
+  const c=eqCv(512,900),x=c.getContext('2d');
+  x.fillStyle='#F5F6F6';x.fillRect(0,0,512,900);
+  x.fillStyle='#EAEBEC';x.fillRect(0,0,512,60);
+  x.fillStyle='#22262A';rr2(x,150,14,70,34,5);x.fill();
+  x.fillStyle='#E8471F';rr2(x,290,14,70,34,5);x.fill();
+  x.fillStyle='#101418';x.beginPath();x.arc(256,470,86,0,7);x.fill();
+  x.strokeStyle='#1E2A36';x.lineWidth=9;x.beginPath();x.arc(256,470,70,0,7);x.stroke();
+  x.strokeStyle='#3AA7F0';x.lineWidth=9;x.beginPath();
+  x.arc(256,470,70,-Math.PI/2,-Math.PI/2+Math.PI*2*((soc||90)/100));x.stroke();
+  x.fillStyle='#3AA7F0';x.font='bold 26px Helvetica,Arial';x.textAlign='center';x.fillText('iCOOL',256,440);
+  x.fillStyle='#CFE6F8';x.font='bold 48px Helvetica,Arial';x.fillText((soc||90)+'%',256,500);
+  x.fillStyle='#9AA1A7';x.font='500 28px Helvetica,Arial';
+  x.fillText((kwh||5)+' kWh  LiFePO4',256,640);
+  x.fillStyle='#E4E6E7';x.fillRect(60,790,120,60);
+  return eqTex(c);}
+function faceDb(rows,mods){
+  rows=Math.max(1,rows|0);mods=Math.max(4,mods|0);
+  const pw=40*mods+80,ph=150*rows+90,c=eqCv(pw,ph),x=c.getContext('2d');
+  x.fillStyle='#F2F2F0';x.fillRect(0,0,pw,ph);
+  const bc=['#2B6CB8','#2B6CB8','#D03A2B','#22282D','#2B6CB8','#3B8F5C'];
+  for(let r=0;r<rows;r++){
+    const y=48+r*150;
+    x.fillStyle='#E4E4E2';rr2(x,30,y-8,pw-60,116,6);x.fill();
+    x.fillStyle='#CFCFCC';x.fillRect(34,y+44,pw-68,10);
+    for(let m=0;m<mods;m++){
+      const bx=40+m*40; if(bx+34>pw-34)break;
+      x.fillStyle=(r===rows-1)?['#C9302C','#2E8B57','#22282D','#E0E0DE'][m%4]:'#EDEDEB';
+      rr2(x,bx,y,34,100,3);x.fill();
+      x.strokeStyle='#C6C6C3';x.lineWidth=2;x.stroke();
+      x.fillStyle=bc[(m+r)%6];x.fillRect(bx+6,y+26,22,26);
+      x.fillStyle='#9A9A97';x.fillRect(bx+8,y+8,18,8);}}
+  const by=ph-62;
+  x.fillStyle='#2166A8';rr2(x,34,by,(pw-68)*.47,26,4);x.fill();
+  x.fillStyle='#8FB43A';rr2(x,34+(pw-68)*.53,by,(pw-68)*.47,26,4);x.fill();
+  x.fillStyle='rgba(0,0,0,.35)';
+  for(let tb=0;tb*26<pw-80;tb++)x.fillRect(44+tb*26,by+7,5,12);
+  const lw=['#2166A8','#8FB43A','#C0392B','#15181B','#D9A520'];
+  x.lineWidth=5;x.lineCap='round';
+  for(let q=0;q<14;q++){x.strokeStyle=lw[q%lw.length];x.beginPath();
+    x.moveTo(50+q*((pw-100)/13),by-4);
+    x.bezierCurveTo(56+q*((pw-100)/13),by-30,40+q*22,by-44,46+q*((pw-110)/13),by-56);x.stroke();}
+  return eqTex(c);}
+const FACE={};
+function faceFor(e){
+  const L=EQLIB[e.kind];if(!L||!L.face)return null;
+  const key=L.face+'|'+(e.label||'')+'|'+(e.kwh||'')+'|'+(e.rows||'')+'|'+(e.mods||'');
+  if(FACE[key])return FACE[key];
+  const t=L.face==='inv'?faceInv(e.label||''):L.face==='bat'?faceBat(e.kwh,e.soc)
+        :L.face==='db'?faceDb(e.rows||3,e.mods||12):null;
+  if(t)FACE[key]=t;return t;}
+
+/* ---- هندسة الغرفة ---- */
+function roomPoly(){
+  if(ROOM.poly&&ROOM.poly.length>=3)return ROOM.poly;
+  const W=Math.max(1,+ROOM.W),L=Math.max(1,+ROOM.L);
+  return [[0,0],[W,0],[W,L],[0,L]];}
+function roomBB(){const p=roomPoly();
+  const xs=p.map(q=>q[0]),zs=p.map(q=>q[1]);
+  return {x0:Math.min(...xs),x1:Math.max(...xs),z0:Math.min(...zs),z1:Math.max(...zs)};}
+function roomArea(){return polyArea(roomPoly());}
+function roomWalls(){
+  const p=roomPoly(),out=[];
+  for(let i=0;i<p.length;i++){
+    const a=p[i],b=p[(i+1)%p.length];
+    const dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz)||1;
+    const ux=dx/len,uz=dz/len;
+    /* الاتجاه الداخلي: يسار الضلع لمضلّع عكس عقارب الساعة في (x,z) */
+    let nx=uz,nz=-ux;
+    const mx=(a[0]+b[0])/2+nx*.05,mz=(a[1]+b[1])/2+nz*.05;
+    if(!inPoly(mx,mz,p)){nx=-nx;nz=-nz;}
+    out.push({i,a,b,len,ux,uz,nx,nz,ang:Math.atan2(nx,nz)*180/Math.PI});}
+  return out;}
+/* موضع على الجدار w عند الإزاحة off بالمتر من بدايته */
+function wallPt(w,off){return [w.a[0]+w.ux*off,w.a[1]+w.uz*off];}
+
+/* ---- بناء الغرفة في 3D ---- */
+MAT.rFloor=new THREE.MeshLambertMaterial({color:0xBFC4C8});
+MAT.rWall =new THREE.MeshLambertMaterial({color:0xE4E7E9});
+MAT.rWall2=new THREE.MeshLambertMaterial({color:0xD5D9DC});
+MAT.rDoor =new THREE.MeshLambertMaterial({color:0x8C6239});
+MAT.rGlass=new THREE.MeshLambertMaterial({color:0x8FB6CE,transparent:true,opacity:.45});
+MAT.rClr  =new THREE.MeshBasicMaterial({color:0xF1471E,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false});
+MAT.rBad  =new THREE.MeshBasicMaterial({color:0xC0392B,transparent:true,opacity:.30,side:THREE.DoubleSide,depthWrite:false});
+const WT=.20;
+function wallSeg(w,o0,o1,y0,y1,mat){
+  if(o1-o0<=.001||y1-y0<=.001)return null;
+  const p0=wallPt(w,o0),p1=wallPt(w,o1);
+  const cx=(p0[0]+p1[0])/2+w.nx*WT/2, cz=(p0[1]+p1[1])/2+w.nz*WT/2;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(o1-o0,y1-y0,WT),mat||MAT.rWall);
+  m.position.set(cx,(y0+y1)/2,cz);
+  m.rotation.y=Math.atan2(w.ux,w.uz)-Math.PI/2;
+  return m;}
+function eqMesh(e){
+  const L=EQLIB[e.kind];if(!L)return null;
+  const w=+e.w||L.w,h=+e.h||L.h,d=+e.d||L.d;
+  const t=faceFor(e);
+  const body=new THREE.MeshLambertMaterial({color:L.col});
+  const side=new THREE.MeshLambertMaterial({color:L.col});
+  const mats=t?[side,side,side,side,new THREE.MeshLambertMaterial({map:t}),side]:body;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mats);
+  const y=(L.mount==='floor')?h/2:(L.mount==='ceil'?ROOM.H-h/2:(+e.y||L.y));
+  m.position.set(e.x,y,e.z);
+  m.rotation.y=(+e.rot||0)*Math.PI/180;
+  return m;}
+function buildRoom(){
+  clr(gRoom);
+  if(!ROOM.on)return;
+  const p=roomPoly(),bb=roomBB(),H=Math.max(2,+ROOM.H);
+  const sh=new THREE.Shape();
+  p.forEach((q,i)=>i?sh.lineTo(q[0],q[1]):sh.moveTo(q[0],q[1]));
+  const fl=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.15,bevelEnabled:false}),MAT.rFloor);
+  fl.rotation.x=Math.PI/2;gRoom.add(fl);
+  const walls=roomWalls();
+  walls.forEach(w=>{
+    const dr=(ROOM.door&&ROOM.door.wall===w.i)?ROOM.door:null;
+    const wn=(ROOM.win&&ROOM.win.on&&ROOM.win.wall===w.i)?ROOM.win:null;
+    const cuts=[];
+    if(dr)cuts.push({o0:Math.max(0,dr.off),o1:Math.min(w.len,dr.off+dr.w),y0:0,y1:dr.h,kind:'door'});
+    if(wn)cuts.push({o0:Math.max(0,wn.off),o1:Math.min(w.len,wn.off+wn.w),y0:wn.sill,y1:wn.sill+wn.h,kind:'win'});
+    cuts.sort((a,b)=>a.o0-b.o0);
+    let cur=0;
+    cuts.forEach(c=>{
+      gRoom.add(wallSeg(w,cur,c.o0,0,H));
+      if(c.y0>0)gRoom.add(wallSeg(w,c.o0,c.o1,0,c.y0));
+      if(c.y1<H)gRoom.add(wallSeg(w,c.o0,c.o1,c.y1,H));
+      if(c.kind==='win')gRoom.add(wallSeg(w,c.o0,c.o1,c.y0,c.y1,MAT.rGlass));
+      cur=c.o1;});
+    gRoom.add(wallSeg(w,cur,w.len,0,H));
+    if(dr){const s=wallSeg(w,dr.off,dr.off+.06,0,dr.h,MAT.rDoor);if(s)gRoom.add(s);}
+    const mid=wallPt(w,w.len/2);
+    gRoom.add(lbl('جدار '+(w.i+1)+' · '+w.len.toFixed(2)+' م',
+      V(mid[0]+w.nx*.35,H+.35,mid[1]+w.nz*.35),'#5b6b7a',1.5));});
+  const vres=roomCheck();
+  EQP.forEach((e,i)=>{
+    const m=eqMesh(e);if(!m)return;gRoom.add(m);
+    const L=EQLIB[e.kind];
+    if(L.clr>0){
+      const w2=+e.w||L.w,dd=+e.d||L.d;
+      const bad=vres.bad.indexOf(i)>=0;
+      const cz=new THREE.Mesh(new THREE.BoxGeometry(w2,.02,L.clr),bad?MAT.rBad:MAT.rClr);
+      const a=(+e.rot||0)*Math.PI/180;
+      cz.position.set(e.x+Math.sin(a)*(dd/2+L.clr/2),.02,e.z+Math.cos(a)*(dd/2+L.clr/2));
+      cz.rotation.y=a;gRoom.add(cz);}
+    gRoom.add(lbl((e.name||L.n)+(e.tag?' '+e.tag:''),
+      V(e.x,(L.mount==='floor'?(+e.h||L.h):(+e.y||L.y))+(+e.h||L.h)/2+.22,e.z),
+      i===EQSEL?'#F1471E':'#0066A7',1.6));});}
+
+/* ---- تحقّق المسافات النظامية ---- */
+function eqFoot(e){
+  const L=EQLIB[e.kind],w=+e.w||L.w,d=+e.d||L.d,a=(+e.rot||0)*Math.PI/180;
+  const c=Math.cos(a),s=Math.sin(a);
+  return [[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]]
+    .map(q=>[e.x+q[0]*c+q[1]*s,e.z-q[0]*s+q[1]*c]);}
+function eqClearBox(e){
+  const L=EQLIB[e.kind];if(!(L.clr>0))return null;
+  const w=+e.w||L.w,d=+e.d||L.d,a=(+e.rot||0)*Math.PI/180;
+  const c=Math.cos(a),s=Math.sin(a);
+  return [[-w/2,d/2],[w/2,d/2],[w/2,d/2+L.clr],[-w/2,d/2+L.clr]]
+    .map(q=>[e.x+q[0]*c+q[1]*s,e.z-q[0]*s+q[1]*c]);}
+function polyHit(A,B){
+  for(const q of A)if(inPoly(q[0],q[1],B))return true;
+  for(const q of B)if(inPoly(q[0],q[1],A))return true;
+  for(let i=0;i<A.length;i++)for(let j=0;j<B.length;j++)
+    if(segInt(A[i],A[(i+1)%A.length],B[j],B[(j+1)%B.length]))return true;
+  return false;}
+function roomCheck(){
+  const msgs=[],bad=[],P=roomPoly();
+  EQP.forEach((e,i)=>{
+    const L=EQLIB[e.kind];
+    const f=eqFoot(e);
+    if(!f.every(q=>inPoly(q[0],q[1],P))){
+      msgs.push((e.name||L.n)+': خارج حدود الغرفة.');bad.push(i);}
+    const cb=eqClearBox(e);
+    if(cb){
+      if(!cb.every(q=>inPoly(q[0],q[1],P))){
+        msgs.push((e.name||L.n)+': المسافة الحرّة أمامه ('+L.clr.toFixed(2)+' م) تخرج عن الغرفة.');
+        if(bad.indexOf(i)<0)bad.push(i);}
+      EQP.forEach((o,j)=>{if(j===i)return;
+        if(polyHit(cb,eqFoot(o))){
+          msgs.push((e.name||L.n)+': «'+(o.name||EQLIB[o.kind].n)+'» يقع داخل مسافته الحرّة.');
+          if(bad.indexOf(i)<0)bad.push(i);}});}
+    EQP.forEach((o,j)=>{if(j<=i)return;
+      if(EQLIB[e.kind].mount!==EQLIB[o.kind].mount&&
+         Math.abs(((+e.y)||EQLIB[e.kind].y)-((+o.y)||EQLIB[o.kind].y))>1.2)return;
+      if(polyHit(f,eqFoot(o))){
+        msgs.push((e.name||L.n)+' و«'+(o.name||EQLIB[o.kind].n)+'» متداخلان.');
+        if(bad.indexOf(i)<0)bad.push(i);if(bad.indexOf(j)<0)bad.push(j);}});});
+  const dr=ROOM.door;
+  if(dr){
+    const w=roomWalls()[dr.wall];
+    if(w){
+      const c=wallPt(w,dr.off+dr.w/2);
+      const zone=[[c[0]-dr.w/2,c[1]-dr.w/2],[c[0]+dr.w/2,c[1]-dr.w/2],
+                  [c[0]+dr.w/2,c[1]+dr.w/2],[c[0]-dr.w/2,c[1]+dr.w/2]];
+      EQP.forEach((e,i)=>{if(polyHit(zone,eqFoot(e))){
+        msgs.push((e.name||EQLIB[e.kind].n)+': يعترض الباب.');
+        if(bad.indexOf(i)<0)bad.push(i);}});}}
+  const A=roomArea();
+  if(ROOM.on&&A>0&&EQP.length){
+    const occ=EQP.reduce((s,e)=>s+((+e.w||EQLIB[e.kind].w)*(+e.d||EQLIB[e.kind].d)),0);
+    if(occ/A>.45)msgs.push('المعدّات تشغل '+(occ/A*100).toFixed(0)+'% من أرض الغرفة — اترك ممرّ خدمة كافياً.');}
+  if(ROOM.H<2.4)msgs.push('ارتفاع الغرفة '+(+ROOM.H).toFixed(2)+' م أقل من 2.40 م.');
+  return {msgs,bad,ok:bad.length===0};}
+
+/* ---- التوزيع التلقائي من المنظومة المحسوبة ---- */
+function invCount(){
+  const kwp=ARES.reduce((a,r)=>a+(+r.kwp||0),0);
+  const per=Math.max(1,+M.invKW||10);
+  return Math.max(1,Math.ceil(kwp/per));}
+function autoLayout(){
+  if(!ROOM.on){log('فعّل الغرفة أولاً.',1);return;}
+  const walls=roomWalls().slice().sort((a,b)=>b.len-a.len);
+  const B=batCalc();
+  const nInv=invCount(), nBat=(M.sysType==='ongrid')?0:B.n;
+  const batKind=(M.batChem==='lifepo4')?'batw':'batc';
+  const items=[];
+  const invL=INVLIB[M.invModel]||INVLIB.gen;
+  for(let i=0;i<nInv;i++)items.push({kind:'inv',label:invL.n,
+    w:invL.w/1000,h:invL.h/1000,d:invL.d/1000,tag:'INV-'+(i+1)});
+  for(let i=0;i<nBat;i++)items.push({kind:batKind,kwh:+(B.vm*B.ah/1000).toFixed(1),
+    soc:90,tag:'BAT-'+(i+1)});
+  items.push({kind:'db',rows:3,mods:12,tag:'DB-1'});
+  items.push({kind:'acdb',tag:'AC-1'});
+  if(M.sysType!=='ongrid')items.push({kind:'dcdb',tag:'DC-1'});
+  items.push({kind:'earth',tag:'E-1'});
+  items.push({kind:'ac',tag:'AC'});
+  items.push({kind:'fan',tag:'F-1'});
+  items.push({kind:'ext',tag:'FE-1'});
+  const out=[];let wi=0,off=.35;
+  const doorW=ROOM.door?ROOM.door:null;
+  items.forEach(it=>{
+    const L=EQLIB[it.kind];
+    const w=(+it.w||L.w);
+    for(let guard=0;guard<walls.length+1;guard++){
+      const wl=walls[wi%walls.length];
+      let o=off;
+      if(doorW&&doorW.wall===wl.i&&o<doorW.off+doorW.w+.25&&o+w>doorW.off-.25)o=doorW.off+doorW.w+.25;
+      if(o+w+.30<=wl.len){off=o+w+.18;
+        const c=wallPt(wl,o+w/2);
+        const d=(+it.d||L.d);
+        out.push(Object.assign({},it,{
+          x:c[0]+wl.nx*(d/2+.02), z:c[1]+wl.nz*(d/2+.02),
+          rot:(Math.atan2(wl.nx,wl.nz)*180/Math.PI+360)%360,
+          y:L.y,name:L.n}));
+        return;}
+      wi++;off=.35;}
+    const c=wallPt(walls[0],.35);
+    out.push(Object.assign({},it,{x:c[0],z:c[1],rot:0,y:L.y,name:L.n}));});
+  EQP=out;EQSEL=-1;
+  const v=roomCheck();
+  log('وُزّعت '+EQP.length+' قطعة: '+nInv+' إنفرتر و'+nBat+' بطارية'+
+    (v.ok?' — كل المسافات النظامية سليمة.':' — '+v.bad.length+' قطعة بحاجة إلى مراجعة موضعها.'));
+  buildRoom();dock();}
+
+/* ---- قراءة DXF ---- */
+const DXF_U={1:.0254,2:.3048,4:.001,5:.01,6:1};
+function parseDXF(txt){
+  const L=txt.split(/\r?\n/);
+  const segs=[],polys=[];let units=0,cur=null,mode=null;
+  const flush=()=>{
+    if(!cur)return;
+    if(cur.t==='LINE'&&isFinite(cur.x1)&&isFinite(cur.x2))
+      segs.push([[cur.x1,cur.y1],[cur.x2,cur.y2]]);
+    else if(cur.v&&cur.v.length>=2)polys.push({pts:cur.v,closed:!!(cur.flag&1)});
+    cur=null;};
+  for(let i=0;i+1<L.length;i+=2){
+    const c=L[i].trim(),v=L[i+1].trim();
+    if(c==='9'&&v==='$INSUNITS'&&L[i+2]&&L[i+2].trim()==='70')units=+L[i+3]||0;
+    if(c==='0'){
+      if(v==='VERTEX'){mode='vtx';continue;}
+      if(v==='SEQEND'){mode=null;continue;}
+      flush();mode=null;
+      if(v==='LINE')cur={t:'LINE'};
+      else if(v==='LWPOLYLINE'||v==='POLYLINE'){cur={t:v,v:[],flag:0};mode=(v==='POLYLINE')?'poly':null;}
+      continue;}
+    if(!cur)continue;
+    if(cur.t==='LINE'){
+      if(c==='10')cur.x1=+v; else if(c==='20')cur.y1=+v;
+      else if(c==='11')cur.x2=+v; else if(c==='21')cur.y2=+v;
+    }else{
+      if(c==='10')cur.px=+v;
+      else if(c==='20'&&isFinite(cur.px))cur.v.push([cur.px,+v]);
+      else if(c==='70'&&mode!=='vtx')cur.flag=+v;}}
+  flush();
+  const all=segs.flat().concat(polys.map(p=>p.pts).flat());
+  if(!all.length)throw new Error('لا توجد خطوط أو مضلّعات في الملف.');
+  const xs=all.map(q=>q[0]),ys=all.map(q=>q[1]);
+  const bb=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+  return {segs,polys,units,bb,span:Math.max(bb[2]-bb[0],bb[3]-bb[1])};}
+function dxfScale(d,force){
+  if(force&&DXF_U[force])return DXF_U[force];
+  if(DXF_U[d.units])return DXF_U[d.units];
+  return d.span>300?.001:(d.span>30?.01:1);}   /* تخمين: أرقام كبيرة ⇒ ملم */
+function dxfCandidates(d,sc){
+  const out=d.polys.filter(p=>p.closed&&p.pts.length>=3)
+    .map((p,i)=>{const q=p.pts.map(a=>[a[0]*sc,-a[1]*sc]);
+      return {nm:'مضلّع مغلق '+(i+1),poly:q,area:polyArea(q)};})
+    .filter(o=>o.area>1).sort((a,b)=>b.area-a.area);
+  const bb=d.bb;
+  out.push({nm:'الإطار المحيط بالرسم',area:(bb[2]-bb[0])*(bb[3]-bb[1])*sc*sc,
+    poly:[[bb[0]*sc,-bb[3]*sc],[bb[2]*sc,-bb[3]*sc],[bb[2]*sc,-bb[1]*sc],[bb[0]*sc,-bb[1]*sc]]});
+  return out.slice(0,8);}
+function roomFromPoly(q,nm){
+  const xs=q.map(a=>a[0]),zs=q.map(a=>a[1]);
+  const mx=Math.min(...xs),mz=Math.min(...zs);
+  ROOM.poly=q.map(a=>[+(a[0]-mx).toFixed(3),+(a[1]-mz).toFixed(3)]);
+  ROOM.on=1;ROOM.src=nm||'مستورد';
+  const bb=roomBB();ROOM.W=+(bb.x1-bb.x0).toFixed(2);ROOM.L=+(bb.z1-bb.z0).toFixed(2);
+  log('الغرفة: '+roomArea().toFixed(2)+' م² · إطار '+ROOM.W+'×'+ROOM.L+' م ('+(nm||'مستورد')+')');
+  buildRoom();fitRoom();dock();}
+function loadDXF(f){
+  if(!f)return;
+  if(/\.dwg$/i.test(f.name)){
+    log('صيغة DWG ثنائية ولا تُقرأ في المتصفح. من AutoCAD: Save As → AutoCAD DXF، أو صدّر PDF أو صورة.',1);return;}
+  const r=new FileReader();
+  r.onload=()=>{try{DXF=parseDXF(String(r.result));
+      log('DXF: '+DXF.polys.length+' مضلّعاً و'+DXF.segs.length+' خطاً. اختر محيط الغرفة ثم اضغط «استعمل».');
+      dock();}
+    catch(e){log('DXF: '+e.message,1);}};
+  r.onerror=()=>log('تعذّر قراءة الملف.',1);
+  r.readAsText(f);}
+
+/* ---- PDF → صورة (تحميل pdf.js عند الطلب فقط) ---- */
+function loadJS(src){return new Promise((ok,no)=>{
+  const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('تعذّر تحميل '+src));
+  document.head.appendChild(s);});}
+function loadPDF(f){
+  if(!f)return;
+  log('جارٍ تحويل الـPDF… (يحتاج إنترنت أول مرة)');
+  const CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  (window.pdfjsLib?Promise.resolve():loadJS(CDN+'pdf.min.js'))
+    .then(()=>{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc=CDN+'pdf.worker.min.js';
+      return f.arrayBuffer();})
+    .then(buf=>window.pdfjsLib.getDocument({data:buf}).promise)
+    .then(doc=>doc.getPage(1))
+    .then(pg=>{
+      const vp=pg.getViewport({scale:2.2});
+      const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+      return pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(()=>cv);})
+    .then(cv=>{
+      const im=new Image();
+      im.onload=()=>{TR.img=im;TR.pts=[];TR.sc=null;TR.mode='scale';TR.target='room';
+        TAB='img';drawTabs();dock();
+        log('تحوّل الـPDF إلى صورة. حدّد المقياس بنقطتين معلومتين ثم تتبّع محيط الغرفة واضغط «توليد».');};
+      im.src=cv.toDataURL('image/png');})
+    .catch(e=>log('PDF: '+e.message,1));}
+
+/* ---- كاميرا الغرفة ---- */
+function fitRoom(){
+  const bb=roomBB();
+  tgt.set((bb.x0+bb.x1)/2,Math.max(1.2,ROOM.H*.45),(bb.z0+bb.z1)/2);
+  rho=Math.max(bb.x1-bb.x0,bb.z1-bb.z0)*1.9+4;place();}
+function setRoomView(on){
+  RVIEW=!!on;
+  [gS,gC,gB,gD,gSite,gSun].forEach(g=>g.visible=!RVIEW);
+  [SUNBALL,SUNRAY,SUNLBL].forEach(o=>o.visible=RVIEW?false:o.visible);
+  gRoom.visible=RVIEW;
+  const b=document.getElementById('vRoom');if(b)b.classList.toggle('on',RVIEW);
+  if(RVIEW)fitRoom(); else fit();}
+
+/* ---- لوحات الغرفة ---- */
+function eqOnWall(w){
+  const out=[];
+  EQP.forEach((e,i)=>{
+    const vx=e.x-w.a[0],vz=e.z-w.a[1];
+    const t=vx*w.ux+vz*w.uz;
+    const dp=Math.abs(vx*w.nx+vz*w.nz);
+    const L=EQLIB[e.kind];
+    if(t>=-.2&&t<=w.len+.2&&dp<=(+e.d||L.d)/2+.40)out.push({e,i,t});});
+  return out.sort((a,b)=>a.t-b.t);}
+function sheetRoomPlan(){
+  const W=760,H=520,mg=70;
+  if(!ROOM.on)return SV(W,H,tx(W/2,H/2,'الغرفة غير مفعّلة',{s:12,c:'#5b6b7a'}));
+  const bb=roomBB(),rw=bb.x1-bb.x0,rl=bb.z1-bb.z0;
+  const sc=Math.min((W-2*mg)/Math.max(rw,.5),(H-2*mg-30)/Math.max(rl,.5));
+  const X=x=>mg+(x-bb.x0)*sc, Z=z=>mg+(z-bb.z0)*sc;
+  const pth=p=>'M'+p.map(q=>X(q[0]).toFixed(1)+','+Z(q[1]).toFixed(1)).join(' L')+' Z';
+  let b=`<path d="${pth(roomPoly())}" fill="#fbfcfd" stroke="#0B2239" stroke-width="3"/>`;
+  roomWalls().forEach(w=>{
+    const dr=(ROOM.door&&ROOM.door.wall===w.i)?ROOM.door:null;
+    const wn=(ROOM.win&&ROOM.win.on&&ROOM.win.wall===w.i)?ROOM.win:null;
+    if(dr){const p0=wallPt(w,dr.off),p1=wallPt(w,dr.off+dr.w);
+      b+=ln(X(p0[0]),Z(p0[1]),X(p1[0]),Z(p1[1]),{c:'#fff',w:5});
+      b+=ln(X(p0[0]),Z(p0[1]),X(p0[0]+w.nx*dr.w),Z(p0[1]+w.nz*dr.w),{c:'#8C6239',w:1.6});
+      b+=tx(X((p0[0]+p1[0])/2+w.nx*.45),Z((p0[1]+p1[1])/2+w.nz*.45)+3,
+        'باب '+(dr.w*100).toFixed(0)+'×'+(dr.h*100).toFixed(0),{s:8,b:1,c:'#8C6239'});}
+    if(wn){const p0=wallPt(w,wn.off),p1=wallPt(w,wn.off+wn.w);
+      b+=ln(X(p0[0]),Z(p0[1]),X(p1[0]),Z(p1[1]),{c:'#8FB6CE',w:5});}
+    const mid=wallPt(w,w.len/2);
+    b+=tx(X(mid[0])+w.nx*16,Z(mid[1])+w.nz*16+3,'ج'+(w.i+1)+' · '+w.len.toFixed(2),{s:8,c:'#5b6b7a'});});
+  const vres=roomCheck();
+  EQP.forEach((e,i)=>{
+    const L=EQLIB[e.kind],cb=eqClearBox(e);
+    if(cb)b+=`<path d="${pth(cb)}" fill="${vres.bad.indexOf(i)>=0?'#C0392B':'#F1471E'}" fill-opacity=".12" stroke="none"/>`;
+    b+=`<path d="${pth(eqFoot(e))}" fill="#dfe6ec" stroke="#0B2239" stroke-width="1.3"/>`;
+    b+=tx(X(e.x),Z(e.z)+3,e.tag||String(i+1),{s:8,b:1,c:'#0B2239'});});
+  b+=dimH(X(bb.x0),X(bb.x1),Z(bb.z1)+34,rw.toFixed(2)+' م');
+  b+=dimV(Z(bb.z0),Z(bb.z1),X(bb.x1)+34,rl.toFixed(2)+' م');
+  b+=tx(W/2,H-12,'المساحة '+roomArea().toFixed(2)+' م² · الارتفاع '+(+ROOM.H).toFixed(2)+
+    ' م · المنطقة الوردية = المسافة الحرّة النظامية أمام كل قطعة',{s:8.5,c:'#5b6b7a'});
+  return SV(W,H,b);}
+function sheetRoomElev(wi){
+  const W=760,H=360,mg=64;
+  const w=roomWalls()[wi];
+  if(!w)return SV(W,H,'');
+  const sc=Math.min((W-2*mg)/Math.max(w.len,.5),(H-2*mg)/Math.max(+ROOM.H,.5));
+  const X=t=>mg+t*sc, Y=y=>H-mg-y*sc;
+  let b=rc(X(0),Y(+ROOM.H),w.len*sc,(+ROOM.H)*sc,'#fbfcfd','#0B2239');
+  b+=ln(X(0),Y(0),X(w.len),Y(0),{c:'#0B2239',w:2.4});
+  const dr=(ROOM.door&&ROOM.door.wall===wi)?ROOM.door:null;
+  const wn=(ROOM.win&&ROOM.win.on&&ROOM.win.wall===wi)?ROOM.win:null;
+  if(dr){b+=rc(X(dr.off),Y(dr.h),dr.w*sc,dr.h*sc,'#F2E7DA','#8C6239');
+    b+=tx(X(dr.off+dr.w/2),Y(dr.h/2),'باب',{s:9,b:1,c:'#8C6239'});}
+  if(wn){b+=rc(X(wn.off),Y(wn.sill+wn.h),wn.w*sc,wn.h*sc,'#E4F0F7','#4E7E9B');
+    b+=tx(X(wn.off+wn.w/2),Y(wn.sill+wn.h/2),'شبّاك',{s:9,b:1,c:'#4E7E9B'});}
+  eqOnWall(w).forEach(({e,t})=>{
+    const L=EQLIB[e.kind],ew=+e.w||L.w,eh=+e.h||L.h;
+    const yc=(L.mount==='floor')?eh/2:(L.mount==='ceil'?(+ROOM.H)-eh/2:(+e.y||L.y));
+    b+=rc(X(t-ew/2),Y(yc+eh/2),ew*sc,eh*sc,'#dfe6ec','#0B2239');
+    b+=tx(X(t),Y(yc)+3,e.tag||'',{s:8,b:1,c:'#0B2239'});
+    b+=tx(X(t),Y(yc-eh/2)-4,(yc*100).toFixed(0),{s:7.5,c:'#5b6b7a'});});
+  b+=dimH(X(0),X(w.len),Y(0)+30,w.len.toFixed(2)+' م');
+  b+=dimV(Y(+ROOM.H),Y(0),X(w.len)+30,(+ROOM.H).toFixed(2)+' م');
+  b+=tx(W/2,H-10,'الأرقام الصغيرة = منسوب مركز القطعة عن الأرض بالسنتيمتر',{s:8.5,c:'#5b6b7a'});
+  return SV(W,H,b);}
+function eqSchedule(){
+  const g={};
+  EQP.forEach(e=>{const L=EQLIB[e.kind];
+    const k=e.kind+'|'+((+e.w||L.w).toFixed(2))+'|'+((+e.h||L.h).toFixed(2));
+    (g[k]=g[k]||{L,e,n:0,tags:[]});g[k].n++;g[k].tags.push(e.tag||'');});
+  return Object.values(g);}
+
+function roomReport(){
+  const d=new Date(),v=roomCheck(),walls=roomWalls(),B=batCalc();
+  ovTop('room');
+  const sch=eqSchedule();
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(48)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">غرفة الكهرباء — مخططات وتفاصيل</div>
+   <div style="font-size:10.5px;color:#5b6b7a">${M.project||'مشروع'} · ${M.site||'—'} · ${d.toLocaleDateString('en-GB')}</div></div></div>
+
+  <h2>1 — بيانات الغرفة</h2>
+  <div class="kpi">
+   <div><span>المساحة</span><b>${roomArea().toFixed(2)} م²</b></div>
+   <div><span>الإطار</span><b>${(+ROOM.W).toFixed(2)} × ${(+ROOM.L).toFixed(2)} م</b></div>
+   <div><span>الارتفاع الصافي</span><b>${(+ROOM.H).toFixed(2)} م</b></div>
+   <div><span>عدد الجدران</span><b>${walls.length}</b></div>
+   <div><span>عدد القطع</span><b>${EQP.length}</b></div>
+   <div><span>مصدر المخطط</span><b>${ROOM.src}</b></div>
+   <div><span>قدرة المنظومة</span><b>${ARES.reduce((a,r)=>a+(+r.kwp||0),0).toFixed(2)} kWp</b></div>
+   <div><span>بنك البطاريات</span><b>${M.sysType==='ongrid'?'—':B.kwhNom.toFixed(1)+' kWh'}</b></div>
+  </div>
+
+  <h2>2 — المخطط الأفقي</h2>
+  <div class="sheet"><div class="tb"><span>مخطط الغرفة</span><span>${M.project||'مشروع'}</span>
+   <span>مقياس تلقائي · القياسات بالمتر</span></div>${sheetRoomPlan()}</div>
+
+  <h2>3 — واجهات الجدران</h2>
+  ${walls.map(w=>`<div class="sheet"><div class="tb"><span>واجهة الجدار ${w.i+1}</span>
+   <span>${eqOnWall(w).length} قطعة</span><span>${w.len.toFixed(2)} × ${(+ROOM.H).toFixed(2)} م</span></div>
+   ${sheetRoomElev(w.i)}</div>`).join('')}
+
+  <h2>4 — جدول المعدّات</h2>
+  <table><tr><th>الرمز</th><th>القطعة</th><th>العدد</th><th>الأبعاد عرض×ارتفاع×عمق (سم)</th>
+   <th>التركيب</th><th>منسوب المركز (سم)</th><th>مسافة حرّة مطلوبة (م)</th></tr>
+   ${sch.map(s=>`<tr><td class="n">${s.tags.filter(Boolean).join('، ')||'—'}</td>
+     <td>${s.e.name||s.L.n}${s.e.label?' — '+s.e.label:''}</td><td class="n">${s.n}</td>
+     <td class="n">${((+s.e.w||s.L.w)*100).toFixed(0)}×${((+s.e.h||s.L.h)*100).toFixed(0)}×${((+s.e.d||s.L.d)*100).toFixed(0)}</td>
+     <td>${({wall:'على الجدار',floor:'على الأرض',ceil:'على السقف'})[s.L.mount]}</td>
+     <td class="n">${s.L.mount==='floor'?'—':(((+s.e.y||s.L.y))*100).toFixed(0)}</td>
+     <td class="n">${s.L.clr>0?s.L.clr.toFixed(2):'—'}</td></tr>`).join('')}</table>
+
+  <h2>5 — تحقّق المسافات والسلامة</h2>
+  ${v.ok?'<div class="note">كل القطع داخل حدود الغرفة، والمسافات الحرّة أمامها خالية، ولا شيء يعترض الباب.</div>'
+        :'<div class="note"><b>ملاحظات تستوجب التعديل:</b><br>• '+v.msgs.join('<br>• ')+'</div>'}
+  <table><tr><th>البند</th><th>المعتمد هنا</th><th>الأساس</th></tr>
+   <tr><td>مسافة حرّة أمام التابلوهات والإنفرترات</td><td class="n">1.00 م</td><td>ممرّ خدمة وتشغيل أمام لوحات الجهد المنخفض</td></tr>
+   <tr><td>مسافة حرّة أمام البطاريات</td><td class="n">0.80 م</td><td>سحب الوحدة وصيانتها</td></tr>
+   <tr><td>ارتفاع الغرفة الصافي</td><td class="n">≥ 2.40 م</td><td>تهوية وتمديد مسارات علوية</td></tr>
+   <tr><td>عرض الباب</td><td class="n">${ROOM.door?(ROOM.door.w*100).toFixed(0):'—'} سم</td><td>يجب أن يمرّ منه أعرض جهاز</td></tr>
+   <tr><td>التهوية</td><td>${EQP.some(e=>e.kind==='fan')?'مروحة شفط مركّبة':'<b>غير مركّبة</b>'}</td><td>تصريف حرارة الإنفرترات</td></tr>
+   <tr><td>التبريد</td><td>${EQP.some(e=>e.kind==='ac')?'مكيّف مركّب':'<b>غير مركّب</b>'}</td><td>حدّ حرارة تشغيل البطاريات</td></tr>
+   <tr><td>التأريض</td><td>${EQP.some(e=>e.kind==='earth')?'بار تأريض مركّب':'<b>غير مركّب</b>'}</td><td>ربط كل الهياكل والأغلفة المعدنية</td></tr>
+   <tr><td>الحريق</td><td>${EQP.some(e=>e.kind==='ext')?'طفاية مركّبة':'<b>غير مركّبة</b>'}</td><td>طفاية CO₂ قرب الباب</td></tr></table>
+
+  <h2>6 — ملاحظات التنفيذ</h2>
+  <ul>
+   <li>تُثبّت الإنفرترات على حائط صلب أو على قاعدة معدنية مربوطة بالحائط، مع ترك فراغ تهوية جانبي لا يقل عن 30 سم وعلوي 50 سم حسب دليل المصنّع.</li>
+   <li>تُرفع البطاريات عن الأرض ولا تُلامس الجدار مباشرة؛ وتُربط أغلفتها المعدنية ببار التأريض بسلك أخضر/أصفر.</li>
+   <li>تُفصل مسارات DC عن AC في مجريين مستقلين، ويُمنع تمرير الاثنين في مجرى واحد.</li>
+   <li>يُركّب قاطع DC رئيسي على مرأى العين قرب الباب لفصل البطاريات في الطوارئ.</li>
+   <li>يُعلَّق مخطط الخطّ الأحادي داخل الغرفة، وتُعلَّم كل التابلوهات بلوحات تعريف دائمة.</li>
+   <li>هذه اللوحات دراسة توزيع وأبعاد. الحماية والقطع والمقاطع تُحدَّد في مخطط الخطّ الأحادي المنفصل.</li>
+  </ul>
+  <div class="foot">iCOOL Trading &amp; Contracting — م. أحمد محمد ناصر OEA 36359 · 03 715 512 · info.icool.lb@gmail.com · ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('ov').scrollTop=0;}
+
 /* ---------- 8د. رسم ومستند الإنتاجية ---------- */
 const PVCOL=['#0066A7','#F1471E','#00A06B','#7A5CC4'];
 function chartMonthly(E){
@@ -2153,7 +2713,8 @@ function ovTop(cur){
    (cur!=='shop'?`<button onclick="shop()">الخرائط التنفيذية</button>`:'')+
    (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'')+
    (cur!=='energy'?`<button onclick="energyReport()">الإنتاجية والمنظومة</button>`:'')+
-   (cur!=='shadow'?`<button onclick="shadowReport()">تقرير الظلال</button>`:'');}
+   (cur!=='shadow'?`<button onclick="shadowReport()">تقرير الظلال</button>`:'')+
+   (cur!=='room'?`<button onclick="roomReport()">غرفة الكهرباء</button>`:'');}
 
 function report(){
   const T=TPL[M.tpl],d=new Date(),W=R.WD;
@@ -2522,7 +3083,7 @@ function closeOv(){document.getElementById('ov').classList.remove('open');}
 
 /* ---------- 13. الواجهة ---------- */
 let TAB='design';
-const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['pv','الطاقة والبطاريات'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
+const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['pv','الطاقة والبطاريات'],['room','غرفة الكهرباء'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
 function drawTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
   CATS.forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;
@@ -2636,6 +3197,7 @@ function dock(){
       d.innerHTML='<b>تنبيهات:</b><br>• '+VAL.msgs.join('<br>• ');el.appendChild(d);}
   } else if(TAB==='img'){
     grp('تحويل صورة إلى مخطط 3D');
+    if(TR.target==='room')tip('<b>الوجهة: غرفة الكهرباء.</b> حدّد المقياس بنقطتين معلومتي البعد ثم تتبّع محيط الغرفة واضغط «توليد».');
     tip('1) ارفع صورة المخطط أو صورة جوية للسطح.<br>2) اضغط «مقياس» ثم انقر نقطتين معلومتي البعد وأدخل المسافة بالمتر.<br>3) اضغط «محيط» وانقر زوايا السطح بالترتيب.<br>4) «توليد» يبني المخطط في 3D ويلائم الهيكل داخله.');
     const fi=document.createElement('input');fi.type='file';fi.accept='image/*';
     fi.onchange=e=>loadTrace(e.target.files[0]);
@@ -2868,6 +3430,153 @@ function dock(){
     const rb=document.createElement('button');rb.textContent='فتح تقرير الإنتاجية والمنظومة';
     rb.className='o on';rb.style.cssText='display:block;width:100%;margin:8px 0;padding:10px';
     rb.onclick=energyReport;el.appendChild(rb);
+  } else if(TAB==='room'){
+    const NR=(lab,val,st,mn,mx,fn)=>{
+      const r=document.createElement('div');r.className='f';
+      const l=document.createElement('label');l.textContent=lab;r.appendChild(l);
+      const n=document.createElement('input');n.type='number';n.step=st;n.min=mn;n.max=mx;n.value=val;
+      n.oninput=()=>{const v=parseFloat(n.value);if(isFinite(v)){fn(v);buildRoom();}};
+      r.appendChild(n);el.appendChild(r);};
+    grp('غرفة الكهرباء');
+    tip('ابنِ الغرفة من أبعاد يدوية أو من مخطط: <b>صورة</b> أو <b>DXF</b> أو <b>PDF</b>. ثم وزّع الإنفرترات والبطاريات والتابلوهات، ويتحقّق البرنامج من المسافات الحرّة النظامية أمام كل قطعة.');
+    const on=document.createElement('div');on.className='chips';
+    [['تفعيل الغرفة',()=>{ROOM.on=1;buildRoom();setRoomView(true);dock();}],
+     ['إخفاء',()=>{ROOM.on=0;buildRoom();setRoomView(false);dock();}],
+     [RVIEW?'العودة إلى الهيكل':'عرض الغرفة في 3D',()=>{setRoomView(!RVIEW);dock();}]
+    ].forEach(([n,fn],i)=>{const b=document.createElement('button');b.textContent=n;
+      if(i===0&&ROOM.on)b.className='on';b.onclick=fn;on.appendChild(b);});
+    el.appendChild(on);
+
+    grp('مصدر المخطط');
+    const src=document.createElement('div');src.className='chips';
+    [['يدوي',()=>{ROOM.poly=null;ROOM.src='يدوي';ROOM.on=1;buildRoom();fitRoom();dock();}],
+     ['صورة / لقطة',()=>{TR.target='room';TR.pts=[];TR.sc=null;TR.mode='scale';TAB='img';drawTabs();dock();}]
+    ].forEach(([n,fn])=>{const b=document.createElement('button');b.textContent=n;b.onclick=fn;src.appendChild(b);});
+    el.appendChild(src);
+    const fr=document.createElement('div');fr.className='f';
+    const fl=document.createElement('label');fl.textContent='ملف DXF';fr.appendChild(fl);
+    const fi=document.createElement('input');fi.type='file';fi.accept='.dxf,.dwg';
+    fi.onchange=e=>loadDXF(e.target.files[0]);fr.appendChild(fi);el.appendChild(fr);
+    const pr=document.createElement('div');pr.className='f';
+    const pl=document.createElement('label');pl.textContent='ملف PDF';pr.appendChild(pl);
+    const pi=document.createElement('input');pi.type='file';pi.accept='.pdf';
+    pi.onchange=e=>loadPDF(e.target.files[0]);pr.appendChild(pi);el.appendChild(pr);
+    tip('<b>DWG لا يُقرأ في المتصفح</b> (صيغة ثنائية مغلقة) — من AutoCAD: Save As → <b>AutoCAD DXF</b>. الـPDF يُحوَّل إلى صورة ثم تحدّد المقياس بنقطتين وتتبّع المحيط.');
+    if(DXF){
+      const us=document.createElement('div');us.className='f';
+      const ul=document.createElement('label');ul.textContent='وحدة الرسم';us.appendChild(ul);
+      const sel=document.createElement('select');
+      [['0','تلقائي'],['4','ملم'],['5','سم'],['6','متر'],['1','إنش']].forEach(([v,n])=>{
+        const o=document.createElement('option');o.value=v;o.textContent=n;
+        if(String(DXF.force||0)===v)o.selected=true;sel.appendChild(o);});
+      sel.onchange=()=>{DXF.force=+sel.value;dock();};us.appendChild(sel);el.appendChild(us);
+      const sc=dxfScale(DXF,DXF.force);
+      const t=document.createElement('table');
+      let rr='<tr><th>المحيط المرشّح</th><th>المساحة</th><th></th></tr>';
+      const cands=dxfCandidates(DXF,sc);
+      cands.forEach((c,i)=>{rr+=`<tr><td>${c.nm}</td><td class="n">${c.area.toFixed(2)} م²</td>
+        <td><button data-i="${i}">استعمل</button></td></tr>`;});
+      t.innerHTML=rr;el.appendChild(t);
+      t.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+        const c=cands[+b.getAttribute('data-i')];roomFromPoly(c.poly,'DXF — '+c.nm);setRoomView(true);});}
+
+    grp('أبعاد الغرفة');
+    if(ROOM.poly){
+      const d=document.createElement('div');d.className='note';
+      d.innerHTML='محيط مستورد من <b>'+ROOM.src+'</b> · '+roomArea().toFixed(2)+' م². '+
+        '<button id="rclr">حذف المحيط والعودة إلى مستطيل</button>';
+      el.appendChild(d);
+      const bb=document.getElementById('rclr');
+      if(bb)bb.onclick=()=>{ROOM.poly=null;ROOM.src='يدوي';buildRoom();fitRoom();dock();};
+    }else{
+      NR('العرض W (م)',ROOM.W,.05,1,40,v=>ROOM.W=v);
+      NR('الطول L (م)',ROOM.L,.05,1,40,v=>ROOM.L=v);}
+    NR('الارتفاع الصافي (م)',ROOM.H,.05,2,6,v=>ROOM.H=v);
+
+    grp('الباب والشبّاك');
+    const walls=roomWalls();
+    const wsel=(lab,val,fn)=>{
+      const r=document.createElement('div');r.className='f';
+      const l=document.createElement('label');l.textContent=lab;r.appendChild(l);
+      const s2=document.createElement('select');
+      walls.forEach(w=>{const o=document.createElement('option');o.value=w.i;
+        o.textContent='جدار '+(w.i+1)+' ('+w.len.toFixed(2)+' م)';
+        if(+val===w.i)o.selected=true;s2.appendChild(o);});
+      s2.onchange=()=>{fn(+s2.value);buildRoom();dock();};r.appendChild(s2);el.appendChild(r);};
+    wsel('جدار الباب',ROOM.door.wall,v=>ROOM.door.wall=v);
+    NR('إزاحة الباب (م)',ROOM.door.off,.05,0,40,v=>ROOM.door.off=v);
+    NR('عرض الباب (م)',ROOM.door.w,.05,.6,3,v=>ROOM.door.w=v);
+    NR('ارتفاع الباب (م)',ROOM.door.h,.05,1.8,3,v=>ROOM.door.h=v);
+    const wc=document.createElement('div');wc.className='chips';
+    const wb=document.createElement('button');wb.textContent=ROOM.win.on?'شبّاك: نعم':'شبّاك: لا';
+    if(ROOM.win.on)wb.className='on';
+    wb.onclick=()=>{ROOM.win.on=ROOM.win.on?0:1;buildRoom();dock();};wc.appendChild(wb);
+    el.appendChild(wc);
+    if(ROOM.win.on){
+      wsel('جدار الشبّاك',ROOM.win.wall,v=>ROOM.win.wall=v);
+      NR('إزاحة الشبّاك (م)',ROOM.win.off,.05,0,40,v=>ROOM.win.off=v);
+      NR('عرض الشبّاك (م)',ROOM.win.w,.05,.4,4,v=>ROOM.win.w=v);
+      NR('ارتفاع الشبّاك (م)',ROOM.win.h,.05,.3,2.5,v=>ROOM.win.h=v);
+      NR('منسوب الجلسة (م)',ROOM.win.sill,.05,.3,2,v=>ROOM.win.sill=v);}
+
+    grp('توزيع المعدّات');
+    field(el,'invModel');
+    const ab=document.createElement('div');ab.className='chips';
+    const b1=document.createElement('button');b1.textContent='توزيع تلقائي من المنظومة';b1.className='o on';
+    b1.onclick=autoLayout;ab.appendChild(b1);
+    if(EQP.length){const b2=document.createElement('button');b2.textContent='إفراغ';b2.className='o';
+      b2.onclick=()=>{EQP=[];EQSEL=-1;buildRoom();dock();};ab.appendChild(b2);}
+    el.appendChild(ab);
+    {const kwp=ARES.reduce((a,r)=>a+(+r.kwp||0),0),B=batCalc();
+     tip('التوزيع التلقائي يأخذ الأرقام من المنظومة المحسوبة: <b>'+kwp.toFixed(2)+' kWp</b> ⇒ '+
+      invCount()+' إنفرتر ('+(INVLIB[M.invModel]||INVLIB.gen).n+')'+
+      (M.sysType==='ongrid'?' · بلا بطاريات':' · '+B.n+' وحدة بطارية')+
+      '، ثم يصفّها على أطول الجدران مع ترك المسافات الحرّة ويتفادى الباب.');}
+    const add=document.createElement('div');add.className='chips';
+    Object.keys(EQLIB).forEach(k=>{
+      const b=document.createElement('button');b.textContent='+ '+EQLIB[k].n;
+      b.onclick=()=>{const L=EQLIB[k],w0=roomWalls()[0],c=wallPt(w0,Math.min(w0.len-.5,.5+EQP.length*.2));
+        EQP.push({kind:k,name:L.n,tag:k.toUpperCase()+'-'+(EQP.filter(e=>e.kind===k).length+1),
+          x:c[0]+w0.nx*(L.d/2+.02),z:c[1]+w0.nz*(L.d/2+.02),
+          rot:(Math.atan2(w0.nx,w0.nz)*180/Math.PI+360)%360,y:L.y});
+        EQSEL=EQP.length-1;buildRoom();dock();};
+      add.appendChild(b);});
+    el.appendChild(add);
+
+    if(EQP.length){
+      const t2=document.createElement('table');
+      let r2='<tr><th>#</th><th>القطعة</th><th>X</th><th>Z</th><th>دوران</th><th></th></tr>';
+      EQP.forEach((e,i)=>{r2+=`<tr${i===EQSEL?' style="background:#fff3ee"':''}>
+        <td class="n">${e.tag||(i+1)}</td><td>${e.name||EQLIB[e.kind].n}</td>
+        <td class="n">${e.x.toFixed(2)}</td><td class="n">${e.z.toFixed(2)}</td>
+        <td class="n">${Math.round(e.rot||0)}°</td>
+        <td><button data-s="${i}">تحديد</button></td></tr>`;});
+      t2.innerHTML=r2;el.appendChild(t2);
+      t2.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+        EQSEL=+b.getAttribute('data-s');buildRoom();dock();});}
+    if(EQSEL>=0&&EQP[EQSEL]){
+      const e=EQP[EQSEL],L=EQLIB[e.kind];
+      grp('تعديل: '+(e.name||L.n));
+      NR('X (م)',e.x,.05,-5,60,v=>e.x=v);
+      NR('Z (م)',e.z,.05,-5,60,v=>e.z=v);
+      NR('الدوران (°)',e.rot||0,15,0,345,v=>e.rot=v);
+      if(L.mount==='wall')NR('منسوب المركز (م)',(+e.y||L.y),.05,.2,3,v=>e.y=v);
+      NR('العرض (م)',(+e.w||L.w),.01,.05,4,v=>e.w=v);
+      NR('الارتفاع (م)',(+e.h||L.h),.01,.05,3,v=>e.h=v);
+      NR('العمق (م)',(+e.d||L.d),.01,.05,2,v=>e.d=v);
+      const rb=document.createElement('div');rb.className='chips';
+      const bd=document.createElement('button');bd.textContent='حذف القطعة';bd.className='o';
+      bd.onclick=()=>{EQP.splice(EQSEL,1);EQSEL=-1;buildRoom();dock();};rb.appendChild(bd);
+      el.appendChild(rb);}
+
+    grp('تحقّق المسافات');
+    {const v=roomCheck();
+     if(v.ok)tip('<span class="tag t-ok">سليم</span> كل القطع داخل الغرفة، والمسافات الحرّة خالية، ولا شيء يعترض الباب.');
+     else{const dd=document.createElement('div');dd.className='note';
+       dd.innerHTML='<b>'+v.bad.length+' قطعة تحتاج مراجعة:</b><br>• '+v.msgs.join('<br>• ');el.appendChild(dd);}}
+    const rp=document.createElement('button');rp.textContent='فتح مخططات الغرفة وتفاصيلها';
+    rp.className='o on';rp.style.cssText='display:block;width:100%;margin:8px 0;padding:10px';
+    rp.onclick=roomReport;el.appendChild(rp);
   } else if(TAB==='ai'){
     grp('تعديل التصميم بالوصف');
     tip('اكتب بالعربي ما تريد. أمثلة:<br>• «موقف سيارات طول 18 بحر 5.5 ميل 12 أعمدة 120x120»<br>• «هنغار طول 30 بحر 15 ارتفاع صافي 6 جملون 2.2»<br>• «برغولا كابولي طول 6 بحر 3 ثروبولت»<br>• «بدون أرجل بين حائطين بحر 7.4 ريح 120 بدون أقطار»<br>• «الارتفاع الامامي 1.8 والخلفي 2.8 ألواح بورتريه»');
@@ -2885,7 +3594,8 @@ function dock(){
      ['الخرائط التنفيذية (8 لوحات + قائمة قطع)',shop],
      ['دراسة الكلفة — مستند منفصل',costReport],
      ['تقرير الإنتاجية والمنظومة — إنتاج · أحمال · بطاريات · تشريج',energyReport],
-     ['تقرير الظلال التفصيلي — يومي · شهري · سنوي',shadowReport]].forEach(([n,fn])=>{
+     ['تقرير الظلال التفصيلي — يومي · شهري · سنوي',shadowReport],
+     ['غرفة الكهرباء — مخطط أفقي · واجهات · جدول معدّات',roomReport]].forEach(([n,fn])=>{
       const b=document.createElement('button');b.textContent=n;b.className='o on';b.style.cssText='display:block;width:100%;margin:6px 0;padding:10px';
       b.onclick=fn;el.appendChild(b);});
     tip('التقرير الفني موجّه إلى البلدية ونقابة المهندسين وخالٍ من أي تسعير، ويتضمن سلسلة رياح كاملة (EN 1991-1-4) واستقراراً عاماً وتصريحاً موقّعاً. الكلفة في مستند منفصل.');
@@ -3015,7 +3725,8 @@ el.addEventListener('touchend',()=>drag=false,{passive:true});
 document.getElementById('vCover').onclick=e=>{gC.visible=!gC.visible;e.target.classList.toggle('on',gC.visible);};
 document.getElementById('vDim').onclick=e=>{gD.visible=!gD.visible;e.target.classList.toggle('on',gD.visible);};
 document.getElementById('vSite').onclick=e=>{const v=!gSite.visible;gSite.visible=v;gB.visible=v;e.target.classList.toggle('on',v);};
-document.getElementById('vFit').onclick=fit;
+document.getElementById('vRoom').onclick=()=>{ROOM.on=1;setRoomView(!RVIEW);dock();};
+document.getElementById('vFit').onclick=()=>{RVIEW?fitRoom():fit();};
 document.getElementById('vDock').onclick=e=>{
   const d=document.getElementById('dock');d.classList.toggle('min');
   e.target.textContent=d.classList.contains('min')?'▲':'▼';setTimeout(resize,260);};
