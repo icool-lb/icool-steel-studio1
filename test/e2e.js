@@ -177,6 +177,40 @@ ok(nb.far===false,'نقطة أبعد من ظلّه = مشمسة',nb.far);
 ok(nb.base===-9&&nb.h===12,'منسوب القاعدة والقمّة محفوظان في OBSW','base='+nb.base+' h='+nb.h);
 ok(nb.frac>0.9,'الهيكل بكامله داخل ظل الجار ظهر 21/12',(nb.frac*100).toFixed(0)+'%');
 
+console.log('\n[5ه] الجمالون عند اللزوم فقط');
+const sysT=await pg.evaluate(()=>{
+  M.bShape='rect';M.bA=40;M.bB=40;M.bPar=0;OBS=[];ARR=[];AI=0;
+  M.tpl='S1';applyTpl('S1');M.bOX=2;M.bOZ=2;M.az=180;M.sys='auto';
+  const run=(S,sys)=>{M.S=S;M.h1=2.2;M.h2=2.2+S*0.2;M.sys=sys;build();
+    return {used:ARR[0].sysUsed,util:R.util,defR:R.defR,tot:R.tot,sec:ARR[0].secUsed,
+            beam:R.beam,W:R.Wsec,I:R.Ieff,kinds:Object.keys(KIND)};};
+  const shortA=run(4,'auto'), longA=run(16,'auto');
+  const forcedB=run(16,'beam'), forcedT=run(4,'truss');
+  return {shortA,longA,forcedB,forcedT,
+    i1:secI('100x50x3'),i2:secI('150x50x4'),i3:secI('IPE200')};});
+ok(Math.abs(sysT.i1-106)<4,'عطالة RHS 100×50×3 ≈ 106 سم⁴',sysT.i1.toFixed(0));
+ok(Math.abs(sysT.i2-384)<8,'عطالة RHS 150×50×4 ≈ 384 سم⁴',sysT.i2.toFixed(0));
+ok(sysT.i3===1943,'عطالة IPE200 من الجدول',sysT.i3);
+ok(sysT.shortA.used==='beam','بحر 4 م ⇐ جائز مفرد تلقائياً',
+   sysT.shortA.sec+' · استغلال '+(sysT.shortA.util*100).toFixed(0)+'% · هبوط L/'+sysT.shortA.defR.toFixed(0));
+ok(sysT.shortA.util<=0.95&&sysT.shortA.defR>=200,'المقطع المختار يحقّق الاستغلال والهبوط',
+   (sysT.shortA.util*100).toFixed(0)+'% · L/'+sysT.shortA.defR.toFixed(0));
+ok(sysT.longA.used==='truss','بحر 16 م ⇐ جمالون تلقائياً',
+   sysT.longA.used+' · استغلال '+(sysT.longA.util*100).toFixed(0)+'%');
+ok(!sysT.shortA.kinds.includes('أقطار')&&!sysT.shortA.kinds.includes('تضليع'),
+   'الجائز المفرد لا ينتج أقطاراً ولا تضليعاً',sysT.shortA.kinds.join(' · '));
+ok(sysT.longA.kinds.includes('جوائز سفلية'),'الجمالون ينتج جائزاً سفلياً',
+   sysT.longA.kinds.join(' · '));
+ok(sysT.forcedB.used==='beam'&&sysT.forcedB.beam,'الإجبار على جائز مفرد يُحترم رغم البحر 16 م',
+   'استغلال '+(sysT.forcedB.util*100).toFixed(0)+'%');
+ok(sysT.forcedB.util>1,'ويُبلَّغ عن تجاوز الاستغلال بدل إخفائه',
+   (sysT.forcedB.util*100).toFixed(0)+'%');
+ok(sysT.forcedT.used==='truss'&&!sysT.forcedT.beam,'الإجبار على جمالون يُحترم رغم البحر القصير');
+ok(sysT.forcedT.tot>sysT.shortA.tot,'الجمالون أثقل من الجائز المفرد لنفس الهندسة',
+   Math.round(sysT.shortA.tot)+' ⇐ '+Math.round(sysT.forcedT.tot)+' كغ');
+ok(sysT.shortA.W>0&&sysT.longA.W===0,'معامل المقاومة يُحسب للجائز فقط',
+   'W='+sysT.shortA.W.toFixed(0)+' سم³');
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة
@@ -297,6 +331,86 @@ ok(erp.errs.length===0,'المستند يُبنى بلا استثناء',erp.err
 ok(erp.sec,'كل الفصول السبعة موجودة');
 ok(erp.svg>=1&&erp.bars>=12,'الرسم البياني الشهري موجود مع تلميحات لكل عمود',erp.bars+' تلميح');
 ok(erp.lim,'حدود الدراسة مذكورة صراحة (ليست محاكاة 8760 ساعة)');
+
+console.log('\n[10] محاكاة حركة الشمس');
+const an=await pg.evaluate(()=>{
+  M.lat=33.8938;M.lon=35.5018;M.tz=2;M.north=0;
+  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.8;OBS=[];ARR=[];AI=0;
+  M.tpl='S1';applyTpl('S1');M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;build();
+  M.sMon=12;M.sDay=21;M.sHour=9.5;
+  const keep={mo:+M.sMon,dy:+M.sDay,hr:+M.sHour};
+  const sample=(mode,frac)=>{
+    animStart(mode,10,false);
+    ANIM.t0=performance.now()-frac*10*1000;
+    animTick();
+    const r={mo:+M.sMon,dy:+M.sDay,hr:+M.sHour,alt:SUN.alt};
+    ANIM=null;return r;};
+  const d25=sample('day',0.25),d50=sample('day',0.5),d90=sample('day',0.9);
+  const s0=sample('season',0.1),s1=sample('season',1.1),s2=sample('season',2.1),s3=sample('season',3.1);
+  // الإيقاف يعيد الحالة
+  animStart('day',10);ANIM.t0=performance.now()-4000;animTick();
+  const mid={mo:+M.sMon,hr:+M.sHour};
+  M.sMon=keep.mo;M.sDay=keep.dy;M.sHour=keep.hr;   // محاكاة ما يفعله animStop
+  animStart('day',10);const before={mo:+M.sMon,dy:+M.sDay,hr:+M.sHour};
+  ANIM.t0=performance.now()-5000;animTick();animStop();
+  const after={mo:+M.sMon,dy:+M.sDay,hr:+M.sHour};
+  const st=sunTimes(33.8938,35.5018,2,12,21);
+  return {d25,d50,d90,s0,s1,s2,s3,mid,before,after,rise:st.rise,set:st.set,
+    rec:typeof recSupported()==='boolean',anim:ANIM===null};});
+ok(an.d25.hr<an.d50.hr&&an.d50.hr<an.d90.hr,'الوقت يتقدّم خلال اليوم',
+   an.d25.hr.toFixed(2)+' → '+an.d50.hr.toFixed(2)+' → '+an.d90.hr.toFixed(2));
+ok(an.d25.hr>an.rise&&an.d90.hr<an.set,'المحاكاة تبقى بين الشروق والغروب',
+   'شروق '+an.rise.toFixed(2)+' … غروب '+an.set.toFixed(2));
+ok(an.d25.alt>0&&an.d50.alt>0&&an.d90.alt>0,'الشمس فوق الأفق طوال المحاكاة',
+   'أدنى ارتفاع '+Math.min(an.d25.alt,an.d50.alt,an.d90.alt).toFixed(1)+'°');
+ok(an.d50.alt>an.d25.alt&&an.d50.alt>an.d90.alt,'الشمس تبلغ ذروتها في منتصف اليوم',
+   an.d25.alt.toFixed(1)+' · '+an.d50.alt.toFixed(1)+' · '+an.d90.alt.toFixed(1)+'°');
+ok(an.s0.mo===3&&an.s1.mo===6&&an.s2.mo===9&&an.s3.mo===12,
+   'دورة الفصول تمرّ على الأربعة بالترتيب',[an.s0.mo,an.s1.mo,an.s2.mo,an.s3.mo].join(' → '));
+ok(an.s1.alt>an.s3.alt,'شمس حزيران أعلى من شمس كانون الأول',
+   an.s1.alt.toFixed(1)+'° مقابل '+an.s3.alt.toFixed(1)+'°');
+ok(an.after.mo===an.before.mo&&an.after.dy===an.before.dy&&Math.abs(an.after.hr-an.before.hr)<1e-9,
+   'الإيقاف يعيد التاريخ والساعة كما كانا',
+   an.before.hr.toFixed(2)+' → '+an.after.hr.toFixed(2));
+ok(an.anim,'حالة المحاكاة تُصفَّر عند الإيقاف');
+ok(an.rec,'دعم التسجيل يُفحص بلا استثناء');
+
+console.log('\n[11] تقرير الظلال التفصيلي');
+const sh2=await pg.evaluate(()=>{
+  // الهيكل يشغل x 2..12 و z 2..8 ؛ العوائق جنوبه (z أكبر) فيقع ظلّها شمالاً عليه
+  OBS=[{poly:[[3,9],[6,9],[6,11],[3,11]],h:3,base:0,kind:'stair',name:'بيت الدرج'},
+       {poly:[[0,16],[40,16],[40,26],[0,26]],h:20,base:-9,kind:'bldg',name:'جار جنوبي'}];
+  build();
+  const st=shadowStats();
+  const errs=[];let h='';
+  try{shadowReport();h=document.getElementById('ovBody').innerHTML;}catch(e){errs.push(e.message);}
+  return {errs,len:h.length,
+    rows:st.heat.length,cols:st.heat[0].length,
+    clear:st.clear,base:st.base.year,loss:st.lossY,pc:st.lossPc,
+    nAtt:st.attrib.length,top:st.attrib[0]&&st.attrib[0].name,
+    att:st.attrib.map(x=>({name:x.name,gain:x.gain})),
+    sumAtt:st.attrib.reduce((a,x)=>a+x.gain,0),
+    worst:st.worst.m,
+    secs:['الملخّص السنوي','خريطة التظليل','الجدول الشهري','نصيب كل عائق',
+          'الأيام الأربعة المرجعية','أساس الحساب'].every(t=>h.includes(t)),
+    seasons:['اعتدال الربيع','انقلاب الصيف','اعتدال الخريف','انقلاب الشتاء'].every(t=>h.includes(t)),
+    svg:(h.match(/<svg/g)||[]).length,
+    lim:/الأشجار والأبراج والرافعات/.test(h)};});
+ok(sh2.errs.length===0,'التقرير يُبنى بلا استثناء',sh2.errs.join(' | ')||'نظيف');
+ok(sh2.rows===12&&sh2.cols===15,'الخريطة الحرارية 12 شهراً × 15 ساعة',sh2.rows+'×'+sh2.cols);
+ok(sh2.clear>sh2.base,'الإنتاج بلا عوائق أعلى من الفعلي',
+   Math.round(sh2.clear)+' مقابل '+Math.round(sh2.base));
+ok(sh2.loss>0&&sh2.pc>0&&sh2.pc<1,'الفاقد السنوي موجب ومعقول',
+   Math.round(sh2.loss)+' kWh ('+(sh2.pc*100).toFixed(1)+'%)');
+ok(sh2.nAtt===3,'نصيب محسوب لكل عائق وللعمامة',sh2.nAtt+' بنود');
+ok(sh2.top==='جار جنوبي','الجار الجنوبي (20 م) أكبر مسبّب للفاقد من بيت الدرج (3 م)',
+   sh2.att.map(x=>x.name+' '+Math.round(x.gain)).join(' · '));
+ok(sh2.sumAtt<=sh2.loss*1.05,'مجموع الأنصبة لا يتجاوز الفاقد الكلي (تراكب الظلال)',
+   Math.round(sh2.sumAtt)+' من '+Math.round(sh2.loss));
+ok(sh2.secs,'الفصول الستة موجودة');
+ok(sh2.seasons,'الأيام الأربعة المرجعية موجودة بأسمائها');
+ok(sh2.svg>=5,'خريطة حرارية + أربعة مخططات ظل',sh2.svg+' SVG');
+ok(sh2.lim,'حدود الدراسة مذكورة صراحة');
 
 console.log('\n[7] تبويب KML في الواجهة');
 const ui=await pg.evaluate(()=>{

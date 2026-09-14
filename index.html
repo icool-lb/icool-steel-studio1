@@ -175,6 +175,16 @@ const SEC={
  '150x50x4' :{w:11.7,A:14.9,b:.05,h:.15},'150x150x5':{w:22.0,A:28.0,b:.15,h:.15},
  'IPE160'   :{w:15.8,A:20.1,b:.082,h:.16},'IPE200'  :{w:22.4,A:28.5,b:.10,h:.20},
  'IPE240'   :{w:30.7,A:39.1,b:.12,h:.24}};
+/* عطالة المقطع حول المحور القوي (سم⁴). المقاطع المجوّفة تُحسب من الاسم
+   بمعامل 0.95 تعويضاً عن تدوير الزوايا؛ مقاطع IPE من الجداول. */
+const IPE_I={IPE160:869,IPE200:1943,IPE240:3892};
+function secI(nm){
+  if(IPE_I[nm])return IPE_I[nm];
+  const m=/^(\d+)x(\d+)x([\d.]+)$/.exec(nm||'');
+  if(!m){const s=SEC[nm];return s?s.A*Math.pow(s.h*100,2)/12:1;}
+  const h=+m[1],b=+m[2],t=+m[3];
+  const I=(b*Math.pow(h,3)-(b-2*t)*Math.pow(h-2*t,3))/12;
+  return Math.max(1,I/1e4*0.95);}
 const PANEL={w:2.382,h:1.134,t:.030,kg:32.3,Wp:660,nm:'Bluesun 2382×1134 / 660Wp'};
 
 /* ---------- 3. حالة المشروع ---------- */
@@ -185,9 +195,9 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  L:12,S:6,h1:2.2,h2:3.4,bay:2.5,td:.5,over:.5,
  secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
  diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
- slatGap:.12,clearH:5,ridge:1.9,
+ slatGap:.12,clearH:5,ridge:1.9,sys:'auto',
  lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1,az:180,
- sysType:'hybrid',ghiY:1900,albedo:.20,noct:45,pTcP:-0.34,shFac:2,
+ animSec:10,sysType:'hybrid',ghiY:1900,albedo:.20,noct:45,pTcP:-0.34,shFac:2,
  lSoil:3,lMis:2,lWire:2,lInv:3,lAvail:1,
  pWp:660,pVoc:45.9,pVmp:38.4,pIsc:18.3,pImp:17.2,pTcV:-0.25,
  tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
@@ -318,6 +328,7 @@ const F={
  tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
  north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
  az:{l:'سمت الألواح (° من الشمال)',t:'r',min:0,max:359,st:1},
+ sys:{l:'النظام الحامل',t:'s',o:[['auto','تلقائي — جائز مفرد ما لم يلزم جمالون'],['beam','جائز مفرد دائماً'],['truss','جمالون دائماً']]},
  sysType:{l:'نوع المنظومة',t:'s',o:[['offgrid','مستقلة off-grid'],['hybrid','هجينة مع بطاريات'],['ongrid','مربوطة بالشبكة بلا بطاريات']]},
  ghiY:{l:'الإشعاع الأفقي السنوي (kWh/م²)',t:'n',st:10,min:800,max:2600},
  albedo:{l:'انعكاس الأرض ρ',t:'r',min:.05,max:.5,st:.01},
@@ -356,6 +367,7 @@ const F={
  sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
  sHour:{l:'الساعة المحلية',t:'r',min:4,max:20,st:.25},
  sunOn:{l:'بوصلة وأشعة الشمس',t:'s',o:[['1','إظهار'],['0','إخفاء']],num:1},
+ animSec:{l:'مدة اليوم في المحاكاة (ثانية)',t:'r',min:3,max:40,st:1},
  shadow:{l:'ظلال حيّة في 3D',t:'s',o:[['1','تشغيل'],['0','إيقاف']],num:1}};
 
 const TPL={
@@ -474,7 +486,9 @@ function knees(x,z,yTop,dx,dz){
   if(dx)addM('كتف تقوية',M.secW,V(x,yTop-k,z),V(x+dx*k,yTop-.04,z),MAT.brace,'K2');
   if(dz)addM('كتف تقوية',M.secW,V(x,yTop-k,z),V(x,yTop-.04,z+dz*k),MAT.brace,'K2');}
 
+let SYSNOW='truss';
 function truss(p1,p2,td,nB,diag){
+  if(SYSNOW==='beam'){addM('جوائز رئيسية',M.secT,p1,p2,MAT.top,'B1');return;}
   const q1=V(p1.x,p1.y-td,p1.z),q2=V(p2.x,p2.y-td,p2.z);
   addM('جوائز علوية',M.secT,p1,p2,MAT.top,'C1');
   addM('جوائز سفلية',M.secB,q1,q2,MAT.bot,'C2');
@@ -700,14 +714,22 @@ function compute(g,qty,np,plates){
   const wU=Math.max(C1,C2,C3);
   const Ls=g.spanMain,trib=g.trib,w=wU*trib;
   const Mmax=T.cant?w*Ls*Ls/2:w*Ls*Ls/8;
-  const d=(T.bld==='H')?M.td+M.ridge*.5:M.td;
-  const N=Mmax/Math.max(d,.2);
+  const beam=(SYSNOW==='beam');
+  const d=beam?SEC[M.secT].h:((T.bld==='H')?M.td+M.ridge*.5:M.td);
+  const N=Mmax/Math.max(d,.05);
   const At=SEC[M.secT].A,Ab=SEC[M.secB].A;
-  const sig=N/(Math.min(At,Ab)/1e4)/1e3,util=sig/157;
-  const Ieff=At*Math.pow(d*100*.42,2)+Ab*Math.pow(d*100*.58,2);
+  let sig,Ieff,Wsec=0;
+  if(beam){
+    Ieff=secI(M.secT);
+    Wsec=Ieff/Math.max(SEC[M.secT].h*100/2,.5);
+    sig=Mmax*1e3/Math.max(Wsec,.01);
+  }else{
+    sig=N/(Math.min(At,Ab)/1e4)/1e3;
+    Ieff=At*Math.pow(d*100*.42,2)+Ab*Math.pow(d*100*.58,2);}
+  const util=sig/157;
   let def=5*w*Math.pow(Ls*1e3,4)/(384*21e4*Ieff*1e4);
   if(T.cant)def=w*Math.pow(Ls*1e3,4)/(8*21e4*Ieff*1e4);
-  if(!M.diag)def*=3.5;
+  if(!beam&&!M.diag)def*=3.5;
   const defR=Ls*1e3/Math.max(def,.01);
   const Rv=wU*area/Math.max(g.nSup,1),Hf=wWind*area*Math.sin(g.t)/Math.max(g.nSup,1);
   const hTop=(T.bld==='H')?M.clearH:Math.max(M.h1,M.h2);
@@ -736,10 +758,11 @@ function compute(g,qty,np,plates){
   const ecc=(T.bld==='H')?0:WD.Fh*area*0.25*(T.bld==='B'?M.S:M.S);
   return {T,WD,upTot,wTot,FS,ecc,Rup,ab,nBolt,steel,plateKg,tot,area,q,Cf,wWind,gk,sk,C1,C2,C3,wU,Ls,trib,w,Mmax,d,N,sig,util,def,defR,
      Rv,Hf,Mbase,boltT,fixTxt,lever,ballast,coatArea,coatCost,steelCost,fabCost,kwp,tdeg,g,np,
+     sys:SYSNOW,beam,Wsec,
      total:steelCost+fabCost+coatCost,kgm2:tot/Math.max(area,1),At,Ab,Ieff,hTop};}
 
 /* ---------- 7. البناء ---------- */
-const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee',
+const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee','sys',
   'secT','secB','secW','secP','secR','clearH','ridge','slatGap','az'];
 function azOf(a){const v=+(a&&a.az);return isFinite(v)?((v%360)+360)%360:180;}
 function arrPhi(a){return (180-(northDeg()+azOf(a)))*Math.PI/180;}
@@ -778,20 +801,43 @@ function build(){
   ARR.forEach((a,i)=>{
     applyArr(a);NOGRND=(i>0);
     const T=TPL[M.tpl];T.id=M.tpl;
-    const q0={};Object.keys(QTY).forEach(k=>q0[k]=QTY[k]);
-    const np0=NP,pl0=PLATES,n0=LEGS.length;
     const marks=[gS.children.length,gC.children.length,gB.children.length,gD.children.length];
-    const g=T.bld==='A'?builderA(T):T.bld==='B'?builderB(T):T.bld==='C'?builderC(T):builderH(T);
-    const qa={};Object.keys(QTY).forEach(k=>{const d=QTY[k]-(q0[k]||0);if(d>1e-9)qa[k]=d;});
-    const res=compute(g,qa,NP-np0,PLATES-pl0);
+    const s0={QTY:JSON.parse(JSON.stringify(QTY)),KIND:JSON.parse(JSON.stringify(KIND)),
+      PC:JSON.parse(JSON.stringify(PC)),NP,PLATES,ANCH,nLeg:LEGS.length};
+    const undo=()=>{QTY=JSON.parse(JSON.stringify(s0.QTY));KIND=JSON.parse(JSON.stringify(s0.KIND));
+      PC=JSON.parse(JSON.stringify(s0.PC));NP=s0.NP;PLATES=s0.PLATES;ANCH=s0.ANCH;
+      LEGS.length=s0.nLeg;
+      [gS,gC,gB,gD].forEach((gg,k)=>gg.children.splice(marks[k]).forEach(c=>{
+        if(c&&c.traverse)c.traverse(o=>{if(o.geometry&&o.geometry.dispose)o.geometry.dispose();});}));};
+    const runOne=sv=>{
+      SYSNOW=sv;
+      M.td=(sv==='beam')?SEC[M.secT].h:a.td;
+      const gg=T.bld==='A'?builderA(T):T.bld==='B'?builderB(T):T.bld==='C'?builderC(T):builderH(T);
+      const qa={};Object.keys(QTY).forEach(k=>{const dq=QTY[k]-(s0.QTY[k]||0);if(dq>1e-9)qa[k]=dq;});
+      return {g:gg,res:compute(gg,qa,NP-s0.NP,PLATES-s0.PLATES)};};
+    const want=a.sys||'auto';
+    let out=null,chosen=null;
+    if(want!=='auto'){out=runOne(want);chosen=want;}
+    else{
+      /* تلقائي: جرّب جائزاً مفرداً ورفّع المقطع حتى يكفي، ولا تلجأ إلى الجمالون إلا إذا لم يكفِ أثقلها */
+      const base=a.secT;
+      for(const sc of F.secT.o){
+        M.secT=sc;out=runOne('beam');
+        if(out.res.util<=0.95&&out.res.defR>=200){chosen='beam';break;}
+        undo();out=null;}
+      if(out)a.secT=M.secT;
+      else{M.secT=base;out=runOne('truss');chosen='truss';}}
+    a.sysUsed=chosen;a.secUsed=M.secT;
+    const g=out.g,res=out.res;
     res.ai=i;res.arr=a;res.pv=Object.assign({},PVINFO);
     ARES.push(res);
     if(i===AI){R=res;dims(T,g);}
     const phi=arrPhi(a),c=Math.cos(phi),sn=Math.sin(phi);
-    for(let k=n0;k<LEGS.length;k++){
+    for(let k=s0.nLeg;k<LEGS.length;k++){
       const lx=LEGS[k][0],lz=LEGS[k][1],fx=LEGS[k][2];
       LEGS[k]=[lx*c+lz*sn+a.x,-lx*sn+lz*c+a.z,fx,i,lz];}
     wrapFrom(marks,a,ox,oz);});
+  SYSNOW='truss';
   NOGRND=false;restoreM(keep);
   R=govR();R.g.legs=LEGS.slice();
   validate();drawSite();badge();drawSun();applyShadows();}
@@ -1003,9 +1049,33 @@ function shadowHull(poly,h,alt,az){
   const s=sunHoriz(az);
   return hull(poly.concat(poly.map(p=>[p[0]-d*s[0],p[1]-d*s[1]])));}
 
-/* ---- رسم الشمس والبوصلة في 3D ---- */
-function drawSun(){
-  clr(gSun); updateSun();
+/* ---------- 8ه. محاكاة حركة الشمس · تصدير فيديو ---------- */
+const SEASONS=[[3,21,'اعتدال الربيع'],[6,21,'انقلاب الصيف'],[9,23,'اعتدال الخريف'],[12,21,'انقلاب الشتاء']];
+let ANIM=null,REC=null;
+const SUNBALL=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),MAT.sunM);
+const SUNRAY=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,1,0)]),MAT.ray);
+const sunCv=document.createElement('canvas');sunCv.width=640;sunCv.height=128;
+const sunTex=new THREE.CanvasTexture(sunCv);
+const SUNLBL=new THREE.Sprite(new THREE.SpriteMaterial({map:sunTex,transparent:true,depthTest:false}));
+SUNLBL.renderOrder=999;
+scene.add(SUNBALL,SUNRAY,SUNLBL);
+function sunLblText(t){
+  const x=sunCv.getContext('2d');
+  x.clearRect(0,0,640,128);
+  x.fillStyle='rgba(255,255,255,.93)';x.fillRect(0,0,640,128);
+  x.strokeStyle='#F2A81D';x.lineWidth=8;x.strokeRect(4,4,632,120);
+  x.fillStyle='#16222e';x.font='bold 50px Tajawal, Arial';x.textAlign='center';x.textBaseline='middle';
+  x.fillText(t,320,68);
+  sunTex.needsUpdate=true;}
+function drawCompass(cx,cz,rad){
+  const y=.06;
+  [[0,'شمال','#0066A7'],[180,'جنوب','#F1471E'],[90,'شرق','#5b6b7a'],[270,'غرب','#5b6b7a']].forEach(([b,n,col])=>{
+    const v=bearing(b),x2=cx+v[0]*rad,z2=cz+v[1]*rad;
+    gSun.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      [V(cx,y,cz),V(x2,y,z2)]),b===0?MAT.nline:MAT.edge));
+    gSun.add(lbl(n,V(cx+v[0]*(rad+.9),y+.5,cz+v[1]*(rad+.9)),col,b===0||b===180?1.5:1.1));});}
+function drawSun(fast){
+  updateSun();
   const bbx=SITE?SITE.bb[0]:M.L,bbz=SITE?SITE.bb[1]:M.S;
   const cx=bbx/2-(SITE?M.bOX:0),cz=bbz/2-(SITE?M.bOZ:0);
   const rad=Math.max(Math.max(bbx,bbz)*.62,5);
@@ -1018,22 +1088,84 @@ function drawSun(){
   const live=!!(+M.shadow&&SUN.up&&SUN.alt>1);
   SUNL.visible=live; SUNL.intensity=live?.95:0;
   D1.intensity=live?.20:.55; D2.intensity=live?.09:.2;
-  if(!+M.sunOn)return;
-  const y=.06;
-  [[0,'شمال','#0066A7'],[180,'جنوب','#F1471E'],[90,'شرق','#5b6b7a'],[270,'غرب','#5b6b7a']].forEach(([b,n,col])=>{
-    const v=bearing(b),x2=cx+v[0]*rad,z2=cz+v[1]*rad;
-    gSun.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
-      [V(cx,y,cz),V(x2,y,z2)]),b===0?MAT.nline:MAT.edge));
-    gSun.add(lbl(n,V(cx+v[0]*(rad+.9),y+.5,cz+v[1]*(rad+.9)),col,b===0||b===180?1.5:1.1));});
-  if(SUN.up&&SUN.alt>0){
-    const dir=sunDir3(),sp=new THREE.Vector3(cx,0,cz).add(dir.clone().multiplyScalar(rad*1.35));
-    const sm=new THREE.Mesh(new THREE.SphereGeometry(Math.max(rad*.055,.22),14,10),MAT.sunM);
-    sm.position.copy(sp); gSun.add(sm);
-    gSun.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(cx,0,cz),sp]),MAT.ray));
-    gSun.add(lbl('الشمس '+SUN.alt.toFixed(0)+'° · سمت '+SUN.az.toFixed(0)+'°',
-      sp.clone().setY(sp.y+.75),'#F2A81D',1.9));
+  if(!fast){clr(gSun); if(+M.sunOn)drawCompass(cx,cz,rad);}
+  const show=!!+M.sunOn;
+  const up=SUN.up&&SUN.alt>0;
+  SUNBALL.visible=show&&up; SUNRAY.visible=show&&up; SUNLBL.visible=show;
+  if(show){
+    const r2=Math.max(rad*.055,.22);
+    SUNBALL.scale.set(r2,r2,r2);
+    if(up){
+      const sp=new THREE.Vector3(cx,0,cz).add(sunDir3().multiplyScalar(rad*1.35));
+      SUNBALL.position.copy(sp);
+      SUNRAY.geometry.setFromPoints([V(cx,0,cz),sp]);
+      SUNLBL.position.set(sp.x,sp.y+.9,sp.z);
+    }else SUNLBL.position.set(cx,1.6,cz);
+    SUNLBL.scale.set(rad*.42,rad*.084,1);
+    const dt=(+M.sDay)+' '+MFULL[(+M.sMon)-1];
+    sunLblText(up?(dt+'  '+hhmm(+M.sHour)+'   ارتفاع '+SUN.alt.toFixed(0)+'°  سمت '+SUN.az.toFixed(0)+'°')
+                 :(dt+'  '+hhmm(+M.sHour)+'   الشمس تحت الأفق'));}}
+
+/* ---- محرّك الحركة ---- */
+function animStart(mode,secPerDay,once,onEnd){
+  ANIM={mode,secPerDay:Math.max(2,secPerDay||8),once:!!once,onEnd:onEnd||null,
+    t0:performance.now(),di:0,keep:{mo:+M.sMon,dy:+M.sDay,hr:+M.sHour}};
+  dock();}
+function animStop(restore){
+  if(!ANIM)return;
+  const k=ANIM.keep,cb=ANIM.onEnd;ANIM=null;
+  if(restore!==false){M.sMon=k.mo;M.sDay=k.dy;M.sHour=k.hr;}
+  drawSun();dock();
+  if(cb)cb();}
+function animTick(){
+  if(!ANIM)return;
+  const span=ANIM.secPerDay,el=(performance.now()-ANIM.t0)/1000;
+  let k,day;
+  if(ANIM.mode==='season'){
+    const total=4*span;
+    if(ANIM.once&&el>=total){animStop();return;}
+    const e2=el%total;ANIM.di=Math.min(3,Math.floor(e2/span));
+    k=(e2%span)/span;day=SEASONS[ANIM.di];
   }else{
-    gSun.add(lbl('الشمس تحت الأفق '+hhmm(+M.sHour),V(cx,1.2,cz),'#5b6b7a',2));}}
+    if(ANIM.once&&el>=span){animStop();return;}
+    k=(el%span)/span;day=[+M.sMon,+M.sDay];}
+  M.sMon=day[0];M.sDay=day[1];
+  const st=sunTimes(+M.lat,+M.lon,+M.tz,M.sMon,M.sDay);
+  const r=(st&&st.rise!=null)?st.rise+.2:6, s2=(st&&st.set!=null)?st.set-.2:18;
+  M.sHour=r+(s2-r)*k;
+  drawSun(true);}
+
+/* ---- تسجيل فيديو من لوحة العرض ---- */
+function recSupported(){
+  const cv=renderer.domElement;
+  return !!(cv&&cv.captureStream&&typeof MediaRecorder!=='undefined');}
+function recStart(mode,secPerDay){
+  if(REC){log('تسجيل جارٍ بالفعل.',1);return;}
+  if(!recSupported()){
+    log('متصفحك لا يدعم تسجيل الفيديو (MediaRecorder). استعمل Chrome أو Edge على الكمبيوتر.',1);return;}
+  const cv=renderer.domElement;
+  const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const mt=types.find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
+  let mr;
+  try{mr=new MediaRecorder(cv.captureStream(30),mt?{mimeType:mt,videoBitsPerSecond:8e6}:undefined);}
+  catch(e){log('تعذّر بدء التسجيل: '+e.message,1);return;}
+  const chunks=[];
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  mr.onstop=()=>{
+    REC=null;
+    const b=new Blob(chunks,{type:mt||'video/webm'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download=((M.project||'icool')+'-'+(mode==='season'?'four-seasons':'day')+'.webm').replace(/\s+/g,'-');
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),6000);
+    log('تم حفظ الفيديو ('+(b.size/1048576).toFixed(1)+' ميغابايت).');
+    dock();};
+  REC=mr;mr.start();
+  animStart(mode,secPerDay,true,()=>{try{mr.stop();}catch(e){REC=null;}});
+  dock();}
+function recStop(){if(REC){animStop();}}
+
 function applyShadows(){
   const on=!!(+M.shadow&&SUN.up&&SUN.alt>1);
   [gS,gC,gB,gSite].forEach(g=>g.traverse(o=>{if(o.isMesh){o.castShadow=on;o.receiveShadow=on;}}));}
@@ -1576,13 +1708,14 @@ function sizePanels(){
     cover:L.year>0?E.year/L.year:0};}
 
 /* ---------- لوحة الظلال + فصل التقرير ---------- */
-function sheetShadow(){
+function sheetShadow(mo,dy){
+  mo=mo||12;dy=dy||21;
   const W=760,H=470,mx=64,my=52;
   if(!SITE)return SV(W,H,tx(W/2,H/2,'لم يُحدَّد السطح — استورد ملف KML أو أدخل أبعاد السطح',{s:12,c:'#5b6b7a'}));
   const times=[[9,'#F1471E'],[12,'#0066A7'],[15,'#7a5cc4']];
   const shp=[];let parLine=null;
   times.forEach(([hr,col])=>{
-    const s=solar(+M.lat,+M.lon,+M.tz,12,21,hr);
+    const s=solar(+M.lat,+M.lon,+M.tz,mo,dy,hr);
     OBSW.forEach(o=>{const hl=shadowHull(o.poly,o.h,s.alt,s.az);
       if(hl)shp.push({hl,col});});
     if(hr===12&&M.bPar>0&&s.alt>1){
@@ -1610,7 +1743,7 @@ function sheetShadow(){
   b+=tx(ax+nv[0]*(r+10),ay+nv[1]*(r+10)+3,'ش',{s:11,b:1,c:'#0066A7'});
   b+=tx(ax+sv2[0]*(r+10),ay+sv2[1]*(r+10)+3,'ج',{s:11,b:1,c:'#F1471E'});
   let ly=H-34;
-  b+=tx(mx,ly,'ظلال 21 كانون الأول:',{s:9,b:1,a:'start'});
+  b+=tx(mx,ly,'ظلال '+dy+' '+MFULL[mo-1]+':',{s:9,b:1,a:'start'});
   times.forEach(([hr,col],i)=>{const x0=mx+108+i*108;
     b+=`<rect x="${x0}" y="${ly-8}" width="15" height="9" fill="${col}" fill-opacity=".15" stroke="${col}" stroke-width="1"/>`;
     b+=tx(x0+20,ly,hhmm(hr),{s:9,a:'start'});});
@@ -1629,6 +1762,7 @@ function arraysTable(){
       <td>${a.name||('مصفوفة '+(i+1))}${x===gov?' <b>(حاكمة)</b>':''}</td><td>${T.n||a.tpl}</td>
       <td class="n">${(+a.L).toFixed(2)} × ${(+a.S).toFixed(2)}</td>
       <td class="n">${Math.round(azOf(a))}°</td><td class="n">${x.tdeg.toFixed(1)}°</td>
+      <td>${x.beam?'جائز مفرد':'جمالون'}</td>
       <td class="n">${x.np||0}</td><td class="n">${x.kwp.toFixed(2)}</td>
       <td class="n">${x.tot.toFixed(0)}</td>
       <td class="n">${(x.util*100).toFixed(0)}%</td><td class="n">L/${x.defR.toFixed(0)}</td>
@@ -1636,8 +1770,8 @@ function arraysTable(){
   const sum=k=>ARES.reduce((a,x)=>a+(+x[k]||0),0);
   return `<h3>1.0 المصفوفات (${ARES.length} هياكل)</h3>
   <table><tr><th>المصفوفة</th><th>النموذج</th><th>الطول×البحر (م)</th><th>السمت</th><th>الميل</th>
-   <th>ألواح</th><th>kWp</th><th>حديد كغ</th><th>استغلال</th><th>هبوط</th><th>تظليل ظهر 21/12</th></tr>
-   ${r}<tr style="background:#f2f5f8"><td colspan="5"><b>الإجمالي</b></td>
+   <th>النظام</th><th>ألواح</th><th>kWp</th><th>حديد كغ</th><th>استغلال</th><th>هبوط</th><th>تظليل ظهر 21/12</th></tr>
+   ${r}<tr style="background:#f2f5f8"><td colspan="6"><b>الإجمالي</b></td>
    <td class="n"><b>${sum('np')}</b></td><td class="n"><b>${sum('kwp').toFixed(2)}</b></td>
    <td class="n"><b>${sum('tot').toFixed(0)}</b></td><td colspan="3"></td></tr></table>
   <div class="note">الكميات والكلفة في هذا التقرير <b>مجموع كل المصفوفات</b>. أما التحقق الإنشائي في الفصول 3–6
@@ -1868,6 +2002,149 @@ function energyReport(){
   document.getElementById('ov').classList.add('open');
   document.getElementById('ov').scrollTop=0;}
 
+/* ---------- 8و. تقرير الظلال التفصيلي: يومي · شهري · سنوي ---------- */
+const MREP_DAY=[17,16,16,15,15,11,17,16,15,15,14,10];
+const HEAT=['#f2f6fa','#dbe8f2','#bcd4e6','#95b9d5','#6d9ac1','#4477a8','#215a8c','#0B3C5E'];
+function heatColor(v){
+  if(v<=0.005)return HEAT[0];
+  const i=Math.min(HEAT.length-1,1+Math.floor(v*(HEAT.length-1)));
+  return HEAT[i];}
+function shadowStats(){
+  const arrs=ARR.filter(a=>TPL[a.tpl]);
+  const HR=[];for(let h=5;h<=19;h++)HR.push(h);
+  const area=a=>Math.max(0.01,(+a.L)*(+a.S));
+  const wTot=arrs.reduce((s,a)=>s+area(a),0)||1;
+  const heat=[],mon=[];
+  for(let m=0;m<12;m++){
+    const row=[];let sun=0,shd=0,peak=0,peakH=null;
+    HR.forEach(h=>{
+      const s=solar(+M.lat,+M.lon,+M.tz,m+1,MREP_DAY[m],h);
+      if(!(s.alt>1)){row.push(null);return;}
+      let f=0;arrs.forEach(a=>{f+=shadeFracSun(a,s.alt,s.az)*area(a);});
+      f/=wTot;row.push(f);sun++;shd+=f;
+      if(f>peak){peak=f;peakH=h;}});
+    heat.push(row);
+    mon.push({m,avg:sun?shd/sun:0,hours:sun,lost:shd,peak,peakH});}
+  const base=energyAll();
+  const attrib=[];
+  const run=()=>energyAll().year;
+  OBSW.forEach((o,i)=>{
+    const keep=OBSW;OBSW=OBSW.filter((_,k)=>k!==i);
+    const y=run();OBSW=keep;
+    attrib.push({name:o.name||ROLE[o.kind]||'عائق',kind:o.kind,h:o.h,gain:Math.max(0,y-base.year)});});
+  if(+M.bPar>0){const p=M.bPar;M.bPar=0;const y=run();M.bPar=p;
+    attrib.push({name:'العمامة المحيطة',kind:'par',h:+M.bPar,gain:Math.max(0,y-base.year)});}
+  let clear=base.year;
+  {const keep=OBSW,p=M.bPar;OBSW=[];M.bPar=0;clear=run();OBSW=keep;M.bPar=p;}
+  attrib.sort((a,b)=>b.gain-a.gain);
+  const worst=mon.reduce((a,b)=>b.avg>a.avg?b:a,mon[0]);
+  return {HR,heat,mon,arrs,base,clear,attrib,worst,
+    lossY:Math.max(0,clear-base.year),
+    lossPc:clear>0?Math.max(0,clear-base.year)/clear:0};}
+
+function heatShadow(st){
+  const W=760,mt=34,ml=74,mr=90,cw=Math.floor((W-ml-mr)/st.HR.length),ch=22;
+  const H=mt+12*ch+56;
+  let b='';
+  st.HR.forEach((h,i)=>b+=tx(ml+cw*(i+.5),mt-8,String(h),{s:9,c:'#5b6b7a'}));
+  b+=tx(ml+(st.HR.length*cw)/2,mt-22,'الساعة المحلية',{s:9.5,b:1,c:'#16222e'});
+  st.heat.forEach((row,m)=>{
+    const y=mt+m*ch;
+    b+=tx(ml-8,y+ch/2+3.5,MFULL[m],{s:9,a:'end',c:'#5b6b7a'});
+    row.forEach((v,i)=>{
+      const x=ml+i*cw;
+      if(v===null){b+=`<rect x="${x+1}" y="${y+1}" width="${cw-2}" height="${ch-2}" rx="2" fill="#fafbfc"/>`;return;}
+      b+=`<rect x="${x+1}" y="${y+1}" width="${cw-2}" height="${ch-2}" rx="2" fill="${heatColor(v)}"><title>${MFULL[m]} ${st.HR[i]}:00 — مظلّل ${(v*100).toFixed(0)}%</title></rect>`;
+      if(v>=0.08)b+=tx(x+cw/2,y+ch/2+3.5,(v*100).toFixed(0),{s:8,b:1,c:v>0.45?'#fff':'#16222e'});});});
+  let lx=ml,ly=H-26;
+  b+=tx(ml-8,ly+9,'المفتاح',{s:9,a:'end',c:'#5b6b7a'});
+  HEAT.forEach((c,i)=>{b+=`<rect x="${lx}" y="${ly}" width="28" height="13" fill="${c}" stroke="#e6ebf0" stroke-width=".5"/>`;
+    b+=tx(lx+14,ly+26,i===0?'0%':(i===HEAT.length-1?'100%':''),{s:8,c:'#5b6b7a'});lx+=28;});
+  b+=tx(lx+8,ly+10,'نسبة مساحة الألواح المظللة',{s:9,a:'start',c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function shadowReport(){
+  const d=new Date(),st=shadowStats();
+  ovTop('shadow');
+  const dayBlock=(mo,dy,nm)=>{
+    const S2=sunTimes(+M.lat,+M.lon,+M.tz,mo,dy);
+    let rows='';
+    for(let h=5;h<=19;h++){
+      const s=solar(+M.lat,+M.lon,+M.tz,mo,dy,h);
+      if(!(s.alt>0))continue;
+      let cells='';
+      st.arrs.forEach(a=>{const f=s.alt>1?shadeFracSun(a,s.alt,s.az):1;
+        cells+=`<td class="n">${(f*100).toFixed(0)}%</td>`;});
+      rows+=`<tr><td class="n">${hhmm(h)}</td><td class="n">${s.alt.toFixed(1)}°</td>
+        <td class="n">${s.az.toFixed(0)}°</td>${cells}</tr>`;}
+    return `<h3>${nm} — ${dy}/${mo}</h3>
+    <p style="font-size:10.5px;color:#5b6b7a">الشروق ${hhmm(S2.rise)} · الظهيرة الشمسية ${hhmm(S2.noon)} · الغروب ${hhmm(S2.set)} · طول النهار ${S2.rise!=null?(S2.set-S2.rise).toFixed(1):'—'} ساعة</p>
+    <table><tr><th>الساعة</th><th>ارتفاع الشمس</th><th>السمت</th>
+     ${st.arrs.map(a=>`<th>${a.name||'المصفوفة'}</th>`).join('')}</tr>${rows}</table>
+    <div class="sheet"><div class="tb"><span>مخطط الظل</span><span>${nm}</span><span>${dy}/${mo}</span></div>${sheetShadow(mo,dy)}</div>`;};
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(48)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">تقرير الظلال التفصيلي</div>
+   <div style="font-size:10.5px;color:#5b6b7a">${M.project||'مشروع'} · ${M.site||'—'} · ${(+M.lat).toFixed(4)}، ${(+M.lon).toFixed(4)} · ${d.toLocaleDateString('en-GB')}</div></div></div>
+
+  <h2>1 — الملخّص السنوي</h2>
+  <div class="kpi">
+   <div><span>الإنتاج بلا عوائق</span><b>${Math.round(st.clear).toLocaleString('en-US')} kWh</b></div>
+   <div><span>الإنتاج الفعلي</span><b>${Math.round(st.base.year).toLocaleString('en-US')} kWh</b></div>
+   <div><span>الفاقد بالتظليل</span><b>${Math.round(st.lossY).toLocaleString('en-US')} kWh</b></div>
+   <div><span>نسبة الفاقد</span><b>${(st.lossPc*100).toFixed(1)}%</b></div>
+   <div><span>أسوأ شهر</span><b>${MFULL[st.worst.m]}</b></div>
+   <div><span>متوسّط تظليله</span><b>${(st.worst.avg*100).toFixed(0)}%</b></div>
+   <div><span>عدد العوائق</span><b>${OBSW.length}${+M.bPar>0?' + عمامة':''}</b></div>
+   <div><span>عدد المصفوفات</span><b>${st.arrs.length}</b></div>
+  </div>
+
+  <h2>2 — خريطة التظليل: شهر × ساعة</h2>
+  <div class="sheet"><div class="tb"><span>نسبة مساحة الألواح المظللة</span>
+   <span>${M.project||'مشروع'}</span><span>متوسّط مرجّح بمساحة كل مصفوفة</span></div>${heatShadow(st)}</div>
+
+  <h2>3 — الجدول الشهري</h2>
+  <table><tr><th>الشهر</th><th>ساعات النهار المحسوبة</th><th>متوسّط التظليل</th>
+   <th>أقصى تظليل</th><th>ساعته</th><th>ساعات شمس مفقودة/يوم</th><th>فاقد الطاقة kWh</th></tr>
+   ${st.mon.map(mm=>{
+     const un=st.base.arrays.reduce((a,y)=>a+y.mon[mm.m].Eun,0);
+     const ac=st.base.arrays.reduce((a,y)=>a+y.mon[mm.m].E,0);
+     return `<tr><td>${MFULL[mm.m]}</td><td class="n">${mm.hours}</td>
+      <td class="n">${(mm.avg*100).toFixed(1)}%</td><td class="n">${(mm.peak*100).toFixed(0)}%</td>
+      <td class="n">${mm.peakH!=null?hhmm(mm.peakH):'—'}</td>
+      <td class="n">${mm.lost.toFixed(1)}</td>
+      <td class="n">${Math.round(un-ac).toLocaleString('en-US')}</td></tr>`;}).join('')}
+   <tr style="background:#f2f5f8"><td><b>السنة</b></td><td class="n">—</td>
+    <td class="n"><b>${(st.mon.reduce((a,b)=>a+b.avg,0)/12*100).toFixed(1)}%</b></td>
+    <td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td class="n"><b>${Math.round(st.lossY).toLocaleString('en-US')}</b></td></tr></table>
+
+  <h2>4 — نصيب كل عائق من الفاقد</h2>
+  ${st.attrib.length?`<table><tr><th>العائق</th><th>النوع</th><th>الارتفاع فوق السطح (م)</th>
+   <th>الفاقد المنسوب إليه kWh/سنة</th><th>نسبته من الإنتاج</th></tr>
+   ${st.attrib.map(x=>`<tr><td>${x.name}</td><td>${ROLE[x.kind]||(x.kind==='par'?'عمامة':'عائق')}</td>
+    <td class="n">${(+x.h).toFixed(2)}</td><td class="n">${Math.round(x.gain).toLocaleString('en-US')}</td>
+    <td class="n">${(x.gain/Math.max(st.clear,1)*100).toFixed(1)}%</td></tr>`).join('')}</table>
+   <div class="note">الفاقد المنسوب لعائق = الفرق بين الإنتاج الحالي والإنتاج لو أُزيل هذا العائق وحده.
+   مجموع الأنصبة قد يقلّ عن الفاقد الكلي عندما تتراكب ظلال عائقين على المساحة نفسها — الأولوية للأعلى نصيباً.</div>`
+   :'<p>لا توجد عوائق مسجّلة — لا فاقد تظليل.</p>'}
+
+  <h2>5 — الأيام الأربعة المرجعية</h2>
+  ${SEASONS.map(([mo,dy,nm])=>dayBlock(mo,dy,nm)).join('')}
+
+  <h2>6 — أساس الحساب وحدوده</h2>
+  <ul>
+   <li>موقع الشمس بخوارزمية NOAA المبسّطة؛ التظليل بإسقاط هندسي لمنشور رأسي لكل عائق، والاختبار بتقاطع قطعة مستقيمة مع المضلّع فيصحّ للأشكال المقعّرة.</li>
+   <li>النسب محسوبة على <b>مستوى الألواح المائل</b> لكل مصفوفة بسمتها وميلها، لا على مستوى السطح.</li>
+   <li>الجدول الشهري والخريطة الحرارية على يوم ممثّل لكل شهر (أيام Klein)، والأيام الأربعة على تواريخ الاعتدالين والانقلابين.</li>
+   <li>فاقد الطاقة مأخوذ من محاكاة الإنتاج نفسها، فهو يعكس الإشعاع وحرارة الخلية لا نسبة المساحة وحدها، ومضروب بمعامل أثر التظليل الكهربائي ×${M.shFac}.</li>
+   <li>لا تشمل الدراسة إلا العوائق المُدخلة. الأشجار والأبراج والرافعات وأي بناء مستقبلي خارج ملف KML غير محسوبة.</li>
+   <li>الانكسار الجوي والغيوم والغبار غير محسوبة — الدراسة هندسية لتحديد المواضع لا لتقدير الإنتاج التعاقدي.</li>
+  </ul>
+  <div class="foot">iCOOL Trading &amp; Contracting — م. أحمد محمد ناصر OEA 36359 · 03 715 512 · info.icool.lb@gmail.com · ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('ov').scrollTop=0;}
+
 /* ---------- 11. التقرير الفني (بلدية / نقابة المهندسين) — بدون تسعير ---------- */
 function ovTop(cur){
   document.getElementById('ovTop').innerHTML=
@@ -1875,7 +2152,8 @@ function ovTop(cur){
    (cur!=='rep'?`<button onclick="report()">التقرير الفني</button>`:'')+
    (cur!=='shop'?`<button onclick="shop()">الخرائط التنفيذية</button>`:'')+
    (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'')+
-   (cur!=='energy'?`<button onclick="energyReport()">الإنتاجية والمنظومة</button>`:'');}
+   (cur!=='energy'?`<button onclick="energyReport()">الإنتاجية والمنظومة</button>`:'')+
+   (cur!=='shadow'?`<button onclick="shadowReport()">تقرير الظلال</button>`:'');}
 
 function report(){
   const T=TPL[M.tpl],d=new Date(),W=R.WD;
@@ -1989,18 +2267,22 @@ function report(){
    <tr style="background:#f2f5f8"><td colspan="2"><b>المعتمدة للتصميم</b></td><td class="n"><b>${R.wU.toFixed(3)}</b></td><td>${gov}</td></tr></table>
 
   <h2>5 — التحليل والتحقق</h2>
-  <p>حُلّل الإطار كجمالون مكافئ: العزم يُقاوَم بزوج قوى في الجائزين (N = M/d)، والقص بالتضليع والأقطار.
-  ${M.diag?'الجمالون مثلّث بالكامل.':'<b>الجمالون مستطيل بدون أقطار (Vierendeel)</b> — أُخذ معامل تصحيح 3.5 على الهبوط.'}</p>
+  <p>${R.beam
+   ? `النظام الحامل <b>جائز مفرد</b> ${M.secT} بعمق ${(SEC[M.secT].h*100).toFixed(0)} سم — بلا جمالون، لأن البحر ${R.Ls.toFixed(2)} م يسمح بذلك. التحقق بالجهد الانحنائي <b>σ = M/W</b> حيث W = ${R.Wsec.toFixed(0)} سم³، والهبوط بعطالة المقطع الفعلية ${R.Ieff.toFixed(0)} سم⁴.`
+   : `النظام الحامل <b>جمالون</b> بارتفاع ${((+M.td)*100).toFixed(0)} سم: العزم يُقاوَم بزوج قوى في الجائزين (N = M/d)، والقص بالتضليع والأقطار. ${M.diag?'الجمالون مثلّث بالكامل.':'<b>مستطيل بدون أقطار (Vierendeel)</b> — أُخذ معامل تصحيح 3.5 على الهبوط.'}`}
+  ${ARES.length>1?'':''}${(ARR[AI]||{}).sys==='auto'?'<span style="font-size:10.5px;color:#5b6b7a">الاختيار تلقائي: يُجرَّب الجائز المفرد أولاً ولا يُلجأ إلى الجمالون إلا إذا تجاوز الاستغلال 95% أو نزل الهبوط عن L/200.</span>':''}</p>
   <table><tr><th>البند</th><th>القيمة</th><th>الحالة</th></tr>
    <tr><td>البحر الحاكم L</td><td class="n">${R.Ls.toFixed(2)} م ${T.cant?'(كابولي)':''}</td><td>L/d = ${(R.Ls/R.d).toFixed(1)}</td></tr>
    <tr><td>الحمل الخطي w</td><td class="n">${R.w.toFixed(2)} kN/m</td><td>${R.wU.toFixed(2)} × ${R.trib.toFixed(2)} م</td></tr>
    <tr><td>العزم M</td><td class="n">${R.Mmax.toFixed(2)} kN·m</td><td>${T.cant?'wL²/2':'wL²/8'}</td></tr>
-   <tr><td>قوة الجائز N</td><td class="n">${R.N.toFixed(1)} kN</td><td>N = M/d ، d = ${R.d.toFixed(2)} م</td></tr>
-   <tr><td>الجهد σ</td><td class="n">${R.sig.toFixed(0)} MPa</td><td>${chk(R.sig,157)} الحد 157 MPa</td></tr>
+   ${R.beam
+     ? `<tr><td>معامل المقاومة W</td><td class="n">${R.Wsec.toFixed(0)} سم³</td><td>W = I / (h/2)</td></tr>`
+     : `<tr><td>قوة الجائز N</td><td class="n">${R.N.toFixed(1)} kN</td><td>N = M/d ، d = ${R.d.toFixed(2)} م</td></tr>`}
+   <tr><td>الجهد σ</td><td class="n">${R.sig.toFixed(0)} MPa</td><td>${chk(R.sig,157)} ${R.beam?'انحنائي':'محوري'} — الحد 157 MPa</td></tr>
    <tr><td>نسبة الاستغلال</td><td class="n">${(R.util*100).toFixed(0)}%</td><td>${chk(R.util,1)}</td></tr>
-   <tr><td>العطالة المكافئة</td><td class="n">${R.Ieff.toFixed(0)} سم⁴</td><td>ΣA·y²</td></tr>
+   <tr><td>${R.beam?'عطالة المقطع I':'العطالة المكافئة'}</td><td class="n">${R.Ieff.toFixed(0)} سم⁴</td><td>${R.beam?'المقطع نفسه':'ΣA·y²'}</td></tr>
    <tr><td>الهبوط δ</td><td class="n">${R.def.toFixed(1)} مم = L/${R.defR.toFixed(0)}</td><td>${R.defR>200?'<span class="tag t-ok">سليم</span>':(R.defR>150?'<span class="tag t-w">مقبول</span>':'<span class="tag t-b">كبير</span>')} الحد L/200</td></tr></table>
-  ${R.util>1?'<div class="note"><b>الاستغلال يتجاوز 100%</b> — يلزم تكبير المقاطع أو رفع ارتفاع الجمالون أو تقليل تباعد الإطارات قبل التنفيذ.</div>':''}
+  ${R.util>1?`<div class="note"><b>الاستغلال يتجاوز 100%</b> — ${R.beam?'كبّر مقطع الجائز أو حوّل النظام إلى جمالون':'كبّر المقاطع أو ارفع ارتفاع الجمالون'} أو قلّل تباعد الإطارات قبل التنفيذ.</div>`:''}
 
   <h2>6 — ردود الأفعال والتثبيت</h2>
   <table><tr><th>الحالة</th><th>لكل مسند</th><th>الاتجاه</th></tr>
@@ -2295,7 +2577,15 @@ function dock(){
     el.appendChild(row);
     tip(TPL[M.tpl].desc);
     grp('بيانات المشروع');['project','client','site','muni','parcel','permit'].forEach(k=>field(el,k));
-    grp('الأبعاد');TPL[M.tpl].f.filter(k=>F[k].t==='r').forEach(k=>field(el,k));
+    grp('النظام الحامل');
+    field(el,'sys');
+    {const a=ARR[AI]||{},u=a.sysUsed||'truss';
+     tip(u==='beam'
+      ? 'المستعمل الآن: <b>جائز مفرد</b> '+(a.secUsed||M.secT)+' بعمق '+((SEC[a.secUsed||M.secT]||SEC[M.secT]).h*100).toFixed(0)+' سم — لا جمالون. التحقق بالجهد الانحنائي σ = M/W.'+((a.sys||'auto')==='auto'?' الوضع التلقائي اختار أخفّ مقطع يحقّق الاستغلال ≤95% والهبوط ≥ L/200.':'')
+      : 'المستعمل الآن: <b>جمالون</b> بارتفاع '+((+M.td)*100).toFixed(0)+' سم.'+
+        ((a.sys||'auto')==='auto'?' اختاره الوضع التلقائي لأن الجائز المفرد لم يكفِ بهذا البحر.':''));}
+    grp('الأبعاد');
+    TPL[M.tpl].f.filter(k=>F[k].t==='r'&&!(k==='td'&&(ARR[AI]||{}).sysUsed==='beam')).forEach(k=>field(el,k));
     ['bOX','bOZ'].forEach(k=>field(el,k));
     grp('اتجاه الألواح');
     field(el,'az');
@@ -2449,14 +2739,42 @@ function dock(){
     grp('الشمس — التاريخ والوقت');
     ['sMon','sDay','sHour'].forEach(k=>field(el,k));
     const qc=document.createElement('div');qc.className='chips';
-    [['21 كانون الأول',12,21],['21 آذار',3,21],['21 حزيران',6,21]].forEach(([n,mo,dy])=>{
-      const b=document.createElement('button');b.textContent=n;
+    SEASONS.forEach(([mo,dy,nm])=>{
+      const b=document.createElement('button');b.textContent=nm;
       if(+M.sMon===mo&&+M.sDay===dy)b.className='on';
       b.onclick=()=>{M.sMon=mo;M.sDay=dy;build();dock();};qc.appendChild(b);});
     const bn=document.createElement('button');bn.textContent='الآن';
     bn.onclick=()=>{const d=new Date();M.sMon=d.getMonth()+1;M.sDay=d.getDate();
       M.sHour=+(d.getHours()+d.getMinutes()/60).toFixed(2);build();dock();};qc.appendChild(bn);
     el.appendChild(qc);
+
+    grp('محاكاة حركة الشمس');
+    if(ANIM){const d0=document.createElement('div');d0.className='note';
+      d0.innerHTML='<b>المحاكاة تعمل'+(REC?' والتسجيل جارٍ':'')+'</b> — '+
+        (ANIM.mode==='season'?'دورة الفصول الأربعة':'يوم '+(+M.sDay)+' '+MFULL[(+M.sMon)-1])+
+        '. شاهد لوحة العرض في الأعلى.';el.appendChild(d0);}
+    const ac=document.createElement('div');ac.className='chips';
+    [['▶ اليوم الحالي',()=>animStart('day',+M.animSec)],
+     ['▶ الفصول الأربعة',()=>animStart('season',+M.animSec)],
+     ['■ إيقاف',()=>animStop()]].forEach(([n,fn],i)=>{
+      const b=document.createElement('button');b.textContent=n;
+      if(i<2&&ANIM&&!REC)b.className='';
+      if(i===2&&!ANIM)b.disabled=true;
+      b.onclick=fn;ac.appendChild(b);});
+    el.appendChild(ac);
+    field(el,'animSec');
+    const vc=document.createElement('div');vc.className='chips';
+    [['🎬 تسجيل يوم (فيديو)',()=>recStart('day',+M.animSec)],
+     ['🎬 تسجيل الفصول الأربعة',()=>recStart('season',+M.animSec)]].forEach(([n,fn])=>{
+      const b=document.createElement('button');b.textContent=n;b.className='o';
+      b.disabled=!!REC;b.onclick=fn;vc.appendChild(b);});
+    el.appendChild(vc);
+    tip(recSupported()
+      ? 'التسجيل يلتقط <b>لوحة العرض ثلاثية الأبعاد</b> ويحفظ ملف WebM على جهازك. اطوِ لوحة التحكّم بزر ▼ أولاً ليخرج الإطار كبيراً، واضبط زاوية الكاميرا قبل الضغط.'
+      : '<b>التسجيل غير متاح في هذا المتصفح.</b> يعمل على Chrome وEdge على الكمبيوتر. المحاكاة نفسها تعمل في كل المتصفحات.');
+    const sr=document.createElement('button');sr.textContent='فتح تقرير الظلال التفصيلي';
+    sr.className='o on';sr.style.cssText='display:block;width:100%;margin:8px 0;padding:10px';
+    sr.onclick=shadowReport;el.appendChild(sr);
     const ts=document.createElement('table');
     ts.innerHTML=`<tr><th>ارتفاع الشمس</th><td class="n">${SUN.alt.toFixed(1)}°</td></tr>
       <tr><th>سمت الشمس (من الشمال)</th><td class="n">${SUN.az.toFixed(1)}°</td></tr>
@@ -2566,7 +2884,8 @@ function dock(){
     [['التقرير الفني الموقّع — بلدية / نقابة (بدون تسعير)',report],
      ['الخرائط التنفيذية (8 لوحات + قائمة قطع)',shop],
      ['دراسة الكلفة — مستند منفصل',costReport],
-     ['تقرير الإنتاجية والمنظومة — إنتاج · أحمال · بطاريات · تشريج',energyReport]].forEach(([n,fn])=>{
+     ['تقرير الإنتاجية والمنظومة — إنتاج · أحمال · بطاريات · تشريج',energyReport],
+     ['تقرير الظلال التفصيلي — يومي · شهري · سنوي',shadowReport]].forEach(([n,fn])=>{
       const b=document.createElement('button');b.textContent=n;b.className='o on';b.style.cssText='display:block;width:100%;margin:6px 0;padding:10px';
       b.onclick=fn;el.appendChild(b);});
     tip('التقرير الفني موجّه إلى البلدية ونقابة المهندسين وخالٍ من أي تسعير، ويتضمن سلسلة رياح كاملة (EN 1991-1-4) واستقراراً عاماً وتصريحاً موقّعاً. الكلفة في مستند منفصل.');
@@ -2705,7 +3024,7 @@ document.getElementById('vDock').onclick=e=>{
 load();
 document.getElementById('logoBox').innerHTML=logoHTML(32);
 drawTabs();build();fit();dock();resize();
-(function loop(){requestAnimationFrame(loop);renderer.render(scene,camera);})();
+(function loop(){requestAnimationFrame(loop);animTick();renderer.render(scene,camera);})();
 </script>
 </body>
 </html>
