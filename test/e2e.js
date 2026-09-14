@@ -493,6 +493,48 @@ ok(rr2.secs,'الفصول الستة موجودة');
 ok(rr2.svg>=1+rr2.elev,'مخطط أفقي + واجهة لكل جدار',rr2.svg+' SVG لـ '+rr2.elev+' جدران');
 ok(rr2.sched>0,'جدول المعدّات يجمّع القطع المتشابهة',rr2.sched+' صنف');
 
+console.log('\n[12د] واقعية المشهد: مواد ومسارات كابلات');
+const viz=await pg.evaluate(()=>{
+  ROOM.poly=null;ROOM.W=7;ROOM.L=5;ROOM.H=3;ROOM.on=1;
+  ROOM.door={wall:0,off:.6,w:.9,h:2.1};ROOM.win={on:1,wall:2,off:1.2,w:1.2,h:1,sill:1.1};
+  M.trayType='tray';M.trayY=2.05;M.trayOpen=1;M.showCab=1;
+  autoLayout();
+  const count=(g)=>{let n=0;g.traverse(o=>{if(o.isMesh)n++;});return n;};
+  const kinds=o=>{const k={};o.traverse(n=>{if(n.isMesh){
+    const m=[].concat(n.material)[0]||{};
+    const t=m.constructor&&m.constructor.name||'?';k[t]=(k[t]||0)+1;}});return k;};
+  const withCab=count(gRoom),km=kinds(gRoom);
+  M.showCab=0;buildRoom();const noCab=count(gRoom);
+  M.showCab=1;M.trayType='trunk';M.trayOpen=0;buildRoom();const trunk=count(gRoom);
+  M.trayType='tray';M.trayOpen=1;buildRoom();
+  // الجدار يُبنى خارج المضلّع فلا يبتلع الأجهزة
+  const w0=roomWalls()[0];
+  const wallInside=inPoly(wallPt(w0,w0.len/2)[0]-w0.nx*(WT/2),
+                          wallPt(w0,w0.len/2)[1]-w0.nz*(WT/2),roomPoly());
+  return {withCab,noCab,trunk,km,wallInside,
+    std:km.MeshStandardMaterial||0,lam:km.MeshLambertMaterial||0,
+    lights:RLIGHT.children.length};});
+ok(viz.withCab>viz.noCab+20,'إظهار الكابلات يضيف عشرات الأجسام (مسار · مجارٍ · غلاندات · أربطة)',
+   viz.noCab+' ⇒ '+viz.withCab+' جسم');
+ok(viz.trunk>viz.noCab,'وضع PVC Trunking يبني مساراً أيضاً',viz.trunk+' جسم');
+ok(viz.std>viz.lam,'أغلب مواد الغرفة PBR لا Lambert',
+   'PBR '+viz.std+' مقابل Lambert '+viz.lam);
+ok(!viz.wallInside,'الجدار يُبنى خارج المضلّع فلا يبتلع الأجهزة');
+ok(viz.lights>=3,'إضاءة الاستوديو للغرفة مهيّأة',viz.lights+' مصدر');
+
+console.log('\n[12ه] تبديل العرض بين الهيكل والغرفة');
+const sw=await pg.evaluate(()=>{
+  setRoomView(true);
+  const onR={room:gRoom.visible,site:gSite.visible,steel:gS.visible,
+    lights:RLIGHT.visible,d1:D1.visible};
+  setRoomView(false);
+  const offR={room:gRoom.visible,site:gSite.visible,steel:gS.visible,
+    lights:RLIGHT.visible,d1:D1.visible};
+  return {onR,offR};});
+ok(sw.onR.room&&!sw.onR.site&&!sw.onR.steel,'عرض الغرفة يخفي الهيكل والموقع');
+ok(sw.onR.lights&&!sw.onR.d1,'إضاءة الغرفة تُشغَّل وإضاءة المشهد تُطفأ');
+ok(!sw.offR.room&&sw.offR.site&&sw.offR.steel&&sw.offR.d1,'والعودة تعيد كل شيء كما كان');
+
 console.log('\n[7] تبويب KML في الواجهة');
 const ui=await pg.evaluate(()=>{
   closeOv();TAB='kml';drawTabs();dock();

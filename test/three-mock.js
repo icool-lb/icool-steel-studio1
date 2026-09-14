@@ -59,8 +59,11 @@ g.THREE={
  MeshBasicMaterial:function(o){Object.assign(this,o||{});},
  LineBasicMaterial:function(o){Object.assign(this,o||{});},
  SpriteMaterial:function(o){Object.assign(this,o||{});},
- CanvasTexture:function(){},
+ CanvasTexture:function(){this.repeat={set(){}};this.wrapS=0;this.wrapT=0;this.needsUpdate=false;this.dispose=function(){};},
  BoxGeometry:Geo,SphereGeometry:Geo,ExtrudeGeometry:Geo,BufferGeometry:Geo,
- PlaneGeometry:Geo,EdgesGeometry:Geo,
+ PlaneGeometry:Geo,EdgesGeometry:Geo,CylinderGeometry:Geo,TorusGeometry:Geo,TubeGeometry:Geo,
+ CatmullRomCurve3:function(p){this.points=p;},
+ RepeatWrapping:1000,
+ MeshStandardMaterial:function(o){Object.assign(this,o||{});},
  LineSegments:mk(function(geo,mat){this.geometry=geo;this.material=mat;this.isLineSegments=true;})};
 })(window);
