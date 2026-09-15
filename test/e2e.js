@@ -480,6 +480,60 @@ ok(/unicode-bidi:plaintext/.test(el.sld),'اللوحات تضبط اتجاه ك�
 [['sld',el.sld],['pa',el.pa],['pd',el.pd]].forEach(([n,g])=>{
   ok(g.indexOf('NaN')<0&&g.indexOf('undefined')<0,n+': اللوحة بلا قيم غير معرّفة');});
 
+console.log('\n[5ل] واقعية المشهد: السماء والمبنى وشريط الفيديو');
+const rv=await pg.evaluate(()=>{
+  M.bOn=1;M.bShape='rect';M.bA=26;M.bB=18;M.bF=5;M.bFH=3.1;M.bPar=1;M.win=1;M.north=0;
+  M.sky=1;M.hud=1;M.bFin='stone';M.project='برج الزلقا';
+  OBS=[{name:'مبنى مجاور',kind:'bldg',h:9,base:-15.5,poly:[[30,-2],[44,-2],[44,14],[30,14]]}];
+  ARR=[];AI=0;M.tpl='S1';applyTpl('S1');M.L=18;M.S=10;M.bOX=4;M.bOZ=4;
+  const at=(mo,dy,hr)=>{M.sMon=mo;M.sDay=dy;M.sHour=hr;build();
+    return {alt:+SUN.alt.toFixed(1),sun:+SUNL.intensity.toFixed(2),hemi:+HEMI.intensity.toFixed(2),
+            lit:WINM.filter(m=>m.material===MAT.glassLit).length,sky:SKY.visible};};
+  const noon=at(6,21,12), dusk=at(12,21,17.6), morn=at(3,21,8);
+  const finishes={};
+  ['stone','brick','white'].forEach(f=>{M.bFin=f;build();
+    finishes[f]=gSite.children.filter(o=>o.isMesh).length;});
+  M.bFin='stone';
+  M.sky=0;build();const off={sky:SKY.visible,hemi:+HEMI.intensity.toFixed(2)};
+  M.sky=1;build();
+  const seas=[[3,21],[6,21],[9,23],[12,21],[1,15],[7,15]].map(([m,d])=>seasonOf(m,d).n);
+  /* شريط المعلومات */
+  const sig=()=>{hudPaint();const q=hudCv.getContext('2d').getImageData(0,0,1600,200).data;
+    let h=0;for(let i=0;i<q.length;i+=97)h=(h*31+q[i])%1e9;return h;};
+  M.sMon=6;M.sDay=21;M.sHour=12;build();const sigA=sig();
+  M.sMon=12;M.sDay=21;M.sHour=8;build();const sigB=sig();
+  const ink=(sigA!==sigB)?1:0;
+  /* أوضاع الحركة */
+  const modes=[];
+  ['day','season','months'].forEach(md=>{
+    animStart(md,2);const st=ANIM?ANIM.mode:null;
+    ANIM.t0=performance.now()-2.5*1000;animTick();
+    modes.push({md:st,mo:+M.sMon,dy:+M.sDay});animStop();});
+  setRoomView(1);const inRoom={sky:SKY.visible,hemi:HEMI.visible};setRoomView(0);
+  return {noon,dusk,morn,off,seas,ink,modes,inRoom,
+    win:WINM.length,nb:gSite.children.filter(o=>o.isMesh).length,finishes};});
+ok(rv.win>50,'شبابيك المبنى أجسام مستقلة قابلة للإضاءة',rv.win+' شبّاك');
+ok(rv.dusk.lit>0&&rv.noon.lit===0,'الشبابيك تُضاء عند الغروب وتُطفأ في الظهيرة',
+   'غروب '+rv.dusk.lit+' · ظهيرة '+rv.noon.lit);
+ok(rv.noon.sun>rv.morn.sun&&rv.morn.sun>0,'شدّة الشمس تتبع ارتفاعها',
+   'ظهيرة '+rv.noon.sun+' · صباح '+rv.morn.sun);
+ok(rv.dusk.sun===0,'وتنطفئ تحت الأفق',rv.dusk.sun);
+ok(rv.noon.sky&&!rv.off.sky,'قبّة السماء تُشغَّل وتُطفأ من الإعداد');
+ok(Math.abs(rv.off.hemi-0.95)<.01,'وإطفاؤها يعيد الإضاءة المحايدة السابقة',rv.off.hemi);
+ok(rv.inRoom.sky===false&&rv.inRoom.hemi===false,'عرض الغرفة يطفئ السماء وإضاءة الموقع');
+ok(rv.seas.join(',')==='الربيع,الصيف,الخريف,الشتاء,الشتاء,الصيف','الفصل يُشتقّ من التاريخ',
+   rv.seas.join(' · '));
+ok(Object.values(rv.finishes).every(v=>v===rv.finishes.stone&&v>0),
+   'تشطيبات الواجهة تغيّر اللون لا العدد',JSON.stringify(rv.finishes));
+ok(rv.ink===1,'شريط المعلومات يُعاد رسمه مع تغيّر الفصل والتاريخ والساعة');
+ok(rv.modes[0].md==='day'&&rv.modes[1].md==='season'&&rv.modes[2].md==='months',
+   'ثلاثة أوضاع: اليوم والفصول الأربعة والأشهر الاثنا عشر',
+   rv.modes.map(m=>m.md).join(' · '));
+ok(rv.modes[1].mo===6||rv.modes[1].mo===9,'وضع الفصول ينتقل إلى فصل تالٍ مع مرور الزمن',
+   'الشهر '+rv.modes[1].mo);
+ok(rv.modes[2].mo===2,'ووضع الأشهر ينتقل إلى الشهر التالي',
+   'الشهر '+rv.modes[2].mo+' اليوم '+rv.modes[2].dy);
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة

@@ -205,6 +205,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
  loadD:30,loadNight:45,loadPk:6,gridPh:1,gridV:230,gridPf:.95,
  batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90,invModel:'deye12',
+ sky:1,bFin:'stone',hud:1,vidScope:'day',
  trayType:'tray',trayY:2.05,trayOpen:1,showCab:1,roomBg:1,showLbl:1,showDim3:1};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
 let KML_POLY=null,KMLP=[],OBS=[],OBSW=[],GEO=null,SUN={alt:0,az:180,up:false},SUNT=null,SHW=null;
@@ -407,6 +408,10 @@ const F={
  roomBg:{l:'خلفية الاستوديو',t:'s',o:[['1','داكنة'],['0','فاتحة']],num:1},
  invModel:{l:'طراز الإنفرتر',t:'s',o:[['deye5','Deye 5kW'],['deye6','Deye 6kW'],['deye8','Deye 8kW'],['deye12','Deye 12kW'],['deye16','Deye 16kW'],['deye30','Deye 30kW'],['deye50','Deye 50kW'],['gen','إنفرتر عام']]},
  srH:{l:'ارتفاع بيت الدرج (م)',t:'r',min:.5,max:6,st:.05},
+ sky:{l:'سماء وإضاءة واقعية',t:'s',o:[['1','تشغيل'],['0','إيقاف']],num:1},
+ bFin:{l:'تشطيب واجهة المبنى',t:'s',o:[['stone','حجر بيج'],['sand','رملي'],['grey','رمادي فاتح'],['white','أبيض'],['brick','طوب أحمر']]},
+ hud:{l:'شريط المعلومات في المشهد',t:'s',o:[['1','إظهار'],['0','إخفاء']],num:1},
+ vidScope:{l:'نطاق الفيديو',t:'s',o:[['day','اليوم المحدّد'],['season','الفصول الأربعة'],['months','الأشهر الاثنا عشر']]},
  sMon:{l:'الشهر',t:'s',num:1,o:[['1','كانون الثاني'],['2','شباط'],['3','آذار'],['4','نيسان'],['5','أيار'],['6','حزيران'],['7','تموز'],['8','آب'],['9','أيلول'],['10','تشرين الأول'],['11','تشرين الثاني'],['12','كانون الأول']]},
  sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
  sHour:{l:'الساعة المحلية',t:'r',min:4,max:20,st:.25},
@@ -471,7 +476,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:tru
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 if(THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
-scene.add(new THREE.HemisphereLight(0xffffff,0x93a3b0,.95));
+const HEMI=new THREE.HemisphereLight(0xffffff,0x93a3b0,.95);scene.add(HEMI);
 const D1=new THREE.DirectionalLight(0xffffff,.55); D1.position.set(14,22,10); scene.add(D1);
 const D2=new THREE.DirectionalLight(0xffffff,.2); D2.position.set(-11,9,-9); scene.add(D2);
 const MAT={top:new THREE.MeshLambertMaterial({color:0x7d8a95}),bot:new THREE.MeshLambertMaterial({color:0x93a0ab}),
@@ -482,6 +487,78 @@ const MAT={top:new THREE.MeshLambertMaterial({color:0x7d8a95}),bot:new THREE.Mes
  edge:new THREE.LineBasicMaterial({color:0xc9d3db}),ground:new THREE.MeshLambertMaterial({color:0xd3cec3}),
  wall:new THREE.MeshLambertMaterial({color:0xcdc6b8}),mass:new THREE.MeshLambertMaterial({color:0xc9c2b4}),
  win:new THREE.MeshLambertMaterial({color:0x3c4e5e}),dim:new THREE.LineBasicMaterial({color:0x0066A7})};
+/* ---- طابع المبنى: تشطيبات الواجهة والزجاج والسطح ---- */
+const FINISH={
+ stone:{n:'حجر بيج',    fac:0xCCBFA4,pl:0xA2937A,cop:0xE6DFD2,band:0xDACFB9},
+ sand :{n:'رملي',       fac:0xE2CFA8,pl:0xBFA87C,cop:0xF2EBDC,band:0xEDDFBE},
+ grey :{n:'رمادي فاتح', fac:0xD3D7DA,pl:0xA9AFB5,cop:0xF0F2F3,band:0xE3E6E8},
+ white:{n:'أبيض',       fac:0xEDEEEC,pl:0xC8CAC6,cop:0xFFFFFF,band:0xF6F6F4},
+ brick:{n:'طوب أحمر',   fac:0xB0705A,pl:0x8A5546,cop:0xE8DCD3,band:0xC98E78}};
+const NBCOL=[0xBDB6A7,0xC8BFAB,0xB2B9BE,0xC0AF9B,0xAAB4BB,0xCEC5B1];
+function lam(c,em){const m=new THREE.MeshLambertMaterial({color:c});
+  if(em!==undefined)m.emissive=new THREE.Color(em);return m;}
+function finish(){return FINISH[M.bFin]||FINISH.stone;}
+MAT.roofS=new THREE.MeshLambertMaterial({color:0xA8A69E});      /* رملة السطح */
+MAT.apron=new THREE.MeshLambertMaterial({color:0x6F7A6C});      /* أرض حول المبنى */
+MAT.glass=new THREE.MeshLambertMaterial({color:0x27435C});
+MAT.glassLit=new THREE.MeshLambertMaterial({color:0x5A4A2A,emissive:0xE8A93A});
+MAT.frame=new THREE.MeshLambertMaterial({color:0xEDEFEF});
+/* ---- قبّة السماء: تدرّج يتبع ارتفاع الشمس ---- */
+const skyCv=document.createElement('canvas');skyCv.width=8;skyCv.height=256;
+const skyTex=new THREE.CanvasTexture(skyCv);
+if(THREE.sRGBEncoding)skyTex.encoding=THREE.sRGBEncoding;
+const SKY=new THREE.Mesh(new THREE.SphereGeometry(400,24,16),
+  new THREE.MeshBasicMaterial({map:skyTex,side:THREE.BackSide,depthWrite:false,fog:false}));
+SKY.renderOrder=-1;SKY.visible=false;scene.add(SKY);
+const SKYST=[                       /* [ارتفاع الشمس, قمّة, وسط, أفق] */
+ [-9,'#070E18','#0E1826','#172536'],
+ [-2,'#16233A','#31405A','#7C5F4E'],
+ [ 4,'#22406B','#5A6E93','#DE9856'],
+ [12,'#1F5AA2','#5E8CBE','#C9BFAE'],
+ [30,'#175CAF','#4E88C8','#A9C6E2'],
+ [70,'#0E4FA6','#3F7CC4','#9CC0E2']];
+const mixHex=(a,b,t)=>{
+  const p=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+  const A=p(a),B=p(b);
+  return 'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')+')';};
+let SKYALT=1e9;
+function skyPaint(alt,force){
+  if(!force&&Math.abs(alt-SKYALT)<0.8)return;
+  SKYALT=alt;
+  let i=0;while(i<SKYST.length-2&&alt>SKYST[i+1][0])i++;
+  const a=SKYST[i],b=SKYST[i+1];
+  const t=Math.max(0,Math.min(1,(alt-a[0])/Math.max(1e-6,b[0]-a[0])));
+  const x=skyCv.getContext('2d'),g=x.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,   mixHex(a[1],b[1],t));
+  g.addColorStop(0.55,mixHex(a[2],b[2],t));
+  g.addColorStop(0.80,mixHex(a[3],b[3],t));
+  g.addColorStop(1,   mixHex(a[3],b[3],t));
+  x.fillStyle=g;x.fillRect(0,0,8,256);
+  skyTex.needsUpdate=true;}
+skyPaint(45,true);
+/* هالة الشمس */
+const glowCv=document.createElement('canvas');glowCv.width=128;glowCv.height=128;
+(function(){const x=glowCv.getContext('2d');
+ const g=x.createRadialGradient(64,64,4,64,64,64);
+ g.addColorStop(0,'rgba(255,241,200,.95)');g.addColorStop(.28,'rgba(255,206,110,.45)');
+ g.addColorStop(1,'rgba(255,190,90,0)');
+ x.fillStyle=g;x.fillRect(0,0,128,128);})();
+const glowTex=new THREE.CanvasTexture(glowCv);
+if(THREE.sRGBEncoding)glowTex.encoding=THREE.sRGBEncoding;
+const SUNGLOW=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,transparent:true,
+  depthTest:false,blending:THREE.AdditiveBlending}));
+SUNGLOW.visible=false;scene.add(SUNGLOW);
+let RVIEW=false;                       /* وضع عرض الغرفة — تُطفأ السماء فيه */
+const WINM=[];                         /* زجاج الشبابيك ليُضاء عند الغروب */
+const MCACHE={};
+function matC(hex,em){const k=hex+'|'+(em||0);
+  if(!MCACHE[k])MCACHE[k]=new THREE.MeshLambertMaterial({color:hex,emissive:em||0});
+  return MCACHE[k];}
+/* شبابيك مضاءة عند انخفاض الشمس — أكبر ما يعطي المبنى طابعه في الفيديو */
+function litWindows(on){
+  WINM.forEach((m,i)=>{
+    const h=(i*2654435761)%1000/1000;
+    m.material=(on&&h<.55)?MAT.glassLit:MAT.glass;});}
 const gS=new THREE.Group(),gC=new THREE.Group(),gB=new THREE.Group(),gD=new THREE.Group(),gSite=new THREE.Group();
 scene.add(gS,gC,gB,gD,gSite);
 function clr(g){while(g.children.length){const c=g.children.pop();
@@ -1070,46 +1147,73 @@ function siteFromTrace(){
   log('مخطط الموقع جاهز: مساحة '+SITE.area.toFixed(1)+' م² · إطار أقصى '+SITE.bb[0].toFixed(2)+'×'+SITE.bb[1].toFixed(2)+' م. تم ملاءمة الهيكل تلقائياً.');
   build();fit();dock();}
 function drawSite(){
-  clr(gSite); if(!SITE)return;
+  clr(gSite); WINM.length=0; if(!SITE)return;
   const P=SITE.poly.map(q=>[q[0]-M.bOX,q[1]-M.bOZ]);
   const H=Math.max(0,M.bF*M.bFH);
+  const F=finish();
   const sh=new THREE.Shape();
   P.forEach((p,i)=>i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1]));
-  // بلاطة السطح
-  const sl=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.30,bevelEnabled:false}),MAT.ground);
-  sl.rotation.x=Math.PI/2; gSite.add(sl);
-  // كتلة المبنى
+  // أرض حول المبنى حتى لا يبدو طافياً
+  if(H>0&&+M.sky){
+    const R=Math.max(SITE.bb[0],SITE.bb[1])*4+30;
+    const ap=new THREE.Mesh(new THREE.PlaneGeometry(R,R),MAT.apron);
+    ap.rotation.x=-Math.PI/2;
+    ap.position.set(SITE.bb[0]/2-M.bOX,-.30-H-.02,SITE.bb[1]/2-M.bOZ);
+    ap.receiveShadow=true;gSite.add(ap);}
+  // بلاطة السطح: رملة إسمنتية
+  const sl=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.30,bevelEnabled:false}),MAT.roofS);
+  sl.rotation.x=Math.PI/2; sl.receiveShadow=true; gSite.add(sl);
+  // كتلة المبنى بتشطيب الواجهة، والطابق الأرضي بحجر أغمق
   if(H>0){
-    const ms=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:H,bevelEnabled:false}),MAT.mass);
-    ms.rotation.x=Math.PI/2; ms.position.y=-.30; gSite.add(ms);}
-  // العمامة
+    const ms=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:H,bevelEnabled:false}),matC(F.fac));
+    ms.rotation.x=Math.PI/2; ms.position.y=-.30; ms.receiveShadow=true; gSite.add(ms);}
+  const plH=Math.min(M.bFH,H);
   for(let i=0;i<P.length;i++){
     const a=P[i],b=P[(i+1)%P.length];
-    if(M.bPar>0)gSite.add(tube(V(a[0],M.bPar/2,a[1]),V(b[0],M.bPar/2,b[1]),M.bParT,M.bPar,MAT.wall));
-    // كورنيش الطوابق
-    for(let k=1;k<=M.bF;k++){
-      const y=-.30-H*k/Math.max(M.bF,1)+ (k===M.bF?.001:0);
-      if(k<M.bF)gSite.add(tube(V(a[0],y,a[1]),V(b[0],y,b[1]),.06,.14,MAT.ground));}
-    // الشبابيك موزّعة على كل ضلع
-    if(M.win&&H>0){
+    // العمامة + كوبستة بيضاء على قمّتها
+    if(M.bPar>0){
+      gSite.add(tube(V(a[0],M.bPar/2,a[1]),V(b[0],M.bPar/2,b[1]),M.bParT,M.bPar,matC(F.fac)));
+      gSite.add(tube(V(a[0],M.bPar+.03,a[1]),V(b[0],M.bPar+.03,b[1]),M.bParT+.10,.06,matC(F.cop)));}
+    if(H<=0)continue;
+    // الطابق الأرضي
+    if(plH>0)gSite.add(tube(V(a[0],-.30-H+plH/2,a[1]),V(b[0],-.30-H+plH/2,b[1]),.10,plH,matC(F.pl)));
+    // كورنيش كل طابق
+    for(let k=1;k<M.bF;k++){
+      const y=-.30-H*k/Math.max(M.bF,1);
+      gSite.add(tube(V(a[0],y,a[1]),V(b[0],y,b[1]),.12,.16,matC(F.band)));}
+    // الشبابيك: إطار فاتح وزجاج يُضاء عند الغروب
+    if(M.win){
       const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
       const n=Math.floor(L/2.6);
       for(let k=0;k<M.bF;k++){
         const y=-.30-H*(k+.55)/M.bF;
         for(let j=0;j<n;j++){
-          const u0=(j+.5)/n-.55/L, u1=(j+.5)/n+.55/L;
+          const u0=(j+.5)/n-.58/L, u1=(j+.5)/n+.58/L;
           const p1=V(a[0]+(b[0]-a[0])*u0,y,a[1]+(b[1]-a[1])*u0);
           const p2=V(a[0]+(b[0]-a[0])*u1,y,a[1]+(b[1]-a[1])*u1);
-          gSite.add(tube(p1,p2,M.bParT+.08,1.25,MAT.win));}}}}
+          gSite.add(tube(p1,p2,.10,1.46,matC(F.cop)));
+          const gl=tube(p1,p2,.14,1.22,MAT.glass);
+          if(gl){gSite.add(gl);WINM.push(gl);}}}}}
   // العوائق على السطح: بيت الدرج · الخزانات
-  OBSW.forEach(o=>{
+  OBSW.forEach((o,oi)=>{
     if(!(o.h>0)||o.poly.length<3)return;
     const s2=new THREE.Shape();
     o.poly.forEach((q,i)=>{const X=q[0]-M.bOX,Z=q[1]-M.bOZ; i?s2.lineTo(X,Z):s2.moveTo(X,Z);});
     const bse=Math.min(+o.base||0,o.h-.05);
     const m2=new THREE.Mesh(new THREE.ExtrudeGeometry(s2,{depth:o.h-bse,bevelEnabled:false}),
-      o.kind==='tank'?MAT.obs2:(o.kind==='bldg'?MAT.obs3:MAT.obs));
-    m2.rotation.x=Math.PI/2; m2.position.y=o.h; gSite.add(m2);
+      o.kind==='tank'?MAT.obs2:(o.kind==='bldg'?matC(NBCOL[oi%NBCOL.length]):MAT.obs));
+    m2.rotation.x=Math.PI/2; m2.position.y=o.h; m2.castShadow=true; gSite.add(m2);
+    /* المباني المجاورة تأخذ طابع المبنى: أشرطة طوابق وزجاج يُضاء */
+    if(o.kind==='bldg'&&o.h-bse>2.6){
+      const nf=Math.max(1,Math.round((o.h-bse)/3));
+      for(let k=0;k<nf;k++){
+        const y=bse+(o.h-bse)*(k+.55)/nf;
+        for(let e=0;e<o.poly.length;e++){
+          const a2=o.poly[e],b2=o.poly[(e+1)%o.poly.length];
+          const A=V(a2[0]-M.bOX,y,a2[1]-M.bOZ),Bp=V(b2[0]-M.bOX,y,b2[1]-M.bOZ);
+          if(A.distanceTo(Bp)<1.6)continue;
+          const gl=tube(A,Bp,.16,1.0,MAT.glass);
+          if(gl){gSite.add(gl);WINM.push(gl);}}}}
     const cxz=o.poly.reduce((a,q)=>[a[0]+q[0],a[1]+q[1]],[0,0]);
     gSite.add(lbl((o.name||ROLE[o.kind]||'عائق')+' '+o.h.toFixed(2)+' م',
       V(cxz[0]/o.poly.length-M.bOX,o.h+.5,cxz[1]/o.poly.length-M.bOZ),'#8c5a13',1.7));});
@@ -1282,13 +1386,27 @@ function drawSun(fast){
   const c=SUNL.shadow.camera;
   c.left=-rad*2;c.right=rad*2;c.top=rad*2;c.bottom=-rad*2;c.near=1;c.far=dist*2.4;
   c.updateProjectionMatrix();
+  /* ضوء يتبع ارتفاع الشمس: لونه يدفأ سريعاً قرب الأفق، وشدّته تتبع كتلة الهواء حتى العلوّ */
+  const tc=Math.max(0,Math.min(1,(SUN.alt-2)/22));
+  const t=Math.max(0,Math.min(1,(SUN.alt-2)/42));
+  SUNL.color.setHSL(.095-.028*tc,.78-.60*tc,.50+.24*tc);
   const live=!!(+M.shadow&&SUN.up&&SUN.alt>1);
-  SUNL.visible=live; SUNL.intensity=live?.95:0;
-  D1.intensity=live?.20:.55; D2.intensity=live?.09:.2;
+  SUNL.visible=live; SUNL.intensity=live?(+M.sky?(.34+.54*t):(.34+.72*t)):0;
+  D1.intensity=live?(+M.sky?.06:(.20-.10*t)):.55; D2.intensity=live?(+M.sky?.04:.09):.2;
+  const night=SUN.alt<-1;
+  HEMI.intensity=+M.sky?(night?.34:(.22+.15*t)):.95;
+  if(+M.sky){
+    HEMI.color.setHex(night?0x2A3A50:(SUN.alt<6?0xE8C79A:0xDCEBFA));
+    HEMI.groundColor.setHex(night?0x141C26:0x8D9AA4);
+    skyPaint(SUN.alt);
+    SKY.visible=!RVIEW;
+  }else{HEMI.color.setHex(0xffffff);HEMI.groundColor.setHex(0x93a3b0);SKY.visible=false;}
+  litWindows(night||SUN.alt<4);
   if(!fast){clr(gSun); if(+M.sunOn)drawCompass(cx,cz,rad);}
   const show=!!+M.sunOn;
   const up=SUN.up&&SUN.alt>0;
   SUNBALL.visible=show&&up; SUNRAY.visible=show&&up; SUNLBL.visible=show;
+  if(!show)SUNGLOW.visible=false;
   if(show){
     const r2=Math.max(rad*.055,.22);
     SUNBALL.scale.set(r2,r2,r2);
@@ -1297,11 +1415,85 @@ function drawSun(fast){
       SUNBALL.position.copy(sp);
       SUNRAY.geometry.setFromPoints([V(cx,0,cz),sp]);
       SUNLBL.position.set(sp.x,sp.y+.9,sp.z);
-    }else SUNLBL.position.set(cx,1.6,cz);
+      SUNGLOW.position.copy(sp);
+      const gs=r2*(9+10*(1-Math.min(1,Math.max(0,SUN.alt/25))));
+      SUNGLOW.scale.set(gs,gs,1);SUNGLOW.visible=!!+M.sky;
+    }else{SUNLBL.position.set(cx,1.6,cz);SUNGLOW.visible=false;}
     SUNLBL.scale.set(rad*.42,rad*.084,1);
+    if(!up)SUNGLOW.visible=false;
     const dt=(+M.sDay)+' '+MFULL[(+M.sMon)-1];
     sunLblText(up?(dt+'  '+hhmm(+M.sHour)+'   ارتفاع '+SUN.alt.toFixed(0)+'°  سمت '+SUN.az.toFixed(0)+'°')
                  :(dt+'  '+hhmm(+M.sHour)+'   الشمس تحت الأفق'));}}
+
+/* ---- شريط معلومات داخل المشهد: يظهر في الفيديو لأن التسجيل يلتقط اللوحة ---- */
+function seasonOf(mo,dy){
+  const k=mo*100+dy;
+  if(k>=321&&k<=620)return {n:'الربيع',c:'#3F9D62'};
+  if(k>=621&&k<=922)return {n:'الصيف',c:'#E0862A'};
+  if(k>=923&&k<=1220)return {n:'الخريف',c:'#B9603A'};
+  return {n:'الشتاء',c:'#3C7BB5'};}
+const hudCv=document.createElement('canvas');hudCv.width=1600;hudCv.height=200;
+const hudTex=new THREE.CanvasTexture(hudCv);
+if(THREE.sRGBEncoding)hudTex.encoding=THREE.sRGBEncoding;
+const hudScene=new THREE.Scene();
+const hudCam=new THREE.OrthographicCamera(-1,1,1,-1,0,10);
+const hudSpr=new THREE.Sprite(new THREE.SpriteMaterial({map:hudTex,transparent:true,depthTest:false}));
+hudScene.add(hudSpr);hudCam.position.z=2;
+let HUDKEY='';
+function hudPaint(){
+  const x=hudCv.getContext('2d'),W=1600,H=200;
+  x.clearRect(0,0,W,H);
+  const S=seasonOf(+M.sMon,+M.sDay);
+  /* خلفية الشريط */
+  x.fillStyle='rgba(10,20,32,.72)';x.fillRect(0,0,W,H);
+  x.fillStyle=S.c;x.fillRect(0,0,W,7);
+  x.textBaseline='middle';x.direction='rtl';
+  /* الفصل */
+  x.fillStyle=S.c;x.font='bold 62px Tajawal, Arial';x.textAlign='right';
+  x.fillText(S.n,W-40,66);
+  x.fillStyle='#EAF0F6';x.font='600 44px Tajawal, Arial';
+  x.fillText(MFULL[(+M.sMon)-1]+' · '+(+M.sDay),W-40,140);
+  /* الساعة */
+  x.direction='ltr';x.textAlign='left';
+  x.fillStyle='#FFFFFF';x.font='bold 74px Helvetica, Arial';
+  x.fillText(hhmm(+M.sHour),40,72);
+  x.fillStyle='#9FB3C6';x.font='500 34px Helvetica, Arial';
+  x.fillText('ALT '+SUN.alt.toFixed(0)+'°   AZ '+SUN.az.toFixed(0)+'°',40,140);
+  /* قوس مسار الشمس */
+  const cx=W/2,cy=168,r=118;
+  x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=5;
+  x.beginPath();x.arc(cx,cy,r,Math.PI,0);x.stroke();
+  x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=3;
+  x.beginPath();x.moveTo(cx-r-24,cy);x.lineTo(cx+r+24,cy);x.stroke();
+  const rise=(SUNT&&SUNT.rise!=null)?SUNT.rise:6, set=(SUNT&&SUNT.set!=null)?SUNT.set:18;
+  const k=Math.max(0,Math.min(1,((+M.sHour)-rise)/Math.max(.1,set-rise)));
+  const a=Math.PI*(1-k);
+  const sx=cx+r*Math.cos(a),sy=cy-r*Math.sin(a);
+  if(SUN.up){
+    const g=x.createRadialGradient(sx,sy,2,sx,sy,26);
+    g.addColorStop(0,'rgba(255,236,170,.95)');g.addColorStop(1,'rgba(255,200,90,0)');
+    x.fillStyle=g;x.beginPath();x.arc(sx,sy,26,0,7);x.fill();
+    x.fillStyle='#FFD46A';x.beginPath();x.arc(sx,sy,11,0,7);x.fill();}
+  x.fillStyle='#9FB3C6';x.font='500 26px Helvetica, Arial';
+  x.textAlign='center';x.fillText(hhmm(rise),cx-r-4,cy+26);x.fillText(hhmm(set),cx+r+4,cy+26);
+  x.direction='rtl';x.fillStyle='#C9D7E4';x.font='600 30px Tajawal, Arial';
+  x.fillText(M.project||'iCOOL Steel Studio',cx,44);
+  if(SHW&&isFinite(SHW.frac)){
+    x.fillStyle=SHW.frac>.05?'#F1471E':'#3FCF6B';x.font='bold 32px Tajawal, Arial';
+    x.fillText('تظليل '+(SHW.frac*100).toFixed(0)+'%',cx,88);}
+  hudTex.needsUpdate=true;}
+function hudDraw(){
+  const on=!!+M.hud&&!RVIEW;
+  if(!on)return;
+  const key=[M.sMon,M.sDay,(+M.sHour).toFixed(2),M.project,SHW?SHW.frac:0].join('|');
+  if(key!==HUDKEY){HUDKEY=key;hudPaint();}
+  const w=stage.clientWidth||1,h=stage.clientHeight||1;
+  const hh=Math.max(.10,Math.min(.155,118/h))*2;     /* ارتفاع الشريط بإحداثيات NDC */
+  hudSpr.scale.set(2,hh,1);
+  hudSpr.position.set(0,-1+hh/2,0);
+  renderer.autoClear=false;renderer.clearDepth();
+  renderer.render(hudScene,hudCam);
+  renderer.autoClear=true;}
 
 /* ---- محرّك الحركة ---- */
 function animStart(mode,secPerDay,once,onEnd){
@@ -1314,6 +1506,8 @@ function animStop(restore){
   if(restore!==false){M.sMon=k.mo;M.sDay=k.dy;M.sHour=k.hr;}
   drawSun();dock();
   if(cb)cb();}
+/* يوم ممثّل لكل شهر — وسط الشهر تقريباً */
+const MONDAY=[17,16,16,15,15,11,17,16,15,15,14,10];
 function animTick(){
   if(!ANIM)return;
   const span=ANIM.secPerDay,el=(performance.now()-ANIM.t0)/1000;
@@ -1323,6 +1517,11 @@ function animTick(){
     if(ANIM.once&&el>=total){animStop();return;}
     const e2=el%total;ANIM.di=Math.min(3,Math.floor(e2/span));
     k=(e2%span)/span;day=SEASONS[ANIM.di];
+  }else if(ANIM.mode==='months'){
+    const total=12*span;
+    if(ANIM.once&&el>=total){animStop();return;}
+    const e2=el%total;ANIM.di=Math.min(11,Math.floor(e2/span));
+    k=(e2%span)/span;day=[ANIM.di+1,MONDAY[ANIM.di]];
   }else{
     if(ANIM.once&&el>=span){animStop();return;}
     k=(el%span)/span;day=[+M.sMon,+M.sDay];}
@@ -1353,7 +1552,9 @@ function recStart(mode,secPerDay){
     const b=new Blob(chunks,{type:mt||'video/webm'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(b);
-    a.download=((M.project||'icool')+'-'+(mode==='season'?'four-seasons':'day')+'.webm').replace(/\s+/g,'-');
+    a.download=((M.project||'icool')+'-'+
+      (mode==='season'?'four-seasons':(mode==='months'?'twelve-months':
+       ('m'+(+M.sMon)+'-d'+(+M.sDay))))+'.webm').replace(/\s+/g,'-');
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),6000);
     log('تم حفظ الفيديو ('+(b.size/1048576).toFixed(1)+' ميغابايت).');
@@ -2054,7 +2255,7 @@ function shadowSection(){
 const gRoom=new THREE.Group(); scene.add(gRoom);
 let ROOM={on:0,poly:null,H:3.0,W:5,L:4,src:'manual',
   door:{wall:0,off:.6,w:.9,h:2.1},win:{on:1,wall:2,off:1.2,w:1.2,h:1.0,sill:1.1}};
-let EQP=[],EQSEL=-1,RVIEW=false,DXF=null;
+let EQP=[],EQSEL=-1,DXF=null;
 
 /* كتالوج الإنفرترات — أبعاد حقيقية بالملم */
 const INVLIB={
@@ -2821,7 +3022,9 @@ function fitRoom(){
 function setRoomView(on){
   RVIEW=!!on;
   [gS,gC,gB,gD,gSite,gSun].forEach(g=>g.visible=!RVIEW);
-  [SUNBALL,SUNRAY,SUNLBL].forEach(o=>o.visible=RVIEW?false:o.visible);
+  [SUNBALL,SUNRAY,SUNLBL,SUNGLOW].forEach(o=>o.visible=RVIEW?false:o.visible);
+  SKY.visible=RVIEW?false:(!!+M.sky);
+  HEMI.visible=!RVIEW;
   gRoom.visible=RVIEW;
   RLIGHT.visible=RVIEW;
   D1.visible=D2.visible=!RVIEW;
@@ -4329,26 +4532,43 @@ function dock(){
     el.appendChild(qc);
 
     grp('محاكاة حركة الشمس');
+    {const S0=seasonOf(+M.sMon,+M.sDay);
+     const d1=document.createElement('div');d1.className='note';
+     d1.style.borderRightColor=S0.c;
+     d1.innerHTML='الفصل الحالي <b style="color:'+S0.c+'">'+S0.n+'</b> · '+
+       MFULL[(+M.sMon)-1]+' '+(+M.sDay)+' · الشروق '+(SUNT?hhmm(SUNT.rise):'—')+
+       ' والغروب '+(SUNT?hhmm(SUNT.set):'—')+'.';
+     el.appendChild(d1);}
     if(ANIM){const d0=document.createElement('div');d0.className='note';
       d0.innerHTML='<b>المحاكاة تعمل'+(REC?' والتسجيل جارٍ':'')+'</b> — '+
-        (ANIM.mode==='season'?'دورة الفصول الأربعة':'يوم '+(+M.sDay)+' '+MFULL[(+M.sMon)-1])+
+        (ANIM.mode==='season'?'دورة الفصول الأربعة':
+         ANIM.mode==='months'?'الأشهر الاثنا عشر':'يوم '+(+M.sDay)+' '+MFULL[(+M.sMon)-1])+
         '. شاهد لوحة العرض في الأعلى.';el.appendChild(d0);}
     const ac=document.createElement('div');ac.className='chips';
-    [['▶ اليوم الحالي',()=>animStart('day',+M.animSec)],
+    [['▶ اليوم المحدّد',()=>animStart('day',+M.animSec)],
      ['▶ الفصول الأربعة',()=>animStart('season',+M.animSec)],
+     ['▶ الأشهر الاثنا عشر',()=>animStart('months',+M.animSec)],
      ['■ إيقاف',()=>animStop()]].forEach(([n,fn],i)=>{
       const b=document.createElement('button');b.textContent=n;
-      if(i<2&&ANIM&&!REC)b.className='';
-      if(i===2&&!ANIM)b.disabled=true;
+      if(i<3&&ANIM&&!REC)b.className='';
+      if(i===3&&!ANIM)b.disabled=true;
       b.onclick=fn;ac.appendChild(b);});
     el.appendChild(ac);
     field(el,'animSec');
+    grp('تصدير الفيديو');
+    ['vidScope','hud','sky'].forEach(k=>field(el,k));
     const vc=document.createElement('div');vc.className='chips';
-    [['🎬 تسجيل يوم (فيديو)',()=>recStart('day',+M.animSec)],
-     ['🎬 تسجيل الفصول الأربعة',()=>recStart('season',+M.animSec)]].forEach(([n,fn])=>{
-      const b=document.createElement('button');b.textContent=n;b.className='o';
-      b.disabled=!!REC;b.onclick=fn;vc.appendChild(b);});
+    {const sc2=M.vidScope||'day';
+     const nm=sc2==='season'?'الفصول الأربعة':(sc2==='months'?'الأشهر الاثنا عشر':
+       (MFULL[(+M.sMon)-1]+' '+(+M.sDay)+' — '+seasonOf(+M.sMon,+M.sDay).n));
+     const b=document.createElement('button');b.textContent='🎬 تسجيل: '+nm;b.className='o on';
+     b.style.cssText='flex:1;padding:9px';b.disabled=!!REC;
+     b.onclick=()=>recStart(sc2,+M.animSec);vc.appendChild(b);}
     el.appendChild(vc);
+    {const t2=document.createElement('div');t2.style.cssText='font-size:10.5px;color:#5b6b7a;margin-top:5px';
+     t2.innerHTML='مدّة الفيديو ≈ <b>'+(((M.vidScope==='season')?4:(M.vidScope==='months')?12:1)*(+M.animSec||10))+
+       ' ثانية</b>. شريط المعلومات يكتب الفصل والشهر واليوم والساعة وقوس مسار الشمس داخل الإطار المسجّل.';
+     el.appendChild(t2);}
     tip(recSupported()
       ? 'التسجيل يلتقط <b>لوحة العرض ثلاثية الأبعاد</b> ويحفظ ملف WebM على جهازك. اطوِ لوحة التحكّم بزر ▼ أولاً ليخرج الإطار كبيراً، واضبط زاوية الكاميرا قبل الضغط.'
       : '<b>التسجيل غير متاح في هذا المتصفح.</b> يعمل على Chrome وEdge على الكمبيوتر. المحاكاة نفسها تعمل في كل المتصفحات.');
@@ -4772,7 +4992,10 @@ document.getElementById('vDock').onclick=e=>{
 load();
 document.getElementById('logoBox').innerHTML=logoHTML(32);
 drawTabs();build();fit();dock();resize();
-(function loop(){requestAnimationFrame(loop);animTick();cullWalls();renderer.render(scene,camera);})();
+(function loop(){requestAnimationFrame(loop);animTick();cullWalls();
+  if(SKY.visible)SKY.position.copy(camera.position);
+  renderer.render(scene,camera);
+  hudDraw();})();
 </script>
 </body>
 </html>

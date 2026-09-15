@@ -40,20 +40,27 @@ Geo.prototype.setFromPoints=function(p){this.pts=p;return this;};
 const Mesh=mk(function(geo,mat){this.geometry=geo;this.material=mat;this.isMesh=true;});
 const Line=mk(function(geo,mat){this.geometry=geo;this.material=mat;this.isLine=true;});
 const Sprite=mk(function(mat){this.material=mat;this.isSprite=true;});
-const Light=mk(function(){this.intensity=1;this.target=new Group();
+function Col(c){this.setHex=function(h){this.hex=h;return this;};
+ this.setHSL=function(){return this;};this.copy=function(){return this;};
+ this.convertSRGBToLinear=function(){return this;};this.hex=c;}
+const Light=mk(function(a,b2,i){this.intensity=(i===undefined?1:i);this.target=new Group();
+ this.color=new Col(a);this.groundColor=new Col(b2);
  this.shadow={mapSize:{set(){}},bias:0,camera:{updateProjectionMatrix(){}}};});
 function Shape(){this.pts=[];}
 Shape.prototype.moveTo=function(x,y){this.pts.push([x,y]);};
 Shape.prototype.lineTo=function(x,y){this.pts.push([x,y]);};
 g.THREE={
  Scene,Group,Mesh,Line,Sprite,Shape,Vector3:Vec,
- Color:function(){},
+ Color:Col,
  PerspectiveCamera:mk(function(f,a){this.aspect=a;this.updateProjectionMatrix=function(){};
    this.lookAt=function(){};}),
+ OrthographicCamera:mk(function(l,r,t,b2,n,f){this.left=l;this.right=r;this.top=t;this.bottom=b2;
+   this.near=n;this.far=f;this.updateProjectionMatrix=function(){};this.lookAt=function(){};}),
  WebGLRenderer:function(o){this.domElement=(o&&o.canvas)||document.createElement('canvas');
    this.shadowMap={enabled:false,type:0};this.setPixelRatio=function(){};
-   this.setSize=function(){};this.render=function(){};},
- PCFSoftShadowMap:2,DoubleSide:2,
+   this.setSize=function(){};this.render=function(){};
+   this.autoClear=true;this.clearDepth=function(){};},
+ PCFSoftShadowMap:2,DoubleSide:2,AdditiveBlending:2,BackSide:1,FrontSide:0,
  HemisphereLight:Light,DirectionalLight:Light,
  MeshLambertMaterial:function(o){Object.assign(this,o||{});},
  MeshBasicMaterial:function(o){Object.assign(this,o||{});},
