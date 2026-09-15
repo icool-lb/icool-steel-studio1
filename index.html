@@ -203,7 +203,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  lSoil:3,lMis:2,lWire:2,lInv:3,lAvail:1,
  pWp:660,pVoc:45.9,pVmp:38.4,pIsc:18.3,pImp:17.2,pTcV:-0.25,
  tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
- loadD:30,loadNight:45,loadPk:6,
+ loadD:30,loadNight:45,loadPk:6,gridPh:1,gridV:230,gridPf:.95,
  batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90,invModel:'deye12',
  trayType:'tray',trayY:2.05,trayOpen:1,showCab:1,roomBg:1,showLbl:1,showDim3:1};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
@@ -389,6 +389,9 @@ const F={
  loadD:{l:'الاستهلاك اليومي (kWh)',t:'n',st:.5,min:0,max:5000},
  loadNight:{l:'حصّة الليل من الاستهلاك %',t:'r',min:0,max:100,st:5},
  loadPk:{l:'أقصى حمل لحظي (kW)',t:'n',st:.5,min:0,max:500},
+ gridPh:{l:'نظام الشبكة',t:'s',num:1,o:[['1','أحادي الطور 230V'],['3','ثلاثي الطور 400V']]},
+ gridV:{l:'جهد الشبكة (فولت)',t:'n',st:5,min:110,max:480},
+ gridPf:{l:'معامل قدرة الأحمال',t:'n',st:.01,min:.7,max:1},
  batChem:{l:'نوع البطارية',t:'s',o:[['lifepo4','ليثيوم LiFePO4'],['agm','رصاص AGM'],['gel','رصاص جل'],['flood','رصاص سائل']]},
  batV:{l:'جهد المنظومة (V)',t:'s',num:1,o:[['12','12'],['24','24'],['48','48'],['51.2','51.2'],['96','96'],['192','192']]},
  batVm:{l:'جهد وحدة البطارية (V)',t:'n',st:.1,min:2,max:200},
@@ -1521,7 +1524,10 @@ function log(s,e){
 
 /* ---------- 10. رسم SVG للخرائط التنفيذية ---------- */
 function SV(w,h,body,grid){
+  /* unicode-bidi:plaintext يجعل كل نصّ يأخذ اتجاهه من أول حرف قويّ فيه — بدونه تنقلب
+     السلاسل اللاتينية داخل مستند RTL فتقرأ «V230 · kWh 30.7» بدل «30.7 kWh · 230V» */
   return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" font-family="Tajawal,Arial">
+  <style>text{unicode-bidi:plaintext}</style>
   <rect width="${w}" height="${h}" fill="#fff"/>${grid||''}${body}</svg>`;}
 const ln=(a,b,c,d,st)=>`<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${(st&&st.c)||'#16222e'}" stroke-width="${(st&&st.w)||1.3}" ${st&&st.dash?'stroke-dasharray="5 3"':''}/>`;
 const tx=(x,y,t,o)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${(o&&o.s)||10}" fill="${(o&&o.c)||'#16222e'}" text-anchor="${(o&&o.a)||'middle'}" ${o&&o.b?'font-weight="700"':''} ${o&&o.r?`transform="rotate(${o.r} ${x.toFixed(1)} ${y.toFixed(1)})"`:''}>${t}</text>`;
@@ -1537,6 +1543,15 @@ function dimV(y1,y2,x,t){
    `<rect x="${(x-20).toFixed(1)}" y="${((y1+y2)/2-6).toFixed(1)}" width="40" height="11" fill="#fff"/>`+
    tx(x,(y1+y2)/2+3,t,{s:9,c,b:1});}
 
+/* سلسلة قياسات متتابعة — ما يجعل اللوحة تنفيذية لا توضيحية */
+function dimChain(pts,y,labels,vert){
+  const c='#0066A7';let b='';
+  for(let i=0;i+1<pts.length;i++){
+    const p0=pts[i],p1=pts[i+1];
+    if(Math.abs(p1-p0)<9)continue;
+    b+=vert?dimV(p0,p1,y,labels[i]):dimH(p0,p1,y,labels[i]);}
+  pts.forEach(p=>{b+=vert?ln(y-7,p,y+7,p,{c,w:.7}):ln(p,y-7,p,y+7,{c,w:.7});});
+  return b;}
 function sheetPlan(){
   const T=TPL[M.tpl],g=R.g,W=760,H=420,mx=70,my=55;
   const sc=Math.min((W-2*mx)/M.L,(H-2*my)/Math.max(M.S,1));
@@ -2520,6 +2535,11 @@ function eqClearBox(e){
   const c=Math.cos(a),s=Math.sin(a);
   return [[-w/2,d/2],[w/2,d/2],[w/2,d/2+L.clr],[-w/2,d/2+L.clr]]
     .map(q=>[e.x+q[0]*c+q[1]*s,e.z-q[0]*s+q[1]*c]);}
+/* الامتداد الشاقولي للقطعة — المسافة الحرّة ممرّ خدمة حتى ~2 م، وما فوقه لا يعترضه */
+function eqSpanY(e){
+  const L=EQLIB[e.kind],h=+e.h||L.h;
+  const yc=(L.mount==='floor')?h/2:(L.mount==='ceil'?Math.max(0,(+ROOM.H)-h/2):(+e.y||L.y));
+  return [yc-h/2,yc+h/2];}
 function polyHit(A,B){
   for(const q of A)if(inPoly(q[0],q[1],B))return true;
   for(const q of B)if(inPoly(q[0],q[1],A))return true;
@@ -2539,12 +2559,13 @@ function roomCheck(){
         msgs.push((e.name||L.n)+': المسافة الحرّة أمامه ('+L.clr.toFixed(2)+' م) تخرج عن الغرفة.');
         if(bad.indexOf(i)<0)bad.push(i);}
       EQP.forEach((o,j)=>{if(j===i)return;
+        if(eqSpanY(o)[0]>=1.95)return;             /* إنارة سقف ومسار كابلات لا يعترضان ممرّ الخدمة */
         if(polyHit(cb,eqFoot(o))){
           msgs.push((e.name||L.n)+': «'+(o.name||EQLIB[o.kind].n)+'» يقع داخل مسافته الحرّة.');
           if(bad.indexOf(i)<0)bad.push(i);}});}
     EQP.forEach((o,j)=>{if(j<=i)return;
-      if(EQLIB[e.kind].mount!==EQLIB[o.kind].mount&&
-         Math.abs(((+e.y)||EQLIB[e.kind].y)-((+o.y)||EQLIB[o.kind].y))>1.2)return;
+      const A=eqSpanY(e),Bv=eqSpanY(o);
+      if(A[1]<=Bv[0]+.02||Bv[1]<=A[0]+.02)return;  /* لا تتقاطع مناسيبهما فلا تداخل فعلي */
       if(polyHit(f,eqFoot(o))){
         msgs.push((e.name||L.n)+' و«'+(o.name||EQLIB[o.kind].n)+'» متداخلان.');
         if(bad.indexOf(i)<0)bad.push(i);if(bad.indexOf(j)<0)bad.push(j);}});});
@@ -2570,53 +2591,116 @@ function invCount(){
   const kwp=ARES.reduce((a,r)=>a+(+r.kwp||0),0);
   const per=Math.max(1,+M.invKW||10);
   return Math.max(1,Math.ceil(kwp/per));}
+/* المقاطع الخالية على كل جدار بعد استبعاد الباب والشبّاك وزوايا الغرفة */
+function wallSpans(w,corner){
+  const cg=(corner===undefined)?.22:corner, blk=[];
+  if(ROOM.door&&ROOM.door.wall===w.i)
+    blk.push([ROOM.door.off-.30,ROOM.door.off+ROOM.door.w+.30]);
+  if(ROOM.win&&ROOM.win.on&&ROOM.win.wall===w.i)
+    blk.push([ROOM.win.off-.15,ROOM.win.off+ROOM.win.w+.15]);
+  blk.sort((a,b)=>a[0]-b[0]);
+  const out=[];let t=cg;
+  blk.forEach(b=>{if(b[0]-t>.30)out.push([t,b[0]]);t=Math.max(t,b[1]);});
+  if(w.len-cg-t>.30)out.push([t,w.len-cg]);
+  return out.map(q=>({w,a:q[0],b:q[1],len:q[1]-q[0]}));}
+function itemW(it){return +it.w||EQLIB[it.kind].w;}
+function itemD(it){return +it.d||EQLIB[it.kind].d;}
+/* صفّ واحد موزّع بفراغات متساوية داخل المقطع — هذا ما يعطي المنظر الهندسي المتناسق */
+function placeRow(span,list,yLine){
+  const tot=list.reduce((a,it)=>a+itemW(it),0);
+  const gap=(span.len-tot)/(list.length+1);
+  const rot=(Math.atan2(span.w.nx,span.w.nz)*180/Math.PI+360)%360;
+  let t=span.a+gap,out=[];
+  list.forEach(it=>{
+    const L=EQLIB[it.kind],wd=itemW(it),dp=itemD(it),c=wallPt(span.w,t+wd/2);
+    let y=L.y;
+    if(L.mount==='wall'&&yLine){                 /* محاذاة مراكز الصفّ على خطّ واحد */
+      const hh=(+it.h||L.h)/2;
+      y=Math.min(Math.max(yLine,hh+.30),Math.max(hh+.30,(+ROOM.H)-hh-.12));}
+    out.push(Object.assign({},it,{
+      x:c[0]+span.w.nx*(dp/2+.02), z:c[1]+span.w.nz*(dp/2+.02),
+      rot,y,name:L.n,wall:span.w.i,off:+(t).toFixed(3)}));
+    t+=wd+gap;});
+  return out;}
+/* أضيق فراغ يحتاجه صفّ كامل */
+function rowNeed(list){return list.reduce((a,it)=>a+itemW(it),0)+.14*(list.length+1);}
 function autoLayout(){
   if(!ROOM.on){log('فعّل الغرفة أولاً.',1);return;}
-  const walls=roomWalls().slice().sort((a,b)=>b.len-a.len);
   const B=batCalc();
   const nInv=invCount(), nBat=(M.sysType==='ongrid')?0:B.n;
   const batKind=(M.batChem==='lifepo4')?'batw':'batc';
-  const items=[];
   const invL=INVLIB[M.invModel]||INVLIB.gen;
-  for(let i=0;i<nInv;i++)items.push({kind:'inv',label:invL.n,
-    w:invL.w/1000,h:invL.h/1000,d:invL.d/1000,tag:'INV-'+(i+1)});
-  for(let i=0;i<nBat;i++)items.push({kind:batKind,kwh:+(B.vm*B.ah/1000).toFixed(1),
-    soc:90,tag:'BAT-'+(i+1)});
-  items.push({kind:'db',rows:3,mods:12,tag:'DB-1'});
-  items.push({kind:'acdb',tag:'AC-1'});
-  if(M.sysType!=='ongrid')items.push({kind:'dcdb',tag:'DC-1'});
-  items.push({kind:'earth',tag:'E-1'});
-  items.push({kind:'ac',tag:'AC'});
-  items.push({kind:'fan',tag:'F-1'});
-  items.push({kind:'ext',tag:'FE-1'});
-  const out=[];let wi=0,off=.35;
-  const gaps=[];
-  if(ROOM.door)gaps.push({wall:ROOM.door.wall,a:ROOM.door.off-.25,b:ROOM.door.off+ROOM.door.w+.25});
-  if(ROOM.win&&ROOM.win.on)gaps.push({wall:ROOM.win.wall,a:ROOM.win.off-.15,b:ROOM.win.off+ROOM.win.w+.15});
-  items.forEach(it=>{
-    const L=EQLIB[it.kind];
-    const w=(+it.w||L.w);
-    for(let guard=0;guard<walls.length+1;guard++){
-      const wl=walls[wi%walls.length];
-      let o=off;
-      for(let pass=0;pass<gaps.length+1;pass++){
-        let moved=false;
-        gaps.forEach(g=>{if(g.wall===wl.i&&o<g.b&&o+w>g.a){o=g.b;moved=true;}});
-        if(!moved)break;}
-      if(o+w+.30<=wl.len){off=o+w+.34;
-        const c=wallPt(wl,o+w/2);
-        const d=(+it.d||L.d);
-        out.push(Object.assign({},it,{
-          x:c[0]+wl.nx*(d/2+.02), z:c[1]+wl.nz*(d/2+.02),
-          rot:(Math.atan2(wl.nx,wl.nz)*180/Math.PI+360)%360,
-          y:L.y,name:L.n}));
-        return;}
-      wi++;off=.35;}
-    const c=wallPt(walls[0],.35);
-    out.push(Object.assign({},it,{x:c[0],z:c[1],rot:0,y:L.y,name:L.n}));});
+  /* البنوك مرتّبة على تسلسل الطاقة: DC ⇐ إنفرتر ⇐ بطاريات ⇐ حماية AC ⇐ تابلوه */
+  const banks=[];
+  if(M.sysType!=='ongrid')banks.push({k:'dc',v:[{kind:'dcdb',tag:'DC-1',name:'صندوق حماية DC'}]});
+  banks.push({k:'inv',v:Array.from({length:nInv},(_,i)=>({kind:'inv',label:invL.n,
+    w:invL.w/1000,h:invL.h/1000,d:invL.d/1000,tag:'INV-'+(i+1)}))});
+  if(nBat)banks.push({k:'bat',v:Array.from({length:nBat},(_,i)=>({kind:batKind,
+    kwh:+(B.vm*B.ah/1000).toFixed(1),soc:90,tag:'BAT-'+(i+1)}))});
+  banks.push({k:'ac',v:[{kind:'acdb',tag:'AC-1'},{kind:'db',rows:3,mods:12,tag:'DB-1'}]});
+  /* كل المقاطع مرتّبة: الأطول أولاً، وجدار الباب آخراً */
+  const walls=roomWalls();
+  const doorW=ROOM.door?ROOM.door.wall:-1;
+  const spans=[];walls.forEach(w=>wallSpans(w).forEach(sp=>spans.push(sp)));
+  spans.sort((a,b)=>(b.len-(b.w.i===doorW?2.2:0))-(a.len-(a.w.i===doorW?2.2:0)));
+  if(!spans.length){log('لا يوجد جدار خالٍ يكفي للتوزيع — راجع الباب والشبّاك.',1);return;}
+  /* منسوب صفّ واحد لكل المعدّات الجدارية الرئيسية */
+  const hMax=Math.max(invL.h/1000,EQLIB.db.h,EQLIB[batKind].h);
+  const yLine=Math.min(1.45,Math.max(hMax/2+.45,(+ROOM.H)/2-.05));
+  const out=[];const used={};
+  /* املأ المقاطع ببنوك كاملة: لا يُقسَّم بنك إلا إذا لم يتّسع مقطع واحد له */
+  let queue=banks.slice(),si=0;
+  while(queue.length&&si<spans.length){
+    const sp=spans[si],grp=[];let rem=sp.len;
+    while(queue.length){
+      const bk=queue[0];
+      if(rowNeed(grp.concat(bk.v))<=sp.len){grp.push(...bk.v);queue.shift();continue;}
+      if(!grp.length&&bk.v.length>1){                /* قسّم البنك على مقطعين */
+        const fit=[];
+        while(bk.v.length&&rowNeed(fit.concat([bk.v[0]]))<=sp.len)fit.push(bk.v.shift());
+        if(fit.length){grp.push(...fit);if(!bk.v.length)queue.shift();}
+        }
+      break;}
+    if(grp.length){out.push(...placeRow(sp,grp,yLine));used[sp.w.i]=(used[sp.w.i]||0)+grp.length;}
+    si++;}
+  if(queue.length){
+    const rest=queue.reduce((a,b)=>a.concat(b.v),[]);
+    out.push(...placeRow(spans[0],rest,yLine));
+    log('الغرفة أضيق من أن تستوعب كل المعدّات في صفوف منتظمة — '+rest.length+
+        ' قطعة وُضعت متراكبة، وسّع الغرفة أو وزّعها يدوياً.',1);}
+  /* الخدمات: على جدران خالية من المعدّات الرئيسية كي لا تتقاطع المساقط */
+  const freeSp=spans.filter(sp=>!used[sp.w.i]);
+  const svc=sp=>freeSp.length?freeSp[sp%freeSp.length]:spans[sp%spans.length];
+  const put=(it,sp,t)=>{
+    const L=EQLIB[it.kind],wd=itemW(it),dp=itemD(it);
+    const tt=Math.min(Math.max(t,sp.a+wd/2),sp.b-wd/2),c=wallPt(sp.w,tt);
+    out.push(Object.assign({},it,{x:c[0]+sp.w.nx*(dp/2+.02),z:c[1]+sp.w.nz*(dp/2+.02),
+      rot:(Math.atan2(sp.w.nx,sp.w.nz)*180/Math.PI+360)%360,y:L.y,name:L.n}));};
+  const eb=svc(0);put({kind:'earth',tag:'E-1'},eb,eb.a+itemW({kind:'earth'})/2+.05);
+  const cb=svc(1);put({kind:'ac',tag:'AC'},cb,(cb.a+cb.b)/2);
+  const fb=svc(2);put({kind:'fan',tag:'F-1'},fb,fb.b-EQLIB.fan.w/2-.05);
+  /* الطفاية بجانب الباب مباشرة */
+  if(ROOM.door){
+    const dw=walls[ROOM.door.wall];
+    const side=(ROOM.door.off>dw.len-ROOM.door.off-ROOM.door.w)
+      ? ROOM.door.off-.34 : ROOM.door.off+ROOM.door.w+.34;
+    const c=wallPt(dw,Math.min(Math.max(side,.2),dw.len-.2));
+    out.push({kind:'ext',tag:'FE-1',name:EQLIB.ext.n,y:EQLIB.ext.y,
+      x:c[0]+dw.nx*(EQLIB.ext.d/2+.02),z:c[1]+dw.nz*(EQLIB.ext.d/2+.02),
+      rot:(Math.atan2(dw.nx,dw.nz)*180/Math.PI+360)%360});
+  }else{const xb=svc(3);put({kind:'ext',tag:'FE-1'},xb,xb.b-.2);}
+  /* إنارة السقف: شبكة متناظرة على الإطار المحيط */
+  const bb=roomBB(),rw=bb.x1-bb.x0,rl=bb.z1-bb.z0;
+  const nc=Math.max(1,Math.round(rw/2.6)),nr=Math.max(1,Math.round(rl/2.6));
+  for(let r=0;r<nr;r++)for(let c2=0;c2<nc;c2++){
+    const x=bb.x0+rw*(c2+.5)/nc,z=bb.z0+rl*(r+.5)/nr;
+    if(!inPoly(x,z,roomPoly()))continue;
+    out.push({kind:'light',tag:'L-'+(r*nc+c2+1),name:EQLIB.light.n,
+      x:+x.toFixed(3),z:+z.toFixed(3),rot:rw>=rl?0:90,y:EQLIB.light.y});}
   EQP=out;EQSEL=-1;
   const v=roomCheck();
-  log('وُزّعت '+EQP.length+' قطعة: '+nInv+' إنفرتر و'+nBat+' بطارية'+
+  log('وُزّعت '+EQP.length+' قطعة في صفوف منتظمة: '+nInv+' إنفرتر و'+nBat+
+    ' بطارية على خطّ منسوب '+(yLine*100).toFixed(0)+' سم'+
     (v.ok?' — كل المسافات النظامية سليمة.':' — '+v.bad.length+' قطعة بحاجة إلى مراجعة موضعها.'));
   buildRoom();dock();}
 
@@ -2792,11 +2876,11 @@ function sheetRoomPlan(){
     ' م · المنطقة الوردية = المسافة الحرّة النظامية أمام كل قطعة',{s:8.5,c:'#5b6b7a'});
   return SV(W,H,b);}
 function sheetRoomElev(wi){
-  const W=760,H=360,mg=64;
+  const W=760,H=430,mg=64;
   const w=roomWalls()[wi];
   if(!w)return SV(W,H,'');
-  const sc=Math.min((W-2*mg)/Math.max(w.len,.5),(H-2*mg)/Math.max(+ROOM.H,.5));
-  const X=t=>mg+t*sc, Y=y=>H-mg-y*sc;
+  const sc=Math.min((W-2*mg)/Math.max(w.len,.5),(H-mg-96)/Math.max(+ROOM.H,.5));
+  const X=t=>mg+t*sc, Y=y=>H-96-y*sc;
   let b=rc(X(0),Y(+ROOM.H),w.len*sc,(+ROOM.H)*sc,'#fbfcfd','#0B2239');
   b+=ln(X(0),Y(0),X(w.len),Y(0),{c:'#0B2239',w:2.4});
   const dr=(ROOM.door&&ROOM.door.wall===wi)?ROOM.door:null;
@@ -2805,12 +2889,28 @@ function sheetRoomElev(wi){
     b+=tx(X(dr.off+dr.w/2),Y(dr.h/2),'باب',{s:9,b:1,c:'#8C6239'});}
   if(wn){b+=rc(X(wn.off),Y(wn.sill+wn.h),wn.w*sc,wn.h*sc,'#E4F0F7','#4E7E9B');
     b+=tx(X(wn.off+wn.w/2),Y(wn.sill+wn.h/2),'شبّاك',{s:9,b:1,c:'#4E7E9B'});}
+  /* خطّ المحاذاة = أكبر تجمّع على منسوب واحد، لا متوسّط كل شيء (المروحة عند 2.40 تفسده) */
+  const row=eqOnWall(w).filter(({e})=>EQLIB[e.kind].mount==='wall');
+  const ys=row.map(({e})=>+e.y||EQLIB[e.kind].y);
+  let yc=null,best=0;
+  ys.forEach(v=>{const n=ys.filter(u=>Math.abs(u-v)<.02).length;if(n>best){best=n;yc=v;}});
+  if(best>=2&&yc!=null)b+=ln(X(-.15),Y(yc),X(w.len+.15),Y(yc),{c:'#F1471E',w:.8,dash:1});
   eqOnWall(w).forEach(({e,t})=>{
     const L=EQLIB[e.kind],ew=+e.w||L.w,eh=+e.h||L.h;
     const yc=(L.mount==='floor')?eh/2:(L.mount==='ceil'?(+ROOM.H)-eh/2:(+e.y||L.y));
     b+=rc(X(t-ew/2),Y(yc+eh/2),ew*sc,eh*sc,'#dfe6ec','#0B2239');
     b+=tx(X(t),Y(yc)+3,e.tag||'',{s:8,b:1,c:'#0B2239'});
     b+=tx(X(t),Y(yc-eh/2)-4,(yc*100).toFixed(0),{s:7.5,c:'#5b6b7a'});});
+  /* خطّ المحاذاة وسلسلة المسافات بين المراكز — لوحة تنفيذية */
+  if(row.length){
+    if(best>=2&&yc!=null){
+      b+=tx(X(w.len)+16,Y(yc)-5,'خطّ المحاذاة '+(yc*100).toFixed(0)+' سم',{s:7.5,a:'start',c:'#F1471E'});
+      b+=dimV(Y(yc),Y(0),X(0)-30,(yc*100).toFixed(0)+' سم');}
+    const main=row.filter(({e})=>best>=2&&Math.abs(((+e.y||EQLIB[e.kind].y)-yc))<.02);
+    const chain=(main.length>=2?main:row);
+    const tv=[0].concat(chain.map(({t})=>t)).concat([w.len]);
+    b+=dimChain(tv.map(X),Y(0)+54,tv.slice(1).map((v,i)=>((v-tv[i])*100).toFixed(0)));
+    b+=tx(W/2,Y(0)+76,'المسافات بين محاور القطع بالسنتيمتر من زاوية الجدار',{s:7.5,c:'#5b6b7a'});}
   b+=dimH(X(0),X(w.len),Y(0)+30,w.len.toFixed(2)+' م');
   b+=dimV(Y(+ROOM.H),Y(0),X(w.len)+30,(+ROOM.H).toFixed(2)+' م');
   b+=tx(W/2,H-10,'الأرقام الصغيرة = منسوب مركز القطعة عن الأرض بالسنتيمتر',{s:8.5,c:'#5b6b7a'});
@@ -2883,6 +2983,394 @@ function roomReport(){
    <li>يُركّب قاطع DC رئيسي على مرأى العين قرب الباب لفصل البطاريات في الطوارئ.</li>
    <li>يُعلَّق مخطط الخطّ الأحادي داخل الغرفة، وتُعلَّم كل التابلوهات بلوحات تعريف دائمة.</li>
    <li>هذه اللوحات دراسة توزيع وأبعاد. الحماية والقطع والمقاطع تُحدَّد في مخطط الخطّ الأحادي المنفصل.</li>
+  </ul>
+  <div class="foot">iCOOL Trading &amp; Contracting — م. أحمد محمد ناصر OEA 36359 · 03 715 512 · info.icool.lb@gmail.com · ${d.toLocaleString('en-GB')}</div>`;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('ov').scrollTop=0;}
+
+/* ---------- 8ج2. التصميم الكهربائي: تابلوها AC وDC ومخطط الخطّ الأحادي ---------- */
+/* مقاسات القواطع القياسية IEC 60898/60947 وسعة نحاس متعدد النوى في الهواء (A) */
+const BRK=[6,10,16,20,25,32,40,50,63,80,100,125,160,200,250,315,400,630];
+const FUS=[10,12,15,16,20,25,32];
+const CU=[[1.5,17.5],[2.5,24],[4,32],[6,41],[10,57],[16,76],[25,101],[35,125],[50,151],
+          [70,192],[95,232],[120,269],[150,300],[185,341],[240,400]];
+const upTo=(v,t)=>t.find(x=>x>=v)||t[t.length-1];
+const cuFor=I=>{const r=CU.find(c=>c[1]>=I);return r?r[0]:240;};
+const MODW=17.5;                                  /* عرض وحدة DIN بالملّيمتر */
+
+function elecDesign(){
+  const ph=(+M.gridPh===3)?3:1;
+  /* الجهد يتبع نظام الشبكة: قيمة 230 محفوظة من وضع أحادي لا تصلح لثلاثي الطور */
+  const gv=+M.gridV||0;
+  const V=(ph===3)?((gv>=330)?gv:400):((gv&&gv<=290)?gv:230);
+  const k=(ph===3?Math.sqrt(3):1);
+  const pf=Math.min(1,Math.max(.7,+M.gridPf||.95));
+  const nInv=invCount(), pInv=+M.invKW||10;
+  const iInv=pInv*1000/(k*V);                     /* خرج المحوّل عند معامل قدرة 1 */
+  const acBrk=upTo(iInv*1.25,BRK);
+  const iLoad=(+M.loadPk||0)*1000/(k*V*pf);
+  const mainBrk=upTo(Math.max(iInv*nInv,iLoad)*1.15,BRK);
+  const gridBrk=upTo(Math.max(iLoad,iInv*nInv)*1.25,BRK);
+  const ST=stringCalc(),B=batCalc();
+  const isc=+M.pIsc||18.3, imp=+M.pImp||17.2;
+  const nStr=ST.best?ST.best.str:0, perM=ST.best?ST.best.perM:0, mppt=ST.mppt;
+  const vDC=ST.best?ST.best.vmax:0;
+  const strFuse=upTo(isc*1.4,FUS);
+  const dcIso=upTo(isc*1.25*Math.max(1,perM),[16,25,32,40,63,80,100,125]);
+  const batV=+M.batV||48;
+  const iBat=(+M.loadPk||0)*1000/Math.max(batV*.9,1);
+  const batBrk=upTo(iBat*1.25,[32,40,50,63,80,100,125,160,200,250,315,400]);
+  const bat=(M.sysType!=='ongrid');
+  /* الدوائر النهائية — مشتقّة من الحمل اللحظي، والنِسَب معروضة للمستخدم */
+  const pk=+M.loadPk||0;
+  const nLight=Math.max(1,Math.ceil(pk*.12*1000/(230*10)));
+  const nSock =Math.max(2,Math.ceil(pk*.35*1000/(230*16)));
+  const nAC   =Math.max(1,Math.round(pk*.40/2.0));
+  const ways=[];
+  for(let i=0;i<nLight;i++)ways.push({lbl:'إنارة '+(i+1),p:1,brk:10,rcd:0,mm:cuFor(10),note:'1.5 مم²'});
+  for(let i=0;i<nSock;i++)ways.push({lbl:'مآخذ '+(i+1),p:1,brk:16,rcd:1,mm:cuFor(16),note:'2.5 مم²'});
+  for(let i=0;i<nAC;i++)ways.push({lbl:'مكيّف '+(i+1),p:1,brk:20,rcd:1,mm:cuFor(20),note:'4 مم²'});
+  if(pk>=4)ways.push({lbl:'مضخّة/سخّان',p:2,brk:25,rcd:1,mm:cuFor(25),note:'4 مم²'});
+  ways.push({lbl:'احتياطي',p:1,brk:16,rcd:0,mm:0,note:'—'});
+  return {ph,V,k,pf,nInv,pInv,iInv,acBrk,iLoad,mainBrk,gridBrk,
+    ST,B,bat,isc,imp,nStr,perM,mppt,vDC,strFuse,dcIso,batV,iBat,batBrk,ways,
+    pk,nLight,nSock,nAC,
+    cInv:cuFor(iInv*1.25),cMain:cuFor(mainBrk),cBat:cuFor(iBat*1.25),
+    cStr:Math.max(4,cuFor(isc*1.25)),cEarth:Math.max(6,Math.round(cuFor(mainBrk)/2))};}
+
+/* ---- بناء صفوف التابلوه: كل قطعة بعرضها بالوحدات ---- */
+function panelRows(dev,perRow){
+  const rows=[];let cur=[],w=0;
+  dev.forEach(d=>{
+    if(w+d.p>perRow&&cur.length){rows.push(cur);cur=[];w=0;}
+    cur.push(d);w+=d.p;});
+  if(cur.length)rows.push(cur);
+  return rows;}
+function panelAC(E){
+  const d=[];
+  d.push({t:'iso',p:E.ph===3?4:2,r:E.mainBrk+'A',lbl:'قاطع رئيسي',pole:E.ph===3?'4P':'2P'});
+  d.push({t:'spd',p:E.ph===3?4:2,r:'T2 40kA',lbl:'مانع صواعق AC',pole:E.ph===3?'4P':'2P'});
+  for(let i=0;i<E.nInv;i++)
+    d.push({t:'mcb',p:E.ph===3?4:2,r:E.acBrk+'A',lbl:'INV-'+(i+1),pole:E.ph===3?'4P':'2P',curve:'C'});
+  d.push({t:'rcd',p:E.ph===3?4:2,r:'63A 30mA',lbl:'RCD مآخذ',pole:E.ph===3?'4P':'2P'});
+  E.ways.forEach(w=>d.push({t:'mcb',p:w.p,r:w.brk+'A',lbl:w.lbl,pole:w.p===1?'1P':'2P',curve:'B'}));
+  const perRow=(d.reduce((a,x)=>a+x.p,0)<=12)?12:(d.reduce((a,x)=>a+x.p,0)<=36?18:24);
+  const rows=panelRows(d,perRow);
+  return {id:'DB-AC',n:'تابلوه التوزيع الرئيسي AC',dev:d,rows,perRow,
+    W:perRow*MODW+90,H:rows.length*125+150,D:140,ip:'IP54',
+    note:'قضيب طور + قضيب حيادي + قضيب تأريض منفصلان'};}
+function panelDC(E){
+  const d=[];
+  for(let m=0;m<E.mppt;m++)for(let f=0;f<Math.max(1,E.perM);f++)
+    d.push({t:'fus',p:1,r:E.strFuse+'A gPV',lbl:'F'+(m+1)+'.'+(f+1)+' (+)',pole:'1P'});
+  d.push({t:'spd',p:2,r:'T2 1000Vdc',lbl:'مانع صواعق DC',pole:'2P'});
+  for(let m=0;m<E.mppt;m++)
+    d.push({t:'iso',p:2,r:E.dcIso+'A DC',lbl:'عازل MPPT'+(m+1),pole:'2P'});
+  if(E.bat)d.push({t:'mcb',p:2,r:E.batBrk+'A DC',lbl:'قاطع البطاريات',pole:'2P'});
+  const perRow=(d.reduce((a,x)=>a+x.p,0)<=12)?12:18;
+  const rows=panelRows(d,perRow);
+  return {id:'DB-DC',n:'صندوق حماية DC (كومباينر)',dev:d,rows,perRow,
+    bars:[['قضيب القطب السالب −','#22282D',0],['قضيب التأريض PE','#3B8F5C',16]],
+    W:perRow*MODW+90,H:rows.length*125+150,D:140,ip:'IP65',
+    note:'كل الأقطاب مصنّفة للتيار المستمر — لا يجوز استعمال قواطع AC'};}
+
+/* ---- لوحة تنفيذية للتابلوه ---- */
+const DEVC={mcb:'#2B6CB8',rcd:'#2E8B57',spd:'#E07A1F',iso:'#22282D',fus:'#8A8F94'};
+const DEVN={mcb:'قاطع مصغّر',rcd:'قاطع تفاضلي',spd:'مانع صواعق',iso:'عازل/رئيسي',fus:'فيوز'};
+function sheetPanel(P){
+  const W=980,H=Math.max(470,P.rows.length*128+300),mg=70;
+  const sc=Math.min((W-2*mg-170)/P.W,(H-190)/P.H);
+  const X=x=>mg+x*sc, Y=y=>110+y*sc;
+  let b='',no=0;
+  /* الصندوق: غلاف + باب + لوحة داخلية */
+  b+=rc(X(0),Y(0),P.W*sc,P.H*sc,'#F4F6F8','#0B2239');
+  b+=rc(X(14),Y(14),(P.W-28)*sc,(P.H-28)*sc,'#FBFCFD','#8C98A4');
+  /* مساند DIN والقطع */
+  P.rows.forEach((row,r)=>{
+    const ry=45+r*125, rx=45;
+    b+=rc(X(rx-6),Y(ry+34),(P.perRow*MODW+12)*sc,22*sc,'#DDE3E8','#9AA5AF');
+    b+=tx(X(rx-14),Y(ry+50),'DIN '+(r+1),{s:7.5,a:'end',c:'#5b6b7a'});
+    let mx=rx;
+    row.forEach(d=>{
+      const w=d.p*MODW;
+      b+=`<rect x="${X(mx).toFixed(1)}" y="${Y(ry).toFixed(1)}" width="${(w*sc).toFixed(1)}"
+        height="${(90*sc).toFixed(1)}" rx="${(2*sc).toFixed(1)}" fill="#EDEFF1" stroke="#7E868D" stroke-width="1"/>`;
+      b+=`<rect x="${X(mx+w*.22).toFixed(1)}" y="${Y(ry+30).toFixed(1)}" width="${(w*.56*sc).toFixed(1)}"
+        height="${(26*sc).toFixed(1)}" rx="${(1.5*sc).toFixed(1)}" fill="${DEVC[d.t]}"/>`;
+      for(let q=0;q<d.p;q++)b+=ln(X(mx+q*MODW+MODW/2),Y(ry+6),X(mx+q*MODW+MODW/2),Y(ry+22),{c:'#9AA5AF',w:.8});
+      /* وحدة واحدة لا تتّسع لتصنيف كامل — التفصيل في الجدول */
+      b+=tx(X(mx+w/2),Y(ry+74),d.p===1?String(d.r).split(' ')[0]:d.r,{s:6.6,b:1,c:'#16222e'});
+      /* رقم متسلسل فوق كل قطعة والتفصيل في جدول القطع — أسماء كاملة فوق الوحدات تتراكب */
+      d.no=(++no);
+      b+=`<circle cx="${X(mx+w/2).toFixed(1)}" cy="${(Y(ry)-9).toFixed(1)}" r="7"
+        fill="#fff" stroke="#8C98A4" stroke-width=".9"/>`;
+      b+=tx(X(mx+w/2),Y(ry)-6.2,String(d.no),{s:7,b:1,c:'#0B2239'});
+      mx+=w;});
+    if(mx<rx+P.perRow*MODW){
+      const w=rx+P.perRow*MODW-mx;
+      b+=`<rect x="${X(mx).toFixed(1)}" y="${Y(ry).toFixed(1)}" width="${(w*sc).toFixed(1)}"
+        height="${(90*sc).toFixed(1)}" fill="#E9ECEF" stroke="#C3CBD2" stroke-width="1" stroke-dasharray="3 2"/>`;
+      b+=tx(X(mx+w/2),Y(ry+50),'فراغ '+Math.round(w/MODW)+' وحدة',{s:6.4,c:'#8C98A4'});}});
+  /* القضبان ولوح المداخل */
+  const by=45+P.rows.length*125+6;
+  (P.bars||[['قضيب الحياد N','#2166A8',0],['قضيب التأريض PE','#3B8F5C',16]]).forEach(([n,c,dy])=>{
+    b+=`<rect x="${X(45).toFixed(1)}" y="${Y(by+dy).toFixed(1)}" width="${(P.perRow*MODW*sc).toFixed(1)}"
+      height="${(11*sc).toFixed(1)}" rx="2" fill="${c}"/>`;
+    b+=tx(X(45+P.perRow*MODW)+6,Y(by+dy+9),n,{s:6.8,a:'start',c});});
+  const gy=P.H-42;
+  b+=ln(X(20),Y(gy),X(P.W-20),Y(gy),{c:'#8C98A4',w:1});
+  for(let g=0;g<6;g++){const gx=30+g*(P.W-60)/5;
+    b+=`<circle cx="${X(gx).toFixed(1)}" cy="${Y(gy+16).toFixed(1)}" r="${(9*sc).toFixed(1)}"
+      fill="none" stroke="#5b6b7a" stroke-width="1.1"/>`;}
+  b+=tx(X(P.W/2),Y(P.H)+52,'لوح غلاندات — دخول الكابلات من الأسفل · الأرقام داخل الدوائر تحيل إلى جدول القطع',
+    {s:7.5,c:'#5b6b7a'});
+  /* لوحة التعريف الدائمة — خارج مسقط الصندوق كي لا تغطّي القضبان */
+  b+=rc(W-mg-150,206,150,34,'#0B2239','#0B2239');
+  b+=tx(W-mg-75,228,P.id,{s:10.5,b:1,c:'#ffffff'});
+  b+=tx(W-mg-150,256,'لوحة تعريف دائمة على الباب',{s:7.5,a:'start',c:'#5b6b7a'});
+  /* قياسات */
+  b+=dimH(X(0),X(P.W),Y(P.H)+34,Math.round(P.W)+' ملم');
+  b+=dimV(Y(0),Y(P.H),X(P.W)+34,Math.round(P.H)+' ملم');
+  b+=dimH(X(45),X(45+P.perRow*MODW),Y(0)-30,P.perRow+' وحدة × 17.5 = '+Math.round(P.perRow*MODW)+' ملم');
+  b+=tx(mg,40,P.n,{s:13,b:1,a:'start',c:'#0B2239'});
+  b+=tx(mg,58,'المنظر الأمامي بالباب مفتوحاً · '+P.rows.length+' مسند DIN · '+
+    P.dev.reduce((a,d)=>a+d.p,0)+' وحدة مشغولة من '+(P.rows.length*P.perRow)+
+    ' · درجة الحماية '+P.ip+' · العمق '+P.D+' ملم',{s:8.5,a:'start',c:'#5b6b7a'});
+  b+=tx(mg,H-16,P.note,{s:8,a:'start',c:'#F1471E'});
+  /* مفتاح الرموز */
+  let lx=W-mg-150;
+  Object.keys(DEVC).forEach((t,i)=>{
+    const yy=110+i*17;
+    b+=`<rect x="${lx}" y="${yy}" width="11" height="11" rx="2" fill="${DEVC[t]}"/>`;
+    b+=tx(lx+15,yy+9.5,DEVN[t],{s:8,a:'start',c:'#5b6b7a'});});
+  return SV(W,H,b);}
+
+/* ---- رموز مخطط الخطّ الأحادي ---- */
+function symBrk(x,y,r,lbl){                       /* قاطع: مربّع ومفتاح مائل */
+  return ln(x,y-16,x,y+16,{w:1.4})+
+    `<rect x="${(x-7).toFixed(1)}" y="${(y-7).toFixed(1)}" width="14" height="14" fill="#fff" stroke="#16222e" stroke-width="1.4"/>`+
+    ln(x-5,y+5,x+5,y-5,{w:1.4})+
+    (r?tx(x+11,y-2,r,{s:8,a:'start',b:1,c:'#0B2239'}):'')+
+    (lbl?tx(x+11,y+9,lbl,{s:7.5,a:'start',c:'#5b6b7a'}):'');}
+function symFuse(x,y,r){
+  return ln(x,y-16,x,y+16,{w:1.4})+rc(x-6,y-9,12,18,'#fff','#16222e')+
+    (r?tx(x+11,y-11,r,{s:7.8,a:'start',b:1,c:'#0B2239'}):'');}
+function symIso(x,y,r,lbl){                        /* عازل: فتحة ومفتاح */
+  return ln(x,y-16,x,y-6,{w:1.4})+ln(x,y+6,x,y+16,{w:1.4})+
+    ln(x,y+6,x+10,y-7,{w:1.6})+`<circle cx="${x}" cy="${(y+6).toFixed(1)}" r="2.2" fill="#16222e"/>`+
+    `<circle cx="${x}" cy="${(y-6).toFixed(1)}" r="2.2" fill="#16222e"/>`+
+    (r?tx(x+13,y-2,r,{s:8,a:'start',b:1,c:'#0B2239'}):'')+
+    (lbl?tx(x+13,y+9,lbl,{s:7.5,a:'start',c:'#5b6b7a'}):'');}
+function symBrkH(x,y,r,lbl){                       /* القاطع على خطّ أفقي */
+  return ln(x-16,y,x+16,y,{w:1.4})+
+    `<rect x="${(x-7).toFixed(1)}" y="${(y-7).toFixed(1)}" width="14" height="14" fill="#fff" stroke="#16222e" stroke-width="1.4"/>`+
+    ln(x-5,y+5,x+5,y-5,{w:1.4})+
+    (r?tx(x,y-13,r,{s:8,b:1,c:'#0B2239'}):'')+
+    (lbl?tx(x,y+20,lbl,{s:7.5,c:'#5b6b7a'}):'');}
+function symRcdH(x,y,r){
+  return ln(x-16,y,x+16,y,{w:1.4})+rc(x-9,y-8,18,16,'#fff','#2E8B57')+
+    `<circle cx="${x}" cy="${y}" r="5" fill="none" stroke="#2E8B57" stroke-width="1.4"/>`+
+    (r?tx(x,y-13,r,{s:7.5,b:1,c:'#2E8B57'}):'');}
+function symRcd(x,y,r){
+  return ln(x,y-16,x,y+16,{w:1.4})+rc(x-8,y-9,16,18,'#fff','#2E8B57')+
+    `<circle cx="${x}" cy="${y}" r="5" fill="none" stroke="#2E8B57" stroke-width="1.4"/>`+
+    (r?tx(x+12,y+3,r,{s:8,a:'start',b:1,c:'#2E8B57'}):'');}
+function symSpd(x,y,r){                            /* مانع صواعق إلى الأرض */
+  return ln(x,y,x,y+22,{w:1.2,c:'#E07A1F'})+
+    rc(x-7,y+22,14,18,'#fff','#E07A1F')+
+    `<path d="M${x-4},${y+27} L${x+4},${y+31} L${x-4},${y+35}" fill="none" stroke="#E07A1F" stroke-width="1.4"/>`+
+    symEarth(x,y+40)+ (r?tx(x+11,y+34,r,{s:7.5,a:'start',c:'#E07A1F'}):'');}
+function symEarth(x,y){
+  return ln(x,y,x,y+8,{w:1.2})+ln(x-9,y+8,x+9,y+8,{w:1.6})+
+    ln(x-6,y+12,x+6,y+12,{w:1.4})+ln(x-3,y+16,x+3,y+16,{w:1.2});}
+function symPV(x,y,w,h,t1,t2){
+  let b=rc(x,y,w,h,'#16243d','#0B2239');
+  for(let i=1;i<4;i++)b+=ln(x+w*i/4,y,x+w*i/4,y+h,{c:'#3c5b86',w:.8});
+  b+=ln(x,y+h/2,x+w,y+h/2,{c:'#3c5b86',w:.8});
+  b+=tx(x+w/2,y-6,t1,{s:8.5,b:1,c:'#0B2239'});
+  if(t2)b+=tx(x+w/2,y+h+13,t2,{s:7.5,c:'#5b6b7a'});
+  return b;}
+function symBat(x,y,w,h,t1,t2){
+  let b=rc(x,y,w,h,'#F5F7F8','#0B2239');
+  for(let i=0;i<3;i++){b+=ln(x+14+i*18,y+h*.28,x+14+i*18,y+h*.72,{w:2});
+    b+=ln(x+23+i*18,y+h*.38,x+23+i*18,y+h*.62,{w:1.2});}
+  b+=tx(x+w/2,y-6,t1,{s:8.5,b:1,c:'#0B2239'});
+  if(t2)b+=tx(x+w/2,y+h+13,t2,{s:7.5,c:'#5b6b7a'});
+  return b;}
+function symInv(x,y,w,h,t1,t2){
+  let b=rc(x,y,w,h,'#FFFFFF','#0B2239');
+  b+=ln(x+w*.5,y+8,x+w*.5,y+h-8,{w:1.1,c:'#8C98A4'});
+  b+=ln(x+10,y+h*.34,x+w*.5-10,y+h*.34,{w:1.6});
+  b+=ln(x+10,y+h*.46,x+w*.5-10,y+h*.46,{w:1.2,dash:1});
+  b+=`<path d="M${(x+w*.5+10).toFixed(1)},${(y+h*.42).toFixed(1)}
+      q7,-11 14,0 q7,11 14,0" fill="none" stroke="#16222e" stroke-width="1.6"/>`;
+  b+=tx(x+w/2,y+h-12,t1,{s:9,b:1,c:'#0B2239'});
+  if(t2)b+=tx(x+w/2,y+h+14,t2,{s:7.5,c:'#5b6b7a'});
+  return b;}
+function symGrid(x,y,w,h,t1){
+  let b=rc(x,y,w,h,'#FFFFFF','#0B2239');
+  b+=`<path d="M${x+10},${y+h-12} L${x+w/2},${y+10} L${x+w-10},${y+h-12}" fill="none" stroke="#16222e" stroke-width="1.4"/>`;
+  b+=ln(x+16,y+h-22,x+w-16,y+h-22,{w:1.1});
+  b+=tx(x+w/2,y-6,t1,{s:8.5,b:1,c:'#0B2239'});
+  return b;}
+function symMeter(x,y,r){
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#16222e" stroke-width="1.4"/>`+
+    tx(x,y+3.5,'kWh',{s:7.5,b:1});}
+function symLoad(x,y,w,h,t1,t2){
+  let b=rc(x,y,w,h,'#FBFCFD','#0B2239');
+  b+=tx(x+w/2,y+h*.45,t1,{s:8.5,b:1,c:'#0B2239'});
+  if(t2)b+=tx(x+w/2,y+h*.75,t2,{s:7.5,c:'#5b6b7a'});
+  return b;}
+
+function sheetSLD(){
+  const E=elecDesign(),W=1020,H=660;
+  let b='';
+  const Yb=300;                                    /* خطّ التيار الرئيسي */
+  const wire=(x1,y1,x2,y2,c)=>ln(x1,y1,x2,y2,{w:1.6,c:c||'#16222e'});
+  /* 1) المصفوفات الشمسية */
+  const nStr=Math.max(1,E.nStr);
+  const showStr=Math.min(nStr,3);
+  for(let i=0;i<showStr;i++){
+    const y=150+i*78;
+    b+=symPV(40,y,86,44,'سلسلة '+(i+1),(E.ST.best?E.ST.best.n:0)+' لوح × '+(+M.pWp||660)+' واط');
+    b+=wire(126,y+22,196,y+22);
+    b+=symFuse(196,y+22,E.strFuse+'A');
+    b+=wire(196,y+22,250,y+22);
+    b+=wire(250,y+22,250,Yb-60);}
+  if(nStr>showStr)b+=tx(83,150+showStr*78+14,'… و'+(nStr-showStr)+' سلسلة مماثلة',{s:8,c:'#5b6b7a'});
+  /* 2) صندوق DC */
+  b+=`<rect x="170" y="120" width="180" height="${(Yb+40-120)}" rx="6" fill="none"
+      stroke="#E07A1F" stroke-width="1.2" stroke-dasharray="6 4"/>`;
+  b+=tx(260,134,'صندوق حماية DC — DB-DC',{s:8.5,b:1,c:'#E07A1F'});
+  b+=symSpd(310,Yb-150,'T2 1000Vdc');
+  b+=wire(250,Yb-150,310,Yb-150);
+  b+=symIso(250,Yb-30,E.dcIso+'A','عازل DC');
+  b+=wire(250,Yb-14,250,Yb);
+  b+=wire(250,Yb,392,Yb);
+  b+=tx(320,Yb-8,E.vDC>0?('Voc '+Math.round(E.vDC)+'V · '+E.cStr+' مم²'):'',{s:7.5,c:'#5b6b7a'});
+  /* 3) المحوّل */
+  b+=symInv(392,Yb-52,150,104,'إنفرتر × '+E.nInv,E.pInv+' kW · '+(E.ph===3?'ثلاثي الطور':'أحادي الطور'));
+  /* 4) البطاريات */
+  if(E.bat){
+    b+=symBat(392,Yb+150,150,60,'بنك البطاريات',
+      E.B.kwhNom.toFixed(1)+' kWh · '+E.batV+'V · '+E.B.ser+'S'+E.B.par+'P');
+    b+=wire(467,Yb+150,467,Yb+96);
+    b+=symBrk(467,Yb+80,E.batBrk+'A','DC · '+E.cBat+' مم²');
+    b+=wire(467,Yb+64,467,Yb+52);}
+  /* 5) الشبكة والمولّد */
+  b+=symGrid(392,60,150,56,'الشبكة العمومية');
+  b+=wire(467,116,467,140);
+  b+=symMeter(467,156,15);
+  b+=wire(467,171,467,190);
+  b+=symBrk(467,206,E.gridBrk+'A','مدخل الشبكة');
+  b+=wire(467,222,467,Yb-52);
+  /* 6) تابلوه AC */
+  const grp=[['إنارة',E.nLight,10,0],['مآخذ',E.nSock,16,1],['مكيّفات',E.nAC,20,1]];
+  if(E.pk>=4)grp.push(['مضخّة/سخّان',1,25,1]);
+  const y0=Yb-96,dy=62,yN=y0+(grp.length-1)*dy;
+  b+=`<rect x="574" y="${(y0-52).toFixed(0)}" width="266" height="${(yN-y0+150).toFixed(0)}" rx="6" fill="none"
+      stroke="#0066A7" stroke-width="1.2" stroke-dasharray="6 4"/>`;
+  b+=tx(707,y0-62,'تابلوه التوزيع الرئيسي — DB-AC',{s:8.5,b:1,c:'#0066A7'});
+  b+=wire(542,Yb,600,Yb);
+  b+=symBrkH(600,Yb,E.mainBrk+'A','قاطع رئيسي '+(E.ph===3?'4P':'2P'));
+  b+=wire(600,Yb,652,Yb);
+  b+=symSpd(652,Yb,'T2 40kA');
+  b+=wire(652,Yb,700,Yb);
+  b+=ln(700,y0-30,700,yN+30,{w:3,c:'#2166A8'});
+  b+=tx(700,y0-38,'قضيب الطور',{s:7,c:'#2166A8'});
+  grp.forEach(([n,q,a,rcd],i)=>{
+    const y=y0+i*dy;
+    b+=wire(700,y,740,y);
+    if(rcd){b+=symRcdH(740,y,'30mA');b+=wire(740,y,790,y);
+      b+=symBrkH(790,y,a+'A','');b+=wire(790,y,846,y);}
+    else{b+=symBrkH(740,y,a+'A','');b+=wire(740,y,846,y);}
+    b+=symLoad(846,y-17,134,34,n,q+' × '+a+'A');});
+  /* 7) التأريض */
+  b+=ln(150,H-70,900,H-70,{w:2,c:'#3B8F5C'});
+  b+=tx(150,H-78,'قضيب التأريض الرئيسي MET — نحاس '+E.cEarth+' مم²',{s:8,a:'start',b:1,c:'#3B8F5C'});
+  [[250,Yb+14],[467,E.bat?Yb+218:Yb+52],[700,yN+30]].forEach(([x,y])=>
+    b+=ln(x,y,x,H-70,{w:1,c:'#3B8F5C',dash:1}));
+  b+=symEarth(525,H-70);
+  /* عنوان */
+  b+=tx(40,32,'مخطط الخطّ الأحادي — Single Line Diagram',{s:14,b:1,a:'start',c:'#0B2239'});
+  b+=tx(40,50,(M.project||'مشروع')+' · '+(E.ph===3?'400V ثلاثي الطور':'230V أحادي الطور')+
+    ' · '+E.ST.kwp.toFixed(2)+' kWp · '+(E.bat?E.B.kwhNom.toFixed(1)+' kWh بطاريات':'بلا بطاريات'),
+    {s:9,a:'start',c:'#5b6b7a'});
+  return SV(W,H,b);}
+
+function elecReport(){
+  const d=new Date(),E=elecDesign(),PA=panelAC(E),PD=panelDC(E);
+  ovTop('elec');
+  const devRow=(P)=>P.dev.map((x,i)=>`<tr><td class="n">${x.no||(i+1)}</td><td>${x.lbl}</td>
+    <td>${DEVN[x.t]}</td><td class="n">${x.r}</td><td class="n">${x.pole}</td>
+    <td class="n">${x.p}</td><td>${x.curve?('منحنى '+x.curve):'—'}</td></tr>`).join('');
+  const cab=[
+    ['سلسلة ألواح ⇐ صندوق DC','PV1-F 1×'+E.cStr+' مم² (أحمر/أسود)',E.strFuse+'A gPV','DC'],
+    ['صندوق DC ⇐ المحوّل','PV1-F 1×'+E.cStr+' مم²',E.dcIso+'A عازل','DC'],
+    E.bat?['البطاريات ⇐ المحوّل','كابل بطارية 1×'+E.cBat+' مم²',E.batBrk+'A DC','DC']:null,
+    ['المحوّل ⇐ تابلوه AC','NYY '+(E.ph===3?'4':'2')+'×'+E.cInv+' مم² + PE',E.acBrk+'A','AC'],
+    ['الشبكة ⇐ المحوّل','NYY '+(E.ph===3?'4':'2')+'×'+cuFor(E.gridBrk)+' مم² + PE',E.gridBrk+'A','AC'],
+    ['تابلوه AC ⇐ الدوائر','NYM حسب الدائرة','10–25A','AC'],
+    ['كل الهياكل والأغلفة ⇐ MET','أخضر/أصفر 1×'+E.cEarth+' مم²','—','PE']
+  ].filter(Boolean);
+  document.getElementById('ovBody').innerHTML=`
+  <div style="display:flex;gap:10px;align-items:center;border-bottom:2px solid #F1471E;padding-bottom:7px">
+   ${logoHTML(48)}<div><div style="font-size:15px;font-weight:800;color:#0B2239">التصميم الكهربائي — الخطّ الأحادي وتابلوهات AC وDC</div>
+   <div style="font-size:10.5px;color:#5b6b7a">${M.project||'مشروع'} · ${M.site||'—'} · ${d.toLocaleDateString('en-GB')}</div></div></div>
+
+  <h2>1 — معطيات التصميم</h2>
+  <div class="kpi">
+   <div><span>نوع المنظومة</span><b>${({offgrid:'مستقلة',hybrid:'هجينة',ongrid:'مربوطة بالشبكة'})[M.sysType]}</b></div>
+   <div><span>الشبكة</span><b>${E.ph===3?'ثلاثي الطور 400V':'أحادي الطور 230V'}</b></div>
+   <div><span>القدرة الشمسية</span><b>${E.ST.kwp.toFixed(2)} kWp</b></div>
+   <div><span>المحوّلات</span><b>${E.nInv} × ${E.pInv} kW</b></div>
+   <div><span>تيار خرج المحوّل</span><b>${E.iInv.toFixed(1)} A</b></div>
+   <div><span>أقصى حمل لحظي</span><b>${E.pk.toFixed(1)} kW · ${E.iLoad.toFixed(1)} A</b></div>
+   <div><span>بنك البطاريات</span><b>${E.bat?E.B.kwhNom.toFixed(1)+' kWh · '+E.batV+'V':'—'}</b></div>
+   <div><span>السلاسل</span><b>${E.nStr} × ${E.ST.best?E.ST.best.n:0} لوح</b></div>
+  </div>
+
+  <h2>2 — مخطط الخطّ الأحادي</h2>
+  <div class="sheet"><div class="tb"><span>Single Line Diagram</span><span>${M.project||'مشروع'}</span>
+   <span>${d.toLocaleDateString('en-GB')} · بلا مقياس</span></div>${sheetSLD()}</div>
+
+  <h2>3 — تابلوه التوزيع الرئيسي AC — شوب دراوينغ</h2>
+  <div class="sheet"><div class="tb"><span>${PA.id}</span><span>${PA.perRow} وحدة × ${PA.rows.length} صفّ</span>
+   <span>${Math.round(PA.W)}×${Math.round(PA.H)}×${PA.D} ملم · ${PA.ip}</span></div>${sheetPanel(PA)}</div>
+  <table><tr><th>#</th><th>الوسم</th><th>النوع</th><th>التصنيف</th><th>الأقطاب</th><th>وحدات</th><th>ملاحظة</th></tr>
+   ${devRow(PA)}</table>
+
+  <h2>4 — صندوق حماية DC — شوب دراوينغ</h2>
+  <div class="sheet"><div class="tb"><span>${PD.id}</span><span>${PD.perRow} وحدة × ${PD.rows.length} صفّ</span>
+   <span>${Math.round(PD.W)}×${Math.round(PD.H)}×${PD.D} ملم · ${PD.ip}</span></div>${sheetPanel(PD)}</div>
+  <table><tr><th>#</th><th>الوسم</th><th>النوع</th><th>التصنيف</th><th>الأقطاب</th><th>وحدات</th><th>ملاحظة</th></tr>
+   ${devRow(PD)}</table>
+
+  <h2>5 — جدول الكابلات والحماية</h2>
+  <table><tr><th>المسار</th><th>الكابل</th><th>الحماية</th><th>التيار</th></tr>
+   ${cab.map(c=>`<tr><td>${c[0]}</td><td>${c[1]}</td><td class="n">${c[2]}</td><td class="n">${c[3]}</td></tr>`).join('')}</table>
+
+  <h2>6 — أساس اختيار القواطع والمقاطع</h2>
+  <table><tr><th>البند</th><th>الحساب</th><th>المختار</th></tr>
+   <tr><td>قاطع خرج كل محوّل</td><td class="n">1.25 × ${E.iInv.toFixed(1)} = ${(E.iInv*1.25).toFixed(1)} A</td><td class="n">${E.acBrk} A ${E.ph===3?'4P':'2P'} منحنى C</td></tr>
+   <tr><td>القاطع الرئيسي للتابلوه</td><td class="n">1.15 × أكبر من (${(E.iInv*E.nInv).toFixed(1)} · ${E.iLoad.toFixed(1)}) A</td><td class="n">${E.mainBrk} A</td></tr>
+   <tr><td>فيوز السلسلة</td><td class="n">1.4 × Isc ${E.isc} = ${(E.isc*1.4).toFixed(1)} A</td><td class="n">${E.strFuse} A gPV</td></tr>
+   <tr><td>عازل DC لكل MPPT</td><td class="n">1.25 × ${E.perM} × ${E.isc} = ${(E.isc*1.25*Math.max(1,E.perM)).toFixed(1)} A</td><td class="n">${E.dcIso} A</td></tr>
+   ${E.bat?`<tr><td>قاطع البطاريات</td><td class="n">1.25 × ${E.pk} kW ÷ (${E.batV}V × 0.9) = ${(E.iBat*1.25).toFixed(0)} A</td><td class="n">${E.batBrk} A DC</td></tr>`:''}
+   <tr><td>مقطع كابل خرج المحوّل</td><td class="n">سعة ≥ ${(E.iInv*1.25).toFixed(1)} A</td><td class="n">${E.cInv} مم² نحاس</td></tr>
+   <tr><td>موصل التأريض الرئيسي</td><td class="n">≥ نصف مقطع موصل الطور</td><td class="n">${E.cEarth} مم²</td></tr></table>
+  <div class="note">الدوائر النهائية مشتقّة من الحمل اللحظي <b>${E.pk} kW</b> بالنِسَب: إنارة 12% · مآخذ 35% · تكييف 40%
+   (${E.nLight} دائرة إنارة · ${E.nSock} دائرة مآخذ · ${E.nAC} دائرة تكييف). عدّل «أقصى حمل لحظي» في تبويب الطاقة
+   لتتغيّر الجداول واللوحات معاً.</div>
+
+  <h2>7 — ملاحظات التنفيذ</h2>
+  <ul>
+   <li>كل قواطع وعوازل جهة DC مصنّفة للتيار المستمر بجهد ≥ ${Math.max(1000,Math.round(E.vDC*1.2))}V — قاطع AC عادي لا يُطفئ قوس DC.</li>
+   <li>مانع الصواعق DC يوضع داخل صندوق الكومباينر قرب مدخل السلاسل، وموصل تفريغه إلى MET بأقصر مسار وأقلّ انحناءات.</li>
+   <li>كل دائرة مآخذ أو تكييف محمية بقاطع تفاضلي 30 mA. دوائر الإنارة يجوز تجميعها خلف تفاضلي واحد.</li>
+   <li>قضيب الحياد وقضيب التأريض منفصلان داخل التابلوه، ويُربطان عند نقطة واحدة فقط حسب نظام التأريض المعتمد.</li>
+   <li>يُترك ${PA.rows.length*PA.perRow-PA.dev.reduce((a,x)=>a+x.p,0)} وحدة فارغة في تابلوه AC للتوسعة (لا تقل عن 20%).</li>
+   <li>تُعلَّم كل قاطعة بلوحة تعريف دائمة مطابقة لجدول القطع أعلاه، ويُعلَّق هذا المخطط داخل الغرفة.</li>
   </ul>
   <div class="foot">iCOOL Trading &amp; Contracting — م. أحمد محمد ناصر OEA 36359 · 03 715 512 · info.icool.lb@gmail.com · ${d.toLocaleString('en-GB')}</div>`;
   document.getElementById('ov').classList.add('open');
@@ -3202,7 +3690,8 @@ function ovTop(cur){
    (cur!=='cost'?`<button onclick="costReport()">دراسة الكلفة</button>`:'')+
    (cur!=='energy'?`<button onclick="energyReport()">الإنتاجية والمنظومة</button>`:'')+
    (cur!=='shadow'?`<button onclick="shadowReport()">تقرير الظلال</button>`:'')+
-   (cur!=='room'?`<button onclick="roomReport()">غرفة الكهرباء</button>`:'');}
+   (cur!=='room'?`<button onclick="roomReport()">غرفة الكهرباء</button>`:'')+
+   (cur!=='elec'?`<button onclick="elecReport()">الخطّ الأحادي والتابلوهات</button>`:'');}
 
 function report(){
   const T=TPL[M.tpl],d=new Date(),W=R.WD;
@@ -3922,6 +4411,13 @@ function dock(){
 
     grp('الأحمال');
     ['loadD','loadNight','loadPk'].forEach(k=>field(el,k));
+    grp('الشبكة والتابلوهات');
+    ['gridPh','gridV','gridPf'].forEach(k=>field(el,k));
+    {const eb=document.createElement('button');
+     eb.textContent='فتح الخطّ الأحادي وتابلوهات AC وDC';
+     eb.className='o on';eb.style.cssText='display:block;width:100%;margin:8px 0;padding:10px';
+     eb.onclick=elecReport;el.appendChild(eb);}
+    tip('من هذه المعطيات تُشتقّ القواطع والفيوزات والمقاطع ولوحات التابلوهات كلّها. اختيار «ثلاثي الطور» يقلب كل الأقطاب إلى 4P ويعيد حساب التيارات.');
     if(E.arrays.length){
       const t2=document.createElement('table');
       t2.innerHTML=`<tr><th>الاستهلاك السنوي</th><td class="n">${Math.round(L.year).toLocaleString('en-US')} kWh</td></tr>

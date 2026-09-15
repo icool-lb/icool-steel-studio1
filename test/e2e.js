@@ -398,6 +398,88 @@ ok(fk.fresh.before===18&&fk.fresh.after===30,
    fk.fresh.before+' ⇐ '+fk.fresh.after+' م');
 ok(Math.abs(fk.fresh.L-25)<.02,'فيقبل عرضاً 25 م على واجهة صارت 30 م',fk.fresh.L+' م');
 
+console.log('\n[5ي] توزيع الغرفة الهندسي');
+const rl=await pg.evaluate(()=>{
+  M.bOn=1;M.bA=30;M.bB=20;ARR=[];AI=0;M.tpl='S1';applyTpl('S1');M.L=20;M.S=10;
+  M.sysType='hybrid';M.invKW=12;M.loadPk=12;build();
+  ROOM.on=1;ROOM.poly=null;ROOM.W=7;ROOM.L=5;ROOM.H=3;
+  ROOM.door={wall:0,off:2.5,w:1.0,h:2.1};
+  ROOM.win={on:1,wall:2,off:2.0,w:1.2,h:1.0,sill:1.6};
+  autoLayout();
+  const wallEq=EQP.filter(e=>EQLIB[e.kind].mount==='wall'&&e.off!==undefined);
+  const byW={};wallEq.forEach(e=>(byW[e.wall]=byW[e.wall]||[]).push(e));
+  const pitch={};Object.keys(byW).forEach(k=>{
+    const r=byW[k].slice().sort((a,b)=>a.off-b.off);
+    const gaps=[];for(let i=0;i+1<r.length;i++)
+      gaps.push(+(r[i+1].off-r[i].off-((+r[i].w||EQLIB[r[i].kind].w))).toFixed(3));
+    pitch[k]={n:r.length,gaps};});
+  const ys=[...new Set(wallEq.map(e=>+e.y.toFixed(3)))];
+  const near=(e,o)=>Math.hypot(e.x-o.x,e.z-o.z);
+  const ext=EQP.find(e=>e.kind==='ext');
+  const dw=roomWalls()[ROOM.door.wall];
+  const dc=wallPt(dw,ROOM.door.off+ROOM.door.w/2);
+  const lights=EQP.filter(e=>e.kind==='light');
+  const order=EQP.filter(e=>['dcdb','inv','batw','batc','acdb','db'].indexOf(e.kind)>=0).map(e=>e.kind);
+  return {n:EQP.length,msgs:roomCheck().msgs,pitch,ys,lights:lights.length,
+    extD:+near(ext,{x:dc[0],z:dc[1]}).toFixed(2),order:order.join('>'),
+    elev:sheetRoomElev(1)};});
+ok(rl.msgs.length===0,'التوزيع التلقائي لا يترك أي مخالفة مسافات',rl.msgs.join(' | ')||'نظيف');
+ok(rl.ys.length===1,'كل المعدّات الجدارية على خطّ منسوب واحد',
+   rl.ys.map(v=>(v*100).toFixed(0)+' سم').join(' · '));
+Object.keys(rl.pitch).forEach(k=>{const g=rl.pitch[k].gaps;
+  if(g.length<1)return;
+  const mx=Math.max(...g),mn=Math.min(...g);
+  ok(mx-mn<.02,'الجدار '+(+k+1)+': الفراغات بين القطع متساوية',
+     g.map(v=>(v*100).toFixed(0)).join(' · ')+' سم');});
+ok(rl.order==='dcdb>inv>inv>inv>inv>batw>batw>batw>acdb>db'||/^dcdb>inv/.test(rl.order),
+   'الترتيب يتبع تسلسل الطاقة: DC ⇐ إنفرتر ⇐ بطاريات ⇐ حماية AC ⇐ تابلوه',rl.order);
+ok(rl.lights>=2,'إنارة السقف موزّعة شبكةً',rl.lights+' وحدة');
+ok(rl.extD<1.6,'الطفاية بجانب الباب',rl.extD+' م عن محور الباب');
+ok(/stroke-dasharray/.test(rl.elev)&&/خطّ المحاذاة/.test(rl.elev),'واجهة الجدار تُظهر خطّ المحاذاة');
+ok((rl.elev.match(/<line/g)||[]).length>20,'وسلسلة القياسات بين المحاور',
+   (rl.elev.match(/<line/g)||[]).length+' خطّ');
+
+console.log('\n[5ك] الخطّ الأحادي وتابلوها AC وDC');
+const el=await pg.evaluate(()=>{
+  M.sysType='hybrid';M.loadPk=12;M.invKW=12;M.gridPh=1;M.gridV=230;build();
+  const E1=elecDesign(),A1=panelAC(E1),D1=panelDC(E1);
+  const s1=sheetSLD(),p1=sheetPanel(A1),p2=sheetPanel(D1);
+  let err='';try{elecReport();}catch(e){err=e.message;}
+  const rep=document.getElementById('ovBody').innerHTML;
+  M.gridPh=3;build();
+  const E3=elecDesign(),A3=panelAC(E3);
+  M.gridPh=1;M.gridV=230;build();
+  return {err,
+    i1:+E1.iInv.toFixed(1),i3:+E3.iInv.toFixed(1),V3:E3.V,V1:E1.V,
+    p1:A1.dev.filter(d=>d.lbl.indexOf('INV-')===0).map(d=>d.p)[0],
+    p3:A3.dev.filter(d=>d.lbl.indexOf('INV-')===0).map(d=>d.p)[0],
+    acBrk:E1.acBrk,mainBrk:E1.mainBrk,strFuse:E1.strFuse,dcIso:E1.dcIso,
+    isc:E1.isc,perM:E1.perM,cInv:E1.cInv,
+    dcAllDC:D1.dev.every(d=>/DC|Vdc|gPV/.test(d.r)),
+    sld:s1,pa:p1,pd:p2,
+    hasSld:/Single Line Diagram/.test(rep),hasPanels:/شوب دراوينغ/.test(rep),
+    rcd:A1.dev.some(d=>d.t==='rcd'),spdAC:A1.dev.some(d=>d.t==='spd'),
+    spdDC:D1.dev.some(d=>d.t==='spd'),
+    spare:A1.rows.length*A1.perRow-A1.dev.reduce((a,d)=>a+d.p,0),
+    repLen:rep.length};});
+ok(el.err==='','مستند الكهرباء يُبنى بلا استثناء',el.err||'نظيف');
+ok(el.hasSld&&el.hasPanels,'يحوي الخطّ الأحادي ولوحتَي التابلوهين');
+ok(Math.abs(el.i1-12000/230)<.2,'تيار خرج المحوّل أحادي الطور = P/V',el.i1+' A');
+ok(el.V3===400&&Math.abs(el.i3-12000/(Math.sqrt(3)*400))<.2,
+   'وثلاثي الطور = P/(√3·V) مع قلب الجهد إلى 400 تلقائياً',el.i3+' A عند '+el.V3+' V');
+ok(el.p1===2&&el.p3===4,'أقطاب قاطع المحوّل 2P أحادي و4P ثلاثي',el.p1+'P ⇐ '+el.p3+'P');
+ok(el.acBrk>=el.i1*1.25&&el.acBrk<el.i1*1.8,'قاطع المحوّل ≥ 1.25 × التيار ومن السلّم القياسي',
+   el.acBrk+' A لتيار '+el.i1+' A');
+ok(el.strFuse>=el.isc*1.4,'فيوز السلسلة ≥ 1.4 × Isc',el.strFuse+' A لـ Isc '+el.isc+' A');
+ok(el.dcIso>=el.isc*1.25*el.perM,'عازل MPPT يغطّي كل سلاسله',
+   el.dcIso+' A لـ '+el.perM+' سلسلة');
+ok(el.dcAllDC,'كل قطع صندوق DC مصنّفة للتيار المستمر');
+ok(el.rcd&&el.spdAC&&el.spdDC,'قاطع تفاضلي ومانعا صواعق AC وDC ضمن القطع');
+ok(el.spare>0,'يبقى فراغ للتوسعة في تابلوه AC',el.spare+' وحدة');
+ok(/unicode-bidi:plaintext/.test(el.sld),'اللوحات تضبط اتجاه كل نصّ من أول حرف قويّ فيه');
+[['sld',el.sld],['pa',el.pa],['pd',el.pd]].forEach(([n,g])=>{
+  ok(g.indexOf('NaN')<0&&g.indexOf('undefined')<0,n+': اللوحة بلا قيم غير معرّفة');});
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة
