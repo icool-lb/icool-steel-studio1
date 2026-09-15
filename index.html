@@ -197,6 +197,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
  diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
  slatGap:.12,clearH:5,ridge:1.9,sys:'auto',stayH:1.20,stayF:.65,
+ facY0:3.0,facH:2.40,facTv:5,facGap:.12,facWall:0,facOff:.50,
  lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1,az:180,
  animSec:10,sysType:'hybrid',ghiY:1900,albedo:.20,noct:45,pTcP:-0.34,shFac:2,
  lSoil:3,lMis:2,lWire:2,lInv:3,lAvail:1,
@@ -219,6 +220,24 @@ function unXf(q){
   if(!SITE)return[q[0],q[1]];
   const t=-(SITE.t||0),x=q[0]+(SITE.mx||0),z=q[1]+(SITE.mz||0);
   return t?[x*Math.cos(t)-z*Math.sin(t),x*Math.sin(t)+z*Math.cos(t)]:[x,z];}
+function siteWalls(){
+  if(!SITE||!SITE.poly)return [];
+  const p=SITE.poly,out=[];
+  for(let i=0;i<p.length;i++){
+    const a=p[i],b=p[(i+1)%p.length];
+    const dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz)||1;
+    const ux=dx/len,uz=dz/len;
+    let nx=uz,nz=-ux;                                   /* مرشّح */
+    const mx=(a[0]+b[0])/2+nx*.05,mz=(a[1]+b[1])/2+nz*.05;
+    if(inPoly(mx,mz,p)){nx=-nx;nz=-nz;}                 /* نريد الناظم الخارجي */
+    out.push({i,a,b,len,ux,uz,nx,nz});}
+  return out;}
+function wallBearing(w){
+  /* اتجاه ما بسمت b هو (sin(θ+b), −cos(θ+b)) ⇒ b = atan2(x, −z) − θ. إهمال السالب يقلب السمت 180° */
+  const t=Math.atan2(w.nx,-w.nz)*180/Math.PI;
+  return ((t-northDeg())%360+360)%360;}
+const DIRN=b=>['شمالية','شمالية شرقية','شرقية','جنوبية شرقية','جنوبية','جنوبية غربية','غربية','شمالية غربية']
+  [Math.round(((b%360)+360)%360/45)%8];
 function makeSite(){
   if(!M.bOn){SITE=null;OBSW=[];return;}
   let p;
@@ -267,10 +286,12 @@ function validate(){
     if(st.s==='bad')bad++; else if(st.s==='warn')warn++;});
   if(bad){VAL.ok=false;VAL.msgs.push(bad+' رجل في موضع غير صالح — راجع جدول الأرجل.');}
   if(warn)VAL.msgs.push(warn+' رجل بحاجة إلى مراجعة موضعها.');
-  const cov=(M.L*M.S)/Math.max(SITE.area,1)*100;
-  if(cov>85)VAL.msgs.push('الهيكل يغطي '+cov.toFixed(0)+'% من السطح — اترك ممر صيانة 60 سم على الأقل.');
-  const need=(M.bF*M.bFH>0)?0:0;
-  if(M.bPar>0&&Math.max(M.h1,M.h2)<M.bPar+.25)
+  /* القوالب المسنودة على حائط ليست على السطح: لا تدخل في نسبة التغطية ولا يظلّلها العمامة */
+  const onWall=a=>{const T=TPL[a&&a.tpl]||TPL[M.tpl];return !!T&&(T.bld==='F'||T.bld==='K');};
+  const roofA=(ARR.length?ARR:[null]).filter(a=>!onWall(a));
+  const cov=roofA.reduce((t,a)=>t+(+(a?a.L:M.L)||0)*(+(a?a.S:M.S)||0),0)/Math.max(SITE.area,1)*100;
+  if(cov>85)VAL.msgs.push('الهياكل تغطي '+cov.toFixed(0)+'% من السطح — اترك ممر صيانة 60 سم على الأقل.');
+  if(M.bPar>0&&roofA.some(a=>Math.max(+(a?a.h1:M.h1)||0,+(a?a.h2:M.h2)||0)<M.bPar+.25))
     VAL.msgs.push('الحافة الأمامية للألواح أدنى من العمامة + 25 سم — احتمال تظليل شتوي.');
   if(PV_TOP>-1e8&&STEEL_TOP>PV_TOP+.15)
     VAL.msgs.push('عنصر فولاذي يعلو أعلى الألواح بـ '+((STEEL_TOP-PV_TOP)*100).toFixed(0)+
@@ -333,6 +354,11 @@ const F={
  tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
  north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
  az:{l:'سمت الألواح (° من الشمال)',t:'r',min:0,max:359,st:1},
+ facY0:{l:'منسوب أسفل الألواح عن الأرض (م)',t:'r',min:0,max:60,st:.05},
+ facH:{l:'ارتفاع حقل الألواح (م)',t:'r',min:.5,max:20,st:.05},
+ facTv:{l:'الميل عن الشاقول (°) — 0 ملاصق',t:'r',min:0,max:40,st:1},
+ facGap:{l:'الفراغ عن الحائط (م)',t:'r',min:.04,max:.60,st:.01},
+ facOff:{l:'بداية الحقل على الواجهة (م)',t:'r',min:0,max:80,st:.1},
  stayH:{l:'انخفاض مرساة الكتيفة تحت الجائز (م)',t:'r',min:.3,max:3,st:.05},
  stayF:{l:'موضع الكتيفة على الجائز',t:'r',min:.25,max:.92,st:.01},
  sys:{l:'النظام الحامل',t:'s',o:[['auto','تلقائي — جائز مفرد ما لم يلزم جمالون'],['beam','جائز مفرد دائماً'],['truss','جمالون دائماً']]},
@@ -417,10 +443,10 @@ const TPL={
    f:['L','S','h1','h2','bay','td','slatGap','secT','secB','secW','secP','secR','diag','fix'],
    d:{L:6,S:3,h1:2.6,h2:3,bay:2,td:.45,fix:'through'},desc:'كابولي من الحائط — مساحة حرة تماماً.'},
  S8:{cat:'solar',n:'ألواح على واجهة المبنى — بلا أرجل',cover:'pv',bld:'F',fac2:1,noTruss:1,
-   f:['L','S','h1','h2','bay','secT','secB','secW','secR','orient','fix'],
-   d:{L:10,S:.90,h1:1.20,h2:3.60,bay:1.20,td:.12,over:0,knee:0,fix:'through',
+   f:['L','facY0','facH','facTv','facGap','bay','secT','secB','secW','secR','orient','fix'],
+   d:{L:10,facY0:3.0,facH:2.40,facTv:5,facGap:.12,bay:1.20,td:.12,over:0,knee:0,fix:'through',
       secT:'80x40x3',secB:'50x50x2.5',secW:'40x40x2',secR:'40x40x2'},
-   desc:'ألواح على واجهة المبنى برفوف شاقولية وكتائف، بلا أرجل. البروز S وفرق الارتفاع h2−h1 يضبطان ميل اللوح عن الشاقول.'},
+   desc:'ألواح على واجهة المبنى برفوف شاقولية وكتائف، بلا أرجل. اختر الواجهة وبداية الحقل، واضبط المنسوب والارتفاع والميل عن الشاقول (0 = ملاصق تماماً).'},
  S9:{cat:'solar',n:'مظلة ملتصقة بالمبنى — بلا أرجل',cover:'pv',bld:'K',cant:1,noTruss:1,
    f:['L','S','h1','h2','bay','over','stayH','stayF','secT','secB','secW','secR','orient','fix'],
    d:{L:10,S:3.00,h1:2.80,h2:3.40,bay:1.50,td:.16,over:.20,knee:0,fix:'through',
@@ -465,7 +491,7 @@ function tube(p1,p2,w,h,mat){
   m.position.copy(p1).add(p2).multiplyScalar(.5);
   m.quaternion.setFromUnitVectors(V(0,0,1),d.normalize()); return m;}
 let QTY={},KIND={},PC={},NP=0,PLATES=0,ANCH=0,PVINFO={};
-let STEEL_TOP=-1e9,PV_TOP=-1e9;   /* لرصد أي عنصر يعلو مستوى الألواح فيظلّلها */
+let STEEL_TOP=-1e9,PV_TOP=-1e9,PVBAND=null;   /* PVBAND: منسوبا أدنى وأعلى لوح على الواجهة */   /* لرصد أي عنصر يعلو مستوى الألواح فيظلّلها */
 const BASE={secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',diag:1,orient:'auto',fix:'base',coat:'paint'};
 function addM(kind,sec,p1,p2,mat,mark){
   const s=SEC[sec]; if(!s)return;
@@ -673,13 +699,17 @@ function builderC(T){
 
 /* واجهة المبنى: رفوف وكتائف بلا أرجل */
 function builderF(T){
-  const L=M.L,S=Math.max(.15,M.S);
+  const L=M.L,gap=Math.max(.04,+M.facGap||.12);
   const drop=Math.max(.15,M.h2-M.h1);
-  const t=Math.atan2(drop,S),sl=Math.hypot(S,drop);
+  const tv=Math.max(0,Math.min(45,+M.facTv||0))*Math.PI/180;
+  const run=drop*Math.tan(tv), S=gap+run;
+  const t=Math.atan2(drop,run), sl=Math.hypot(run,drop);
   const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
   for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
-  if(!NOGRND){
-    const wh=M.h2+1.2;
+  /* حائط توضيحي فقط عندما لا يوجد مبنى حقيقي: مع KML يرسمه drawSite() وتكراره يعطي
+     صندوقاً بارتفاع سالب ونوافذ طافية فوق السطح */
+  if(!NOGRND&&!FAKEWALL_OFF()){
+    const wh=Math.max(1,M.h2+1.2);
     const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.8,wh,.25),MAT.wall);
     w.position.set(L/2,wh/2,-.13);gB.add(w);
     if(M.win){const cols=Math.max(1,Math.floor((L+1.8)/2.6));
@@ -687,16 +717,27 @@ function builderF(T){
         const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);
         a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.4),.02);gB.add(a);}}
     gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+.85,-.55),'#5b6b7a',1.5));}
+  const at=s2=>({z:gap+s2*Math.cos(t),y:M.h2-s2*Math.sin(t)});
+  /* الغطاء أولاً ليُعرف امتداد الألواح الفعلي: cover() يوسّط الصفوف على الميل،
+     ورفوفٌ تصل إلى h2 كانت تعلو أعلى لوح بنحو 48 سم فتظلّله. الإطار يتبع الألواح. */
+  cover(T.cover,0,L,0,sl,{t,dir:-1,at});
+  let sT=0,sB=sl;
+  if(T.cover==='pv'&&PVINFO&&PVINFO.r>0){
+    const arr=PVINFO.r*PVINFO.h+(PVINFO.r-1)*.05;
+    sT=Math.max(0,(sl-arr)/2);sB=Math.min(sl,sT+arr);}
+  const pT=at(Math.max(0,sT-.06)),pB=at(Math.min(sl,sB+.06));
+  PVBAND=[pB.y,pT.y];
   bx.forEach(x=>{
-    addM('رفوف شاقولية',M.secT,V(x,Math.max(.1,M.h1-.20),0),V(x,M.h2+.02,0),MAT.post,'V1');
-    addM('ذراع الكتيفة',M.secW,V(x,M.h1,0),V(x,M.h1,S),MAT.brace,'K1');
-    addM('شدّاد الكتيفة',M.secW,V(x,M.h1+Math.min(.60,drop*.5),0),V(x,M.h1,S),MAT.brace,'K2');
+    addM('رفوف شاقولية',M.secT,V(x,pB.y-.18,0),V(x,pT.y,0),MAT.post,'V1');
+    addM('كتيفة علوية',M.secW,V(x,pT.y,0),V(x,pT.y,pT.z),MAT.brace,'K1');
+    addM('كتيفة سفلية',M.secW,V(x,pB.y,0),V(x,pB.y,pB.z),MAT.brace,'K2');
+    if(run>.05)addM('دعامة الميل',M.secW,V(x,pB.y+Math.min(.5,drop*.35),0),V(x,pB.y,pB.z),MAT.brace,'K3');
     PLATES++;ANCH+=4;});
-  addM('مداد علوي',M.secB,V(0,M.h2,0),V(L,M.h2,0),MAT.bot,'C2');
-  addM('مداد سفلي',M.secB,V(0,M.h1,S),V(L,M.h1,S),MAT.bot,'C2');
-  cover(T.cover,0,L,0,sl,{t,dir:-1,at:s2=>({z:s2*Math.cos(t),y:M.h2-s2*Math.sin(t)})});
+  addM('مداد علوي',M.secB,V(0,pT.y,pT.z),V(L,pT.y,pT.z),MAT.bot,'C2');
+  addM('مداد سفلي',M.secB,V(0,pB.y,pB.z),V(L,pB.y,pB.z),MAT.bot,'C2');
   return {t,nSup:bx.length,frames:bx.length,bays:nBay,bx,rows:[0],
-    primary:'رفوف واجهة مثبّتة على الحائط بلا أرجل — بروز '+S.toFixed(2)+' م',
+    primary:'رفوف واجهة مثبّتة على الحائط بلا أرجل — ميل '+(+M.facTv||0).toFixed(0)+
+      '° عن الشاقول وفراغ '+(gap*100).toFixed(0)+' سم',
     spanMain:M.bay,trib:sl/2,nWeb:0};}
 
 /* مظلة كابولية ملتصقة بالمبنى بلا أرجل */
@@ -707,8 +748,8 @@ function builderK(T){
   for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
   /* الكتيفة تحت الجائز دائماً: أي عنصر فوق مستوى الألواح يظلّلها ويُبطل الغرض */
   const drop=Math.max(.3,+M.stayH||1.2),sf=Math.min(.92,Math.max(.25,+M.stayF||.65));
-  if(!NOGRND){
-    const wh=M.h2+.9;
+  if(!NOGRND&&!FAKEWALL_OFF()){
+    const wh=Math.max(1,M.h2+.9);
     const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.8,wh,.25),MAT.wall);
     w.position.set(L/2,wh/2,-.13);gB.add(w);
     if(M.win){const cols=Math.max(1,Math.floor((L+1.8)/2.6));
@@ -716,7 +757,10 @@ function builderK(T){
         const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);
         a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.5),.02);gB.add(a);}}
     gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+.6,-.55),'#5b6b7a',1.5));}
-  const my=M.h2-(M.h2-M.h1)*sf, ay=Math.max(.35,M.h2-drop);
+  /* مرساة الكتيفة تحت طرف الجائز بمقدار drop، ولا تنزل تحت الأرض. حدٌّ مطلق عند 0.35
+     كان يرفعها فوق الألواح عندما تُركَّب المظلة تحت منسوب السطح (y سالبة). */
+  const gy=facBase();
+  const my=M.h2-(M.h2-M.h1)*sf, ay=M.h2-Math.max(.3,Math.min(drop,M.h2-gy-.3));
   bx.forEach(x=>{
     addM('جوائز كابولية',M.secT,V(x,M.h2,0),V(x,M.h1,S),MAT.top,'B1');
     addM('كتيفة سفلية',M.secW,V(x,ay,0),V(x,my-SEC[M.secT].h,S*sf),MAT.brace,'K1');
@@ -867,8 +911,40 @@ function compute(g,qty,np,plates){
 /* ---------- 7. البناء ---------- */
 const BLD={A:builderA,B:builderB,C:builderC,F:builderF,K:builderK,H:builderH};
 const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee','sys','stayH','stayF',
+  'facY0','facH','facTv','facGap','facWall','facOff',
   'secT','secB','secW','secP','secR','clearH','ridge','slatGap','az'];
 function azOf(a){const v=+(a&&a.az);return isFinite(v)?((v%360)+360)%360:180;}
+/* المبنى الحقيقي من KML يُرسم في drawSite() — لا نكرّره داخل القالب */
+function FAKEWALL_OFF(){return !!(SITE&&M.bOn);}
+function facBase(){return (SITE&&M.bOn)?-(M.bF*M.bFH):0;}
+function deriveFac(a,T){
+  T=T||TPL[M.tpl]; if(!T||!T.fac2)return;
+  const fh=Math.max(.4,+M.facH||2.4);
+  const tv=Math.max(0,Math.min(45,+M.facTv||0))*Math.PI/180;
+  M.h1=facBase()+(+M.facY0||0);
+  M.h2=M.h1+fh;
+  M.S=Math.max(.04,(+M.facGap||.12)+fh*Math.tan(tv));
+  if(a){a.h1=M.h1;a.h2=M.h2;a.S=M.S;}}
+function snapFacade(){
+  const a=ARR[AI]; if(!a)return false;
+  /* SITE لا يُحدَّث إلا داخل build()؛ بدون هذا السطر يُثبَّت الحقل على أبعاد المبنى السابقة */
+  makeSite();
+  const ws=siteWalls();
+  if(!ws.length){log('حدّد السطح أو المبنى أولاً لتظهر الواجهات.',1);return false;}
+  const w=ws[Math.min(Math.max(0,+M.facWall|0),ws.length-1)];
+  const phi=Math.atan2(w.nx,w.nz);
+  M.az=((180-northDeg()-phi*180/Math.PI)%360+360)%360;
+  const cx=Math.cos(phi),sx=-Math.sin(phi);
+  const fwd=(cx*w.ux+sx*w.uz)>=0?1:-1;
+  const off=Math.max(0,Math.min(Math.max(0,w.len-.5),+M.facOff||0));
+  M.L=+Math.max(1,Math.min(+M.L,Math.max(1,w.len-off))).toFixed(2);
+  /* الحقل يشغل [off, off+L] على الجدار مهما كان اتجاه محور X المحلي */
+  const st=(fwd>0)?off:(off+M.L);
+  M.bOX=+(w.a[0]+w.ux*st).toFixed(3);
+  M.bOZ=+(w.a[1]+w.uz*st).toFixed(3);
+  log('ثُبّت على الواجهة '+(w.i+1)+' ('+DIRN(wallBearing(w))+' · سمت '+
+    wallBearing(w).toFixed(0)+'°) بدءاً من '+off.toFixed(2)+' م، بعرض '+M.L.toFixed(2)+' م.');
+  return true;}
 function arrPhi(a){return (180-(northDeg()+azOf(a)))*Math.PI/180;}
 function newArr(nm){
   const a={name:nm||('مصفوفة '+(ARR.length+1)),x:+M.bOX||0,z:+M.bOZ||0};
@@ -899,7 +975,7 @@ function govR(){
   return S;}
 function build(){
   [gS,gC,gB,gD].forEach(clr);QTY={};KIND={};PC={};NP=0;PLATES=0;ANCH=0;PVINFO={};LEGS=[];
-  STEEL_TOP=-1e9;PV_TOP=-1e9;
+  STEEL_TOP=-1e9;PV_TOP=-1e9;PVBAND=null;
   makeSite();syncToArr();
   const keep=snapM();ARES=[];
   const ox=ARR[AI].x,oz=ARR[AI].z;
@@ -908,10 +984,13 @@ function build(){
     const T=TPL[M.tpl];T.id=M.tpl;
     const marks=[gS.children.length,gC.children.length,gB.children.length,gD.children.length];
     const s0={QTY:JSON.parse(JSON.stringify(QTY)),KIND:JSON.parse(JSON.stringify(KIND)),
-      PC:JSON.parse(JSON.stringify(PC)),NP,PLATES,ANCH,nLeg:LEGS.length};
+      PC:JSON.parse(JSON.stringify(PC)),NP,PLATES,ANCH,nLeg:LEGS.length,
+      sTop:STEEL_TOP,pTop:PV_TOP,band:PVBAND};
     const undo=()=>{QTY=JSON.parse(JSON.stringify(s0.QTY));KIND=JSON.parse(JSON.stringify(s0.KIND));
       PC=JSON.parse(JSON.stringify(s0.PC));NP=s0.NP;PLATES=s0.PLATES;ANCH=s0.ANCH;
       LEGS.length=s0.nLeg;
+      /* محاولة مرفوضة يجب ألا تترك أثرها في رصد الارتفاعات وإلا حذّرنا بمقطع لم يُستعمل */
+      STEEL_TOP=s0.sTop;PV_TOP=s0.pTop;PVBAND=s0.band;
       [gS,gC,gB,gD].forEach((gg,k)=>gg.children.splice(marks[k]).forEach(c=>{
         if(c&&c.traverse)c.traverse(o=>{if(o.geometry&&o.geometry.dispose)o.geometry.dispose();});}));};
     const runOne=sv=>{
@@ -920,6 +999,7 @@ function build(){
       const gg=BLD[T.bld]?BLD[T.bld](T):builderH(T);
       const qa={};Object.keys(QTY).forEach(k=>{const dq=QTY[k]-(s0.QTY[k]||0);if(dq>1e-9)qa[k]=dq;});
       return {g:gg,res:compute(gg,qa,NP-s0.NP,PLATES-s0.PLATES)};};
+    deriveFac(a,T);
     const noTr=!!T.noTruss;
     const want=noTr?'auto':(a.sys||'auto');
     let out=null,chosen=null;
@@ -934,7 +1014,7 @@ function build(){
       if(out)a.secT=M.secT;
       else if(noTr){M.secT=F.secT.o[F.secT.o.length-1];out=runOne('beam');chosen='beam';}
       else{M.secT=base;out=runOne('truss');chosen='truss';}}
-    a.sysUsed=chosen;a.secUsed=M.secT;
+    a.sysUsed=chosen;a.secUsed=M.secT;a.pvBand=PVBAND;
     const g=out.g,res=out.res;
     res.ai=i;res.arr=a;res.pv=Object.assign({},PVINFO);
     ARES.push(res);
@@ -1678,6 +1758,7 @@ function shadeFracSun(a,alt,az,nx,nz){
 /* ميل مستوى الألواح بالدرجات لمصفوفة */
 function arrTilt(a){
   const T=TPL[a.tpl]||TPL[M.tpl];
+  if(T.fac2)return 90-Math.max(0,Math.min(45,+a.facTv||0));
   if(T.flat)return 0;
   if(T.bld==='H')return Math.atan2(+M.ridge||0,Math.max(+a.S,.1)/2)/RAD;
   return Math.atan2(Math.abs((+a.h2)-(+a.h1)),Math.max(+a.S,.1))/RAD;}
@@ -3554,8 +3635,47 @@ function dock(){
       ? 'المستعمل الآن: <b>جائز مفرد</b> '+(a.secUsed||M.secT)+' بعمق '+((SEC[a.secUsed||M.secT]||SEC[M.secT]).h*100).toFixed(0)+' سم — لا جمالون. التحقق بالجهد الانحنائي σ = M/W.'+((a.sys||'auto')==='auto'?' الوضع التلقائي اختار أخفّ مقطع يحقّق الاستغلال ≤95% والهبوط ≥ L/200.':'')
       : 'المستعمل الآن: <b>جمالون</b> بارتفاع '+((+M.td)*100).toFixed(0)+' سم.'+
         ((a.sys||'auto')==='auto'?' اختاره الوضع التلقائي لأن الجائز المفرد لم يكفِ بهذا البحر.':''));}
+    {const T0=TPL[M.tpl];
+     if(T0.bld==='F'||T0.bld==='K'){
+       grp('الواجهة الحاملة');
+       const ws=siteWalls();
+       if(!ws.length)tip('لا يوجد مبنى معرَّف. فعّل «إظهار المبنى» وأدخل أبعاد السطح في تبويب <b>المبنى والأرجل</b> لتظهر واجهاته هنا، أو ضع الهيكل يدوياً.');
+       else{
+         const t=document.createElement('table');
+         let rr='<tr><th>الواجهة</th><th>الاتجاه</th><th>السمت</th><th>الطول</th><th></th></tr>';
+         ws.forEach(w=>{const b=wallBearing(w);
+           rr+=`<tr${(+M.facWall|0)===w.i?' style="background:#fff3ee"':''}>
+            <td class="n">${w.i+1}</td><td>${DIRN(b)}</td><td class="n">${b.toFixed(0)}°</td>
+            <td class="n">${w.len.toFixed(2)} م</td>
+            <td><button data-w="${w.i}">اختر</button></td></tr>`;});
+         t.innerHTML=rr;el.appendChild(t);
+         t.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+           M.facWall=+b.getAttribute('data-w');
+           if(snapFacade()){build();fit();dock();}});
+         field(el,'facOff');
+         const cb=document.createElement('div');cb.className='chips';
+         const b1=document.createElement('button');b1.textContent='ثبّت على الواجهة المختارة';b1.className='o on';
+         b1.onclick=()=>{if(snapFacade()){build();fit();dock();}};cb.appendChild(b1);
+         const b2=document.createElement('button');b2.textContent='ملء طول الواجهة';
+         b2.onclick=()=>{const w=ws[Math.min(+M.facWall|0,ws.length-1)];
+           if(w){M.L=+Math.max(1,w.len-2*(+M.facOff||0)).toFixed(2);
+             if(snapFacade()){build();fit();dock();}}};cb.appendChild(b2);
+         el.appendChild(cb);
+         tip('اختر الواجهة من الجدول — <b>الجنوبية أعلى إنتاجاً</b> في لبنان. «البداية» تُقاس على الواجهة من زاويتها، والعرض يُقصّ تلقائياً على ما تبقّى منها.');}}}
     grp('الأبعاد');
     TPL[M.tpl].f.filter(k=>F[k].t==='r'&&!(k==='td'&&(ARR[AI]||{}).sysUsed==='beam')).forEach(k=>field(el,k));
+    if(TPL[M.tpl].fac2){
+      const a0=ARR[AI]||{},y0=+M.facY0||0,fh=+M.facH||0,fb=facBase();
+      let ex='';
+      if(a0.pvBand){  /* الامتداد المشغول فعلاً بعد توسيط الصفوف على الميل */
+        const lo=a0.pvBand[0]-fb,hi=a0.pvBand[1]-fb;
+        ex=' · المشغول فعلاً بالألواح <b>'+lo.toFixed(2)+'</b> إلى <b>'+hi.toFixed(2)+'</b> م'+
+           ((hi-lo)<fh-.25?' — قلّل «ارتفاع الحقل» إلى '+(hi-lo).toFixed(2)+
+             ' م أو زده ليتّسع صفّ إضافي':'');}
+      tip('الميل الحالي <b>'+(90-(+M.facTv||0)).toFixed(0)+'° عن الأفق</b> ('+(+M.facTv||0).toFixed(0)+
+        '° عن الشاقول) · طول الحقل المائل '+(fh/Math.cos((+M.facTv||0)*Math.PI/180)).toFixed(2)+
+        ' م · الحقل بين منسوب <b>'+y0.toFixed(2)+'</b> و<b>'+(y0+fh).toFixed(2)+'</b> م عن الأرض'+ex+
+        '. لا عنصر فولاذي يعلو أعلى لوح — الإطار يتبع امتداد الألواح.');}
     ['bOX','bOZ'].forEach(k=>field(el,k));
     grp('اتجاه الألواح');
     field(el,'az');

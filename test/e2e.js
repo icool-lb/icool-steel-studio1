@@ -268,7 +268,7 @@ ok(nt.S8.np>0&&nt.S8.legs===0,'قالب الواجهة ينتج ألواحاً �
    nt.S8.np+' لوح · '+nt.S8.kwp+' kWp');
 ok(nt.S8.tilt>55&&nt.S8.tilt<90,'ميل ألواح الواجهة قريب من الشاقول',nt.S8.tilt+'°');
 ok(Math.abs(nt.S8.cf-1.3)<.01,'معامل ريح الواجهة من §7.2.2 لا من جداول المظلات',nt.S8.cf);
-ok(nt.S8.kinds.includes('رفوف شاقولية')&&nt.S8.kinds.includes('ذراع الكتيفة'),
+ok(nt.S8.kinds.includes('رفوف شاقولية')&&nt.S8.kinds.includes('كتيفة سفلية'),
    'الرفوف والكتائف ضمن الكميات',nt.S8.kinds.join(' · '));
 ok(nt.S9.np>0&&nt.S9.legs===0,'المظلة الملتصقة تنتج ألواحاً بلا أرجل',
    nt.S9.np+' لوح · '+nt.S9.kwp+' kWp');
@@ -292,6 +292,111 @@ Object.keys(nt.clear).forEach(tp=>{const c=nt.clear[tp];
 ok(nt.clear.S9.steelTop<=nt.clear.S9.pvTop+.02,
    'S9: أعلى فولاذ لا يتجاوز أعلى الألواح — الكتيفة كلها تحت الجائز',
    'فولاذ '+nt.clear.S9.steelTop+' ≤ ألواح '+nt.clear.S9.pvTop+' م');
+
+console.log('\n[5ح] الواجهة: المنسوب والميل واختيار الجهة');
+const fac=await pg.evaluate(()=>{
+  M.bOn=1;M.bShape='rect';M.bA=20;M.bB=16;M.bRot=0;M.north=0;M.bF=3;M.bFH=3;M.bPar=0;OBS=[];
+  ARR=[];AI=0;M.tpl='S8';applyTpl('S8');M.cat='solar';
+  M.facY0=3;M.facH=2.4;M.facTv=0;M.facGap=.12;M.L=10;M.facOff=.5;
+  build();
+  const a=ARR[0];
+  const flush={tilt:+arrTilt(a).toFixed(1),h1:+a.h1.toFixed(2),h2:+a.h2.toFixed(2),
+    S:+a.S.toFixed(3),base:facBase()};
+  M.facTv=20;build();
+  const lean={tilt:+arrTilt(ARR[0]).toFixed(1),S:+ARR[0].S.toFixed(3)};
+  M.facTv=0;M.facY0=8;M.facH=3;build();
+  const high={h1:+ARR[0].h1.toFixed(2),h2:+ARR[0].h2.toFixed(2)};
+  // اختيار الواجهات
+  const ws=siteWalls();
+  const bearings=ws.map(w=>+wallBearing(w).toFixed(0));
+  const pick=[];
+  ws.forEach(w=>{
+    M.facWall=w.i;M.facOff=1.0;M.L=6;snapFacade();build();
+    const A=ARR[0];
+    // هل الأصل على خطّ الجدار؟
+    const vx=A.x-w.a[0],vz=A.z-w.a[1];
+    const perp=Math.abs(vx*w.nx+vz*w.nz);
+    const t0=vx*w.ux+vz*w.uz;
+    // الطرف الآخر للحقل على محور X المحلي
+    const phi=arrPhi(A),ex=A.x+Math.cos(phi)*A.L,ez=A.z-Math.sin(phi)*A.L;
+    const t1=(ex-w.a[0])*w.ux+(ez-w.a[1])*w.uz;
+    pick.push({i:w.i,az:+A.az.toFixed(0),bear:+wallBearing(w).toFixed(0),
+      perp:+perp.toFixed(3),lo:+Math.min(t0,t1).toFixed(2),hi:+Math.max(t0,t1).toFixed(2),L:A.L});});
+  // العرض يُقصّ على ما تبقّى من الواجهة
+  M.facWall=0;M.facOff=1;M.L=60;snapFacade();build();
+  const clip={L:ARR[0].L,len:+ws[0].len.toFixed(2),off:1};
+  return {flush,lean,high,bearings,pick,clip};});
+ok(fac.flush.tilt===90,'ميل صفر عن الشاقول ⇒ الألواح ملاصقة تماماً (90° عن الأفق)',fac.flush.tilt+'°');
+ok(Math.abs(fac.flush.S-0.12)<1e-6,'الفراغ عن الحائط وحده هو البروز عند الملاصقة',fac.flush.S+' م');
+ok(fac.lean.tilt===70&&fac.lean.S>fac.flush.S,'ميل 20° عن الشاقول يزيد البروز',
+   fac.lean.tilt+'° · بروز '+fac.lean.S+' م');
+ok(fac.flush.base===-9,'منسوب الأرض = −ارتفاع المبنى (3 طوابق × 3 م)',fac.flush.base);
+ok(fac.flush.h1===-6&&fac.flush.h2===-3.6,'منسوب 3 م عن الأرض وارتفاع 2.4 م ⇒ −6 إلى −3.6 عن السطح',
+   fac.flush.h1+' … '+fac.flush.h2);
+ok(fac.high.h1===-1&&fac.high.h2===2,'رفع المنسوب إلى 8 م وارتفاع 3 م يتبع مباشرةً',
+   fac.high.h1+' … '+fac.high.h2);
+ok(fac.bearings.join(',')==='0,90,180,270','الواجهات الأربع: شمالية وشرقية وجنوبية وغربية',
+   fac.bearings.map((b,i)=>'ج'+(i+1)+'='+b+'°').join(' · '));
+ok(fac.pick.every(p=>p.az===p.bear),'سمت المصفوفة يطابق سمت الواجهة المختارة',
+   fac.pick.map(p=>'ج'+(p.i+1)+':'+p.az).join(' · '));
+ok(fac.pick.every(p=>p.perp<.01),'أصل الحقل يقع على خطّ الواجهة تماماً',
+   'أقصى انحراف '+Math.max(...fac.pick.map(p=>p.perp))+' م');
+ok(fac.pick.every(p=>Math.abs(p.lo-1.0)<.02),'الحقل يبدأ عند 1.00 م من زاوية كل واجهة',
+   fac.pick.map(p=>p.lo+'…'+p.hi).join(' · '));
+ok(fac.pick.every(p=>Math.abs(p.hi-p.lo-p.L)<.02),'وامتداده يساوي العرض المطلوب',
+   fac.pick.map(p=>(p.hi-p.lo).toFixed(2)).join(' · '));
+ok(Math.abs(fac.clip.L-(fac.clip.len-fac.clip.off))<.02,
+   'طلب 60 م على واجهة 20 م ببداية 1 م يُقصّ إلى 19 م بالضبط',
+   fac.clip.L+' م');
+
+console.log('\n[5ط] القوالب الجدارية فوق مبنى حقيقي');
+const fk=await pg.evaluate(()=>{
+  const walls=()=>{let n=0;gB.traverse(o=>{if(o.isMesh)n++;});return n;};
+  M.bOn=1;M.bShape='rect';M.bA=18;M.bB=12;M.bRot=0;M.north=0;M.bF=3;M.bFH=3;M.bPar=.8;M.win=1;OBS=[];
+  ARR=[];AI=0;M.tpl='S8';applyTpl('S8');M.cat='solar';
+  M.facY0=3;M.facH=4.5;M.facTv=3;M.facGap=.12;M.L=12;M.facOff=2;
+  build();
+  const ws=siteWalls();const south=ws.find(w=>Math.abs(wallBearing(w)-180)<1);
+  M.facWall=south.i;snapFacade();build();
+  const S8={gB:walls(),steelTop:+STEEL_TOP.toFixed(3),pvTop:+PV_TOP.toFixed(3),
+    np:NP,band:(ARR[0].pvBand||[]).map(v=>+v.toFixed(2)),msgs:VAL.msgs.slice(),
+    az:+ARR[0].az.toFixed(0),bear:+wallBearing(south).toFixed(0)};
+  // نفس الحالة بلا مبنى: الحائط التوضيحي يعود
+  M.bOn=0;build();
+  const solo={gB:walls()};
+  // مظلة تحت منسوب السطح: مرساة الكتيفة كانت تُقصّ عند 0.35 فترتفع فوق الألواح
+  M.bOn=1;ARR=[];AI=0;M.tpl='S9';applyTpl('S9');M.cat='solar';
+  M.L=12;M.S=3.2;M.h1=-1.1;M.h2=-.3;M.stayH=1.2;M.facOff=2;
+  build();const w2=siteWalls().find(w=>Math.abs(wallBearing(w)-180)<1);
+  M.facWall=w2.i;snapFacade();build();
+  const S9={gB:walls(),steelTop:+STEEL_TOP.toFixed(3),pvTop:+PV_TOP.toFixed(3),
+    np:NP,msgs:VAL.msgs.slice()};
+  // snapFacade يحدّث SITE قبل قراءة الواجهات
+  M.bA=30;M.L=25;M.facOff=0;
+  const before=+siteWalls()[w2.i].len.toFixed(2);
+  snapFacade();
+  const after=+siteWalls()[w2.i].len.toFixed(2);
+  const fresh={before,after,L:+M.L};
+  M.bA=18;M.bOn=1;M.tpl='S1';applyTpl('S1');ARR=[];AI=0;build();
+  return {S8,solo,S9,fresh};});
+ok(fk.S8.gB===0,'قالب الواجهة لا يرسم حائطه الخاص فوق مبنى حقيقي',
+   fk.S8.gB+' جسم في مجموعة المبنى');
+ok(fk.solo.gB>0,'وبلا مبنى يعود الحائط التوضيحي',fk.solo.gB+' جسم');
+ok(fk.S9.gB===0,'والمظلة الملتصقة كذلك',fk.S9.gB+' جسم');
+ok(fk.S8.az===fk.S8.bear&&fk.S8.bear===180,'الحقل مثبّت على الواجهة الجنوبية',
+   'سمت '+fk.S8.az+'°');
+ok(fk.S8.steelTop<=fk.S8.pvTop+.15,'S8 على مبنى: لا فولاذ يعلو الألواح — الإطار يتبع امتدادها',
+   'فولاذ '+fk.S8.steelTop+' · ألواح '+fk.S8.pvTop+' م');
+ok(fk.S9.steelTop<=fk.S9.pvTop+.15,'S9 تحت منسوب السطح: مرساة الكتيفة تبقى تحت الألواح',
+   'فولاذ '+fk.S9.steelTop+' · ألواح '+fk.S9.pvTop+' م');
+ok(!fk.S8.msgs.length&&!fk.S9.msgs.length,'ولا تحذيرات سطح على قالب جداري',
+   (fk.S8.msgs.concat(fk.S9.msgs).join(' | ')||'نظيف'));
+ok(fk.S8.band.length===2&&fk.S8.band[1]-fk.S8.band[0]>1,
+   'منسوبا أدنى وأعلى لوح معروضان للمستخدم',fk.S8.band.join(' … ')+' م');
+ok(fk.fresh.before===18&&fk.fresh.after===30,
+   'snapFacade يعيد بناء SITE فيقرأ أبعاد المبنى الجديدة',
+   fk.fresh.before+' ⇐ '+fk.fresh.after+' م');
+ok(Math.abs(fk.fresh.L-25)<.02,'فيقبل عرضاً 25 م على واجهة صارت 30 م',fk.fresh.L+' م');
 
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{

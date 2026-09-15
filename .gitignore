@@ -1,2 +1,5 @@
 test/three.real.js
 test/shots/
+node_modules/
+package-lock.json
+package.json
