@@ -179,7 +179,7 @@ ok(nb.frac>0.9,'الهيكل بكامله داخل ظل الجار ظهر 21/12'
 
 console.log('\n[5ه] الجمالون عند اللزوم فقط');
 const sysT=await pg.evaluate(()=>{
-  M.bShape='rect';M.bA=40;M.bB=40;M.bPar=0;OBS=[];ARR=[];AI=0;
+  M.bOn=1;M.bShape='rect';M.bA=40;M.bB=40;M.bPar=0;OBS=[];ARR=[];AI=0;
   M.tpl='S1';applyTpl('S1');M.bOX=2;M.bOZ=2;M.az=180;M.sys='auto';
   const run=(S,sys)=>{M.S=S;M.h1=2.2;M.h2=2.2+S*0.2;M.sys=sys;build();
     return {used:ARR[0].sysUsed,util:R.util,defR:R.defR,tot:R.tot,sec:ARR[0].secUsed,
@@ -256,6 +256,7 @@ const nt=await pg.evaluate(()=>{
   const s2={M:R.Mmax,t:R.tdeg,sec:ARR[0].secUsed};
   // الشدّاد
   M.S=3;M.stayH=2.2;build();const stay={n:KIND['شدّاد علوي']?1:0};
+  M.bOn=1;M.tpl='S1';applyTpl('S1');build();
   return {...r,s1,s2,stay};});
 ok(nt.S8.np>0&&nt.S8.legs===0,'قالب الواجهة ينتج ألواحاً بلا أرجل',
    nt.S8.np+' لوح · '+nt.S8.kwp+' kWp');
@@ -280,7 +281,7 @@ ok(nt.S9.anch>0&&nt.S9.plates>0,'مسامير وبليتات التثبيت عل
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة
-  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.9;M.north=0;M.bRot=0;
+  M.bOn=1;M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.9;M.north=0;M.bRot=0;
   ARR=[ARR[0]];AI=0;applyArr(ARR[0]);M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;
   OBS=[];build();addStair();
   syncToArr();const b2=JSON.parse(JSON.stringify(ARR[0]));
@@ -313,7 +314,7 @@ ok(arr.note,'ملاحظة أن الكميات مجموع كل المصفوفات
 console.log('\n[9] محرّك الإنتاجية — بيروت، سطح خالٍ من العوائق');
 const en=await pg.evaluate(()=>{
   M.lat=33.8938;M.lon=35.5018;M.tz=2;M.north=0;M.ghiY=1900;
-  M.bShape='rect';M.bA=60;M.bB=40;M.bRot=0;M.bPar=0;OBS=[];
+  M.bOn=1;M.bShape='rect';M.bA=60;M.bB=40;M.bRot=0;M.bPar=0;OBS=[];
   ARR=[];AI=0;M.tpl='S1';applyTpl('S1');
   M.L=12;M.S=6;M.h1=2.2;M.h2=3.4;M.bOX=2;M.bOZ=2;M.az=180;build();
   const ghiSum=[...Array(12)].reduce((a,_,m)=>a+ghiMonth(m)*MDAYS[m],0);
@@ -401,7 +402,7 @@ ok(erp.lim,'حدود الدراسة مذكورة صراحة (ليست محاكا
 console.log('\n[10] محاكاة حركة الشمس');
 const an=await pg.evaluate(()=>{
   M.lat=33.8938;M.lon=35.5018;M.tz=2;M.north=0;
-  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.8;OBS=[];ARR=[];AI=0;
+  M.bOn=1;M.bShape='rect';M.bA=40;M.bB=30;M.bPar=.8;OBS=[];ARR=[];AI=0;
   M.tpl='S1';applyTpl('S1');M.L=10;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;build();
   M.sMon=12;M.sDay=21;M.sHour=9.5;
   const keep={mo:+M.sMon,dy:+M.sDay,hr:+M.sHour};
@@ -512,7 +513,7 @@ ok(rm.org[0]===0&&rm.org[1]===0,'المحيط أُزيح إلى الأصل',rm.o
 console.log('\n[12ب] التوزيع التلقائي وتحقّق المسافات');
 const ly=await pg.evaluate(()=>{
   // منظومة معلومة: مصفوفة PV + بطاريات
-  M.bShape='rect';M.bA=40;M.bB=30;M.bPar=0;OBS=[];ARR=[];AI=0;
+  M.bOn=1;M.bShape='rect';M.bA=40;M.bB=30;M.bPar=0;OBS=[];ARR=[];AI=0;
   M.tpl='S1';applyTpl('S1');M.L=12;M.S=6;M.bOX=2;M.bOZ=2;M.az=180;build();
   M.sysType='hybrid';M.invModel='deye12';M.invKW=12;
   M.batChem='lifepo4';M.batV=48;M.batVm=51.2;M.batAh=200;M.batDays=1;M.loadD=30;M.loadNight=45;
