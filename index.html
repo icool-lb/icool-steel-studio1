@@ -196,7 +196,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  L:12,S:6,h1:2.2,h2:3.4,bay:2.5,td:.5,over:.5,
  secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',
  diag:1,orient:'auto',fix:'base',wind:100,snow:0,price:1.35,fab:.85,coat:'paint',
- slatGap:.12,clearH:5,ridge:1.9,sys:'auto',
+ slatGap:.12,clearH:5,ridge:1.9,sys:'auto',stayH:1.20,stayF:.65,
  lat:33.8938,lon:35.5018,tz:2,north:0,srH:2.60,sMon:12,sDay:21,sHour:12,sunOn:1,shadow:1,az:180,
  animSec:10,sysType:'hybrid',ghiY:1900,albedo:.20,noct:45,pTcP:-0.34,shFac:2,
  lSoil:3,lMis:2,lWire:2,lInv:3,lAvail:1,
@@ -330,6 +330,8 @@ const F={
  tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
  north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
  az:{l:'سمت الألواح (° من الشمال)',t:'r',min:0,max:359,st:1},
+ stayH:{l:'ارتفاع مرساة الشدّاد (م)',t:'r',min:.3,max:3,st:.05},
+ stayF:{l:'موضع الشدّاد على الجائز',t:'r',min:.25,max:.92,st:.01},
  sys:{l:'النظام الحامل',t:'s',o:[['auto','تلقائي — جائز مفرد ما لم يلزم جمالون'],['beam','جائز مفرد دائماً'],['truss','جمالون دائماً']]},
  sysType:{l:'نوع المنظومة',t:'s',o:[['offgrid','مستقلة off-grid'],['hybrid','هجينة مع بطاريات'],['ongrid','مربوطة بالشبكة بلا بطاريات']]},
  ghiY:{l:'الإشعاع الأفقي السنوي (kWh/م²)',t:'n',st:10,min:800,max:2600},
@@ -411,6 +413,16 @@ const TPL={
  P3:{cat:'perg',n:'برغولا كابولي من الحائط',cover:'slat',bld:'A',cant:1,
    f:['L','S','h1','h2','bay','td','slatGap','secT','secB','secW','secP','secR','diag','fix'],
    d:{L:6,S:3,h1:2.6,h2:3,bay:2,td:.45,fix:'through'},desc:'كابولي من الحائط — مساحة حرة تماماً.'},
+ S8:{cat:'solar',n:'ألواح على واجهة المبنى — بلا أرجل',cover:'pv',bld:'F',fac2:1,noTruss:1,
+   f:['L','S','h1','h2','bay','secT','secB','secW','secR','orient','fix'],
+   d:{L:10,S:.90,h1:1.20,h2:3.60,bay:1.20,td:.12,over:0,knee:0,fix:'through',
+      secT:'80x40x3',secB:'50x50x2.5',secW:'40x40x2',secR:'40x40x2'},
+   desc:'ألواح على واجهة المبنى برفوف شاقولية وكتائف، بلا أرجل. البروز S وفرق الارتفاع h2−h1 يضبطان ميل اللوح عن الشاقول.'},
+ S9:{cat:'solar',n:'مظلة ملتصقة بالمبنى — بلا أرجل',cover:'pv',bld:'K',cant:1,noTruss:1,
+   f:['L','S','h1','h2','bay','over','stayH','stayF','secT','secB','secW','secR','orient','fix'],
+   d:{L:10,S:3.00,h1:2.80,h2:3.40,bay:1.50,td:.16,over:.20,knee:0,fix:'through',
+      secT:'150x50x4',secB:'60x40x2.5',secW:'50x50x2.5',secR:'40x40x2'},
+   desc:'جوائز كابولية مثبّتة على الحائط مع شدّادات علوية تحمل الطرف — تغطّي عرض المبنى بلا عمود واحد.'},
  H1:{cat:'hang',n:'هنغار جملون (Gable)',cover:'sheet',bld:'H',
    f:['L','S','clearH','ridge','bay','td','secT','secB','secW','secP','secR','diag','fix'],
    d:{L:30,S:15,clearH:5,ridge:1.9,bay:4,td:1,secT:'120x60x4',secP:'150x150x5',secR:'80x40x3'},desc:'إطارات جملونية على أعمدة.'},
@@ -652,6 +664,64 @@ function builderC(T){
   return {t,nSup:bx.length*2,frames:bx.length,bays:nBay,bx,rows:[0,S],
     primary:'جمالون عرضي حر بحر '+S.toFixed(2)+' م',spanMain:S,trib:L/nBay,nWeb:nB};}
 
+/* واجهة المبنى: رفوف وكتائف بلا أرجل */
+function builderF(T){
+  const L=M.L,S=Math.max(.15,M.S);
+  const drop=Math.max(.15,M.h2-M.h1);
+  const t=Math.atan2(drop,S),sl=Math.hypot(S,drop);
+  const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
+  for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
+  if(!NOGRND){
+    const wh=M.h2+1.2;
+    const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.8,wh,.25),MAT.wall);
+    w.position.set(L/2,wh/2,-.13);gB.add(w);
+    if(M.win){const cols=Math.max(1,Math.floor((L+1.8)/2.6));
+      for(let c=0;c<cols;c++){
+        const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);
+        a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.4),.02);gB.add(a);}}
+    gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+.85,-.55),'#5b6b7a',1.5));}
+  bx.forEach(x=>{
+    addM('رفوف شاقولية',M.secT,V(x,Math.max(.1,M.h1-.20),0),V(x,M.h2+.12,0),MAT.post,'V1');
+    addM('ذراع الكتيفة',M.secW,V(x,M.h1,0),V(x,M.h1,S),MAT.brace,'K1');
+    addM('شدّاد الكتيفة',M.secW,V(x,M.h1+Math.min(.60,drop*.5),0),V(x,M.h1,S),MAT.brace,'K2');
+    PLATES++;ANCH+=4;});
+  addM('مداد علوي',M.secB,V(0,M.h2,0),V(L,M.h2,0),MAT.bot,'C2');
+  addM('مداد سفلي',M.secB,V(0,M.h1,S),V(L,M.h1,S),MAT.bot,'C2');
+  cover(T.cover,0,L,0,sl,{t,dir:-1,at:s2=>({z:s2*Math.cos(t),y:M.h2-s2*Math.sin(t)})});
+  return {t,nSup:bx.length,frames:bx.length,bays:nBay,bx,rows:[0],
+    primary:'رفوف واجهة مثبّتة على الحائط بلا أرجل — بروز '+S.toFixed(2)+' م',
+    spanMain:M.bay,trib:sl/2,nWeb:0};}
+
+/* مظلة كابولية ملتصقة بالمبنى بلا أرجل */
+function builderK(T){
+  const L=M.L,S=M.S;
+  const t=Math.atan2(M.h2-M.h1,S),sl=Math.hypot(S,M.h2-M.h1);
+  const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
+  for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
+  const stayH=Math.max(.3,+M.stayH||1.2),sf=Math.min(.92,Math.max(.25,+M.stayF||.65));
+  if(!NOGRND){
+    const wh=M.h2+stayH+.9;
+    const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.8,wh,.25),MAT.wall);
+    w.position.set(L/2,wh/2,-.13);gB.add(w);
+    if(M.win){const cols=Math.max(1,Math.floor((L+1.8)/2.6));
+      for(let c=0;c<cols;c++){
+        const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);
+        a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.5),.02);gB.add(a);}}
+    gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+stayH+.5,-.55),'#5b6b7a',1.5));}
+  bx.forEach(x=>{
+    addM('جوائز كابولية',M.secT,V(x,M.h2,0),V(x,M.h1,S),MAT.top,'B1');
+    const my=M.h2-(M.h2-M.h1)*sf;
+    addM('شدّاد علوي',M.secW,V(x,M.h2+stayH,0),V(x,my,S*sf),MAT.brace,'T1');
+    addM('بليتة تثبيت',M.secW,V(x,M.h2-.20,0),V(x,M.h2+.20,0),MAT.post,'P2');
+    PLATES+=2;ANCH+=8;});
+  addM('مداد الحائط',M.secB,V(0,M.h2,0),V(L,M.h2,0),MAT.bot,'C2');
+  addM('مداد الطرف',M.secB,V(0,M.h1,S),V(L,M.h1,S),MAT.bot,'C2');
+  addM('مداد الشدّادات',M.secR,V(0,M.h2+stayH,0),V(L,M.h2+stayH,0),MAT.rail,'R2');
+  cover(T.cover,0,L,0,sl,{t,dir:-1,at:s2=>({z:s2*Math.cos(t),y:M.h2-s2*Math.sin(t)})});
+  return {t,nSup:bx.length,frames:bx.length,bays:nBay,bx,rows:[0],
+    primary:'جوائز كابولية من الحائط بشدّادات علوية — بروز '+S.toFixed(2)+' م بلا عمود',
+    spanMain:S,trib:L/nBay,nWeb:0};}
+
 function builderH(T){
   const L=M.L,S=M.S,H=M.clearH,Rg=M.ridge,t=Math.atan(Rg/(S/2));
   const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
@@ -701,6 +771,8 @@ function windCalc(zRef,tdeg,T){
   let cf=ip(CF),cpMax=ip(CPx),cpMin=ip(M.phi?CN1:CN0),src='EN 1991-1-4 جدول 7.6 — مظلة أحادية الميل';
   if(T.bld==='H'){cpMax=.2;cpMin=-1.5;cf=.8;src='EN 1991-1-4 §7.2.5 سقف جملوني مغلق + ضغط داخلي c_pi=±0.3';}
   if(T.cover==='slat'){cpMax*=.45;cpMin*=.45;cf*=.45;src='سقف مضلّع مفتوح — الضغوط مخفّضة بنسبة النفاذية';}
+  if(T.fac2){cf=1.3;cpMax=1.0;cpMin=-1.4;
+    src='EN 1991-1-4 §7.2.2 — عنصر مثبّت على واجهة: ضغط موجب على الوجه المعرّض وسحب خلفه، لا جداول المظلات';}
   /* التمييز الجوهري:
      cf  = معامل القوة الكلية → يُستعمل لتصميم الإطار والجوائز والأعمدة (حمل عام)
      cp,net = معاملات الضغط الصافي المناطقية → تُستعمل للعناصر الموضعية والمرابط والمسامير */
@@ -774,7 +846,8 @@ function compute(g,qty,np,plates){
      total:steelCost+fabCost+coatCost,kgm2:tot/Math.max(area,1),At,Ab,Ieff,hTop};}
 
 /* ---------- 7. البناء ---------- */
-const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee','sys',
+const BLD={A:builderA,B:builderB,C:builderC,F:builderF,K:builderK,H:builderH};
+const ARRF=['tpl','L','S','h1','h2','bay','td','over','orient','diag','fix','fix2','knee','sys','stayH','stayF',
   'secT','secB','secW','secP','secR','clearH','ridge','slatGap','az'];
 function azOf(a){const v=+(a&&a.az);return isFinite(v)?((v%360)+360)%360:180;}
 function arrPhi(a){return (180-(northDeg()+azOf(a)))*Math.PI/180;}
@@ -824,10 +897,11 @@ function build(){
     const runOne=sv=>{
       SYSNOW=sv;
       M.td=(sv==='beam')?SEC[M.secT].h:a.td;
-      const gg=T.bld==='A'?builderA(T):T.bld==='B'?builderB(T):T.bld==='C'?builderC(T):builderH(T);
+      const gg=BLD[T.bld]?BLD[T.bld](T):builderH(T);
       const qa={};Object.keys(QTY).forEach(k=>{const dq=QTY[k]-(s0.QTY[k]||0);if(dq>1e-9)qa[k]=dq;});
       return {g:gg,res:compute(gg,qa,NP-s0.NP,PLATES-s0.PLATES)};};
-    const want=a.sys||'auto';
+    const noTr=!!T.noTruss;
+    const want=noTr?'auto':(a.sys||'auto');
     let out=null,chosen=null;
     if(want!=='auto'){out=runOne(want);chosen=want;}
     else{
@@ -838,6 +912,7 @@ function build(){
         if(out.res.util<=0.95&&out.res.defR>=200){chosen='beam';break;}
         undo();out=null;}
       if(out)a.secT=M.secT;
+      else if(noTr){M.secT=F.secT.o[F.secT.o.length-1];out=runOne('beam');chosen='beam';}
       else{M.secT=base;out=runOne('truss');chosen='truss';}}
     a.sysUsed=chosen;a.secUsed=M.secT;
     const g=out.g,res=out.res;
@@ -1007,7 +1082,8 @@ function segInt(a,b,c,d){
   const u=((c[0]-a[0])*rz-(c[1]-a[1])*rx)/den;
   return t>=0&&t<=1&&u>=0&&u<=1;}
 function segHits(a,b,poly){
-  if(inPoly(b[0],b[1],poly))return true;
+  if(inPoly(a[0],a[1],poly))return true;   /* تحت العائق نفسه */
+  if(inPoly(b[0],b[1],poly))return true;   /* الشعاع يدخل مسقطه قبل أن يعلوه */
   for(let i=0;i<poly.length;i++)if(segInt(a,b,poly[i],poly[(i+1)%poly.length]))return true;
   return false;}
 /* ارتفاع مستوى الألواح فوق السطح عند z محلي داخل الهيكل */
@@ -1034,8 +1110,9 @@ function shadedAt(X,Z,y,alt,az){
     if(segHits([X,Z],[X+d*h[0],Z+d*h[1]],o.poly))return true;}
   if(SITE&&M.bPar>0){
     const dh=M.bPar-y;
+    /* العمامة جدار قائم على حدّ السطح: تحجب فقط إذا عبر الشعاع الحدّ قبل أن يرتفع فوقها.
+       كون النقطة خارج السطح لا يعني أنها مظللة — الألواح الناتئة خارج الحدّ مشمسة. */
     if(dh>.02){const d=dh/tn,b=[X+d*h[0],Z+d*h[1]],P=SITE.poly;
-      if(!inPoly(b[0],b[1],P))return true;
       for(let i=0;i<P.length;i++)if(segInt([X,Z],b,P[i],P[(i+1)%P.length]))return true;}}
   return false;}
 /* نسبة مساحة الألواح المظللة عند ساعة معيّنة */
@@ -4022,7 +4099,11 @@ function fit(){const T=TPL[M.tpl];
   if(SITE&&(ARR.length>1||M.bShape==='kml')){
     tgt.set(SITE.bb[0]/2-M.bOX,hi*.45,SITE.bb[1]/2-M.bOZ);
     rho=Math.max(SITE.bb[0],SITE.bb[1])*1.7+8;place();return;}
-  tgt.set(M.L/2,hi*.45,M.S/2);rho=Math.max(M.L,M.S)*1.85+5;place();}
+  const wallBack=(T.bld==='F'||T.bld==='K');
+  /* هذه القوالب مسنودة على حائط عند z<0 — الكاميرا يجب أن تقف أمامه لا خلفه */
+  if(wallBack&&Math.sin(theta)<.25)theta=1.15;
+  tgt.set(M.L/2,hi*.45,M.S/2);
+  rho=Math.max(M.L,M.S)*(wallBack?1.30:1.85)+(wallBack?3.5:5);place();}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;
   if(w<10||h<10)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 addEventListener('resize',()=>{resize();paint();});

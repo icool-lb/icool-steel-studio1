@@ -211,6 +211,72 @@ ok(sysT.forcedT.tot>sysT.shortA.tot,'الجمالون أثقل من الجائز
 ok(sysT.shortA.W>0&&sysT.longA.W===0,'معامل المقاومة يُحسب للجائز فقط',
    'W='+sysT.shortA.W.toFixed(0)+' سم³');
 
+console.log('\n[5و] الألواح الناتئة خارج السطح لا تُحسب مظللة');
+const ovh=await pg.evaluate(()=>{
+  M.bShape='rect';M.bA=8;M.bB=8;M.bRot=0;M.north=0;M.bPar=1.8;OBS=[];
+  ARR=[];AI=0;M.tpl='S1';applyTpl('S1');
+  M.L=14;M.S=6;M.h1=.8;M.h2=2.0;M.bOX=1;M.bOZ=1;M.az=180;build();
+  const A=32.4;                       // ظهيرة 21/12
+  const d=(1.8-0.8)/Math.tan(A*Math.PI/180);
+  return {frac:+shadeFrac(12,21,12).frac.toFixed(2),d:+d.toFixed(2),
+    // نقطة ناتئة شرق السطح (x=12 > 8) على ارتفاع الحافة المنخفضة
+    outside:shadedAt(12,4,0.8,A,180),
+    // نقطة داخل السطح ملاصقة للحدّ الجنوبي وتحت العمامة ⇒ مظللة
+    behind:shadedAt(4,8-d*0.4,0.8,A,180),
+    // نقطة داخل السطح بعيدة عن الحدّ ⇒ مشمسة
+    mid:shadedAt(4,3,0.8,A,180),
+    // فوق العمامة ⇒ مشمسة دائماً
+    above:shadedAt(4,7.9,2.2,A,180)};});
+ok(ovh.outside===false,'لوح ناتئ خارج حدود السطح = مشمس (كان يُحسب مظللاً)',ovh.outside);
+ok(ovh.behind===true,'نقطة خلف العمامة وتحت ارتفاعها = مظللة (طول الظل '+ovh.d+' م)',ovh.behind);
+ok(ovh.mid===false,'نقطة داخل السطح بعيدة عن الحدّ = مشمسة',ovh.mid);
+ok(ovh.above===false,'نقطة أعلى من العمامة = مشمسة',ovh.above);
+ok(ovh.frac<0.2,'نسبة التظليل الكلية معقولة بدل 47%',(ovh.frac*100).toFixed(0)+'%');
+
+const und=await pg.evaluate(()=>{
+  M.bPar=0;OBS=[{poly:[[3,2],[7,2],[7,6],[3,6]],h:4,base:0,kind:'stair',name:'د'}];
+  build();
+  return {inside:shadedAt(5,4,0,32.4,180),outside:shadedAt(5,9,0,32.4,180)};});
+ok(und.inside===true,'نقطة تحت مسقط العائق نفسه = مظللة',und.inside);
+ok(und.outside===false,'نقطة جنوبه خارج ظله = مشمسة',und.outside);
+
+console.log('\n[5ز] قالبا الواجهة والمظلة الملتصقة');
+const nt=await pg.evaluate(()=>{
+  const r={};
+  ['S8','S9'].forEach(tp=>{
+    ARR=[];AI=0;M.bOn=0;OBS=[];M.tpl=tp;applyTpl(tp);M.cat='solar';build();
+    r[tp]={np:NP,kwp:+R.kwp.toFixed(2),tilt:+R.tdeg.toFixed(1),legs:LEGS.length,
+      beam:!!R.beam,cf:+R.WD.cf.toFixed(2),util:R.util,defR:R.defR,
+      kinds:Object.keys(KIND),cant:!!TPL[tp].cant,
+      anch:ANCH,plates:PLATES};});
+  // قابلية التعديل: تغيير البروز يغيّر الميل والعزم
+  ARR=[];AI=0;M.tpl='S9';applyTpl('S9');M.bOn=0;build();
+  const s1={M:R.Mmax,t:R.tdeg,sec:ARR[0].secUsed};
+  M.S=5;build();
+  const s2={M:R.Mmax,t:R.tdeg,sec:ARR[0].secUsed};
+  // الشدّاد
+  M.S=3;M.stayH=2.2;build();const stay={n:KIND['شدّاد علوي']?1:0};
+  return {...r,s1,s2,stay};});
+ok(nt.S8.np>0&&nt.S8.legs===0,'قالب الواجهة ينتج ألواحاً بلا أرجل',
+   nt.S8.np+' لوح · '+nt.S8.kwp+' kWp');
+ok(nt.S8.tilt>55&&nt.S8.tilt<90,'ميل ألواح الواجهة قريب من الشاقول',nt.S8.tilt+'°');
+ok(Math.abs(nt.S8.cf-1.3)<.01,'معامل ريح الواجهة من §7.2.2 لا من جداول المظلات',nt.S8.cf);
+ok(nt.S8.kinds.includes('رفوف شاقولية')&&nt.S8.kinds.includes('ذراع الكتيفة'),
+   'الرفوف والكتائف ضمن الكميات',nt.S8.kinds.join(' · '));
+ok(nt.S9.np>0&&nt.S9.legs===0,'المظلة الملتصقة تنتج ألواحاً بلا أرجل',
+   nt.S9.np+' لوح · '+nt.S9.kwp+' kWp');
+ok(nt.S9.kinds.includes('جوائز كابولية')&&nt.S9.kinds.includes('شدّاد علوي'),
+   'الجوائز الكابولية والشدّادات ضمن الكميات',nt.S9.kinds.join(' · '));
+ok(nt.S9.cant,'تُحسب كابولياً (M = wL²/2)');
+ok(nt.S8.beam&&nt.S9.beam,'القالبان يُتحقّقان كجائز لا كجمالون');
+ok(nt.S9.util<=0.95&&nt.S9.defR>=200,'المقطع المختار يحقّق الاستغلال والهبوط',
+   (nt.S9.util*100).toFixed(0)+'% · L/'+nt.S9.defR.toFixed(0));
+ok(nt.s2.M>nt.s1.M*2,'زيادة البروز من 3 إلى 5 م تضاعف العزم أكثر من مرّتين',
+   nt.s1.M.toFixed(1)+' ⇐ '+nt.s2.M.toFixed(1)+' kN·m');
+ok(nt.s2.sec!==nt.s1.sec,'ويُرفَّع المقطع تلقائياً',nt.s1.sec+' ⇐ '+nt.s2.sec);
+ok(nt.S9.anch>0&&nt.S9.plates>0,'مسامير وبليتات التثبيت على الحائط محسوبة',
+   nt.S9.anch+' مسمار · '+nt.S9.plates+' بليتة');
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة
