@@ -272,6 +272,9 @@ function validate(){
   const need=(M.bF*M.bFH>0)?0:0;
   if(M.bPar>0&&Math.max(M.h1,M.h2)<M.bPar+.25)
     VAL.msgs.push('الحافة الأمامية للألواح أدنى من العمامة + 25 سم — احتمال تظليل شتوي.');
+  if(PV_TOP>-1e8&&STEEL_TOP>PV_TOP+.15)
+    VAL.msgs.push('عنصر فولاذي يعلو أعلى الألواح بـ '+((STEEL_TOP-PV_TOP)*100).toFixed(0)+
+      ' سم — راجع موضعه فقد يظلّلها. التقوية يجب أن تكون تحت مستوى الغطاء.');
   if(OBSW.length||M.bPar>0){
     let mx=0,who='';
     ARR.forEach(a=>{if(!TPL[a.tpl]||TPL[a.tpl].cover!=='pv')return;
@@ -330,8 +333,8 @@ const F={
  tz:{l:'المنطقة الزمنية (UTC+)',t:'n',st:.5,min:-12,max:14},
  north:{l:'اتجاه الشمال (°)',t:'r',min:0,max:359,st:1},
  az:{l:'سمت الألواح (° من الشمال)',t:'r',min:0,max:359,st:1},
- stayH:{l:'ارتفاع مرساة الشدّاد (م)',t:'r',min:.3,max:3,st:.05},
- stayF:{l:'موضع الشدّاد على الجائز',t:'r',min:.25,max:.92,st:.01},
+ stayH:{l:'انخفاض مرساة الكتيفة تحت الجائز (م)',t:'r',min:.3,max:3,st:.05},
+ stayF:{l:'موضع الكتيفة على الجائز',t:'r',min:.25,max:.92,st:.01},
  sys:{l:'النظام الحامل',t:'s',o:[['auto','تلقائي — جائز مفرد ما لم يلزم جمالون'],['beam','جائز مفرد دائماً'],['truss','جمالون دائماً']]},
  sysType:{l:'نوع المنظومة',t:'s',o:[['offgrid','مستقلة off-grid'],['hybrid','هجينة مع بطاريات'],['ongrid','مربوطة بالشبكة بلا بطاريات']]},
  ghiY:{l:'الإشعاع الأفقي السنوي (kWh/م²)',t:'n',st:10,min:800,max:2600},
@@ -422,7 +425,7 @@ const TPL={
    f:['L','S','h1','h2','bay','over','stayH','stayF','secT','secB','secW','secR','orient','fix'],
    d:{L:10,S:3.00,h1:2.80,h2:3.40,bay:1.50,td:.16,over:.20,knee:0,fix:'through',
       secT:'150x50x4',secB:'60x40x2.5',secW:'50x50x2.5',secR:'40x40x2'},
-   desc:'جوائز كابولية مثبّتة على الحائط مع شدّادات علوية تحمل الطرف — تغطّي عرض المبنى بلا عمود واحد.'},
+   desc:'جوائز كابولية مثبّتة على الحائط مع كتائف سفلية تسندها — تغطّي عرض المبنى بلا عمود واحد، ولا عنصر فوق مستوى الألواح يظلّلها.'},
  H1:{cat:'hang',n:'هنغار جملون (Gable)',cover:'sheet',bld:'H',
    f:['L','S','clearH','ridge','bay','td','secT','secB','secW','secP','secR','diag','fix'],
    d:{L:30,S:15,clearH:5,ridge:1.9,bay:4,td:1,secT:'120x60x4',secP:'150x150x5',secR:'80x40x3'},desc:'إطارات جملونية على أعمدة.'},
@@ -462,10 +465,12 @@ function tube(p1,p2,w,h,mat){
   m.position.copy(p1).add(p2).multiplyScalar(.5);
   m.quaternion.setFromUnitVectors(V(0,0,1),d.normalize()); return m;}
 let QTY={},KIND={},PC={},NP=0,PLATES=0,ANCH=0,PVINFO={};
+let STEEL_TOP=-1e9,PV_TOP=-1e9;   /* لرصد أي عنصر يعلو مستوى الألواح فيظلّلها */
 const BASE={secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',diag:1,orient:'auto',fix:'base',coat:'paint'};
 function addM(kind,sec,p1,p2,mat,mark){
   const s=SEC[sec]; if(!s)return;
   const len=p1.distanceTo(p2);
+  STEEL_TOP=Math.max(STEEL_TOP,p1.y+s.h/2,p2.y+s.h/2);
   QTY[sec]=(QTY[sec]||0)+len;
   (KIND[kind]=KIND[kind]||{})[sec]=((KIND[kind]||{})[sec]||0)+len;
   if(mark){const k=mark+'|'+sec+'|'+len.toFixed(2);
@@ -546,6 +551,8 @@ function cover(type,x0,x1,s0,slopeLen,pt){
         addM('مرابط الألواح',M.secR,V(x0,p.y+.03,p.z),V(x1,p.y+.03,p.z),MAT.rail,'R1');});
       const c=pt.at(sr+pick.h/2);
       for(let i=0;i<pick.c;i++){
+        PV_TOP=Math.max(PV_TOP,c.y+.085+Math.abs(PANEL.t/2*Math.cos(rot))
+                                    +Math.abs(pick.h/2*Math.sin(rot)));
         const m=new THREE.Mesh(new THREE.BoxGeometry(pick.w,PANEL.t,pick.h),MAT.pv);
         m.position.set(px0+i*(pick.w+g),c.y+.085,c.z); m.rotation.x=rot; gC.add(m);
         const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),MAT.edge);
@@ -681,7 +688,7 @@ function builderF(T){
         a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.4),.02);gB.add(a);}}
     gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+.85,-.55),'#5b6b7a',1.5));}
   bx.forEach(x=>{
-    addM('رفوف شاقولية',M.secT,V(x,Math.max(.1,M.h1-.20),0),V(x,M.h2+.12,0),MAT.post,'V1');
+    addM('رفوف شاقولية',M.secT,V(x,Math.max(.1,M.h1-.20),0),V(x,M.h2+.02,0),MAT.post,'V1');
     addM('ذراع الكتيفة',M.secW,V(x,M.h1,0),V(x,M.h1,S),MAT.brace,'K1');
     addM('شدّاد الكتيفة',M.secW,V(x,M.h1+Math.min(.60,drop*.5),0),V(x,M.h1,S),MAT.brace,'K2');
     PLATES++;ANCH+=4;});
@@ -698,29 +705,36 @@ function builderK(T){
   const t=Math.atan2(M.h2-M.h1,S),sl=Math.hypot(S,M.h2-M.h1);
   const nBay=Math.max(1,Math.round(L/M.bay)),bx=[];
   for(let i=0;i<=nBay;i++)bx.push(L*i/nBay);
-  const stayH=Math.max(.3,+M.stayH||1.2),sf=Math.min(.92,Math.max(.25,+M.stayF||.65));
+  /* الكتيفة تحت الجائز دائماً: أي عنصر فوق مستوى الألواح يظلّلها ويُبطل الغرض */
+  const drop=Math.max(.3,+M.stayH||1.2),sf=Math.min(.92,Math.max(.25,+M.stayF||.65));
   if(!NOGRND){
-    const wh=M.h2+stayH+.9;
+    const wh=M.h2+.9;
     const w=new THREE.Mesh(new THREE.BoxGeometry(L+1.8,wh,.25),MAT.wall);
     w.position.set(L/2,wh/2,-.13);gB.add(w);
     if(M.win){const cols=Math.max(1,Math.floor((L+1.8)/2.6));
       for(let c=0;c<cols;c++){
         const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.2,.06),MAT.win);
         a.position.set(-.9+(c+.5)*(L+1.8)/cols,Math.max(.9,M.h1-1.5),.02);gB.add(a);}}
-    gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+stayH+.5,-.55),'#5b6b7a',1.5));}
+    gB.add(lbl('واجهة المبنى',V(L*.5,M.h2+.6,-.55),'#5b6b7a',1.5));}
+  const my=M.h2-(M.h2-M.h1)*sf, ay=Math.max(.35,M.h2-drop);
   bx.forEach(x=>{
     addM('جوائز كابولية',M.secT,V(x,M.h2,0),V(x,M.h1,S),MAT.top,'B1');
-    const my=M.h2-(M.h2-M.h1)*sf;
-    addM('شدّاد علوي',M.secW,V(x,M.h2+stayH,0),V(x,my,S*sf),MAT.brace,'T1');
-    addM('بليتة تثبيت',M.secW,V(x,M.h2-.20,0),V(x,M.h2+.20,0),MAT.post,'P2');
+    addM('كتيفة سفلية',M.secW,V(x,ay,0),V(x,my-SEC[M.secT].h,S*sf),MAT.brace,'K1');
+    addM('بليتة تثبيت',M.secW,V(x,M.h2-.34,0),V(x,M.h2+.02,0),MAT.post,'P2');
+    addM('بليتة الكتيفة',M.secW,V(x,ay-.16,0),V(x,ay+.16,0),MAT.post,'P3');
     PLATES+=2;ANCH+=8;});
   addM('مداد الحائط',M.secB,V(0,M.h2,0),V(L,M.h2,0),MAT.bot,'C2');
   addM('مداد الطرف',M.secB,V(0,M.h1,S),V(L,M.h1,S),MAT.bot,'C2');
-  addM('مداد الشدّادات',M.secR,V(0,M.h2+stayH,0),V(L,M.h2+stayH,0),MAT.rail,'R2');
+  addM('رباط الكتائف',M.secR,V(0,ay,0),V(L,ay,0),MAT.rail,'R2');
   cover(T.cover,0,L,0,sl,{t,dir:-1,at:s2=>({z:s2*Math.cos(t),y:M.h2-s2*Math.sin(t)})});
+  /* الكتيفة تسند الجائز عند S·sf: الحاكم هو الجزء الناتئ بعدها أو بحر الظهر */
+  const over=S*(1-sf), back=S*sf/2;
+  const bAng=Math.atan2(Math.max(.15,M.h2-ay-(M.h2-M.h1)*sf),Math.max(.15,S*sf));
   return {t,nSup:bx.length,frames:bx.length,bays:nBay,bx,rows:[0],
-    primary:'جوائز كابولية من الحائط بشدّادات علوية — بروز '+S.toFixed(2)+' م بلا عمود',
-    spanMain:S,trib:L/nBay,nWeb:0};}
+    braceAng:bAng*180/Math.PI,braceSf:sf,
+    primary:'جوائز كابولية من الحائط بكتائف سفلية عند '+(sf*100).toFixed(0)+'% من البروز — '+
+      S.toFixed(2)+' م بلا عمود، ولا عنصر فوق مستوى الألواح',
+    spanMain:Math.max(over,back),trib:L/nBay,nWeb:0};}
 
 function builderH(T){
   const L=M.L,S=M.S,H=M.clearH,Rg=M.ridge,t=Math.atan(Rg/(S/2));
@@ -815,6 +829,11 @@ function compute(g,qty,np,plates){
   if(T.cant)def=w*Math.pow(Ls*1e3,4)/(8*21e4*Ieff*1e4);
   if(!beam&&!M.diag)def*=3.5;
   const defR=Ls*1e3/Math.max(def,.01);
+  /* الكتيفة السفلية: توازن العزم حول مرساة الجائز على الحائط */
+  let braceN=0;
+  if(g.braceSf&&g.braceAng){
+    const V=w*M.S/(2*Math.max(g.braceSf,.05));
+    braceN=V/Math.max(Math.sin(g.braceAng*Math.PI/180),.05);}
   const Rv=wU*area/Math.max(g.nSup,1),Hf=wWind*area*Math.sin(g.t)/Math.max(g.nSup,1);
   const hTop=(T.bld==='H')?M.clearH:Math.max(M.h1,M.h2);
   const ANCHOR={M14:{n:'M14 غوص 120 مم',NRd:16,VRd:20},M16:{n:'M16 غوص 130 مم',NRd:22,VRd:27}};
@@ -842,7 +861,7 @@ function compute(g,qty,np,plates){
   const ecc=(T.bld==='H')?0:WD.Fh*area*0.25*(T.bld==='B'?M.S:M.S);
   return {T,WD,upTot,wTot,FS,ecc,Rup,ab,nBolt,steel,plateKg,tot,area,q,Cf,wWind,gk,sk,C1,C2,C3,wU,Ls,trib,w,Mmax,d,N,sig,util,def,defR,
      Rv,Hf,Mbase,boltT,fixTxt,lever,ballast,coatArea,coatCost,steelCost,fabCost,kwp,tdeg,g,np,
-     sys:SYSNOW,beam,Wsec,
+     sys:SYSNOW,beam,Wsec,braceN,
      total:steelCost+fabCost+coatCost,kgm2:tot/Math.max(area,1),At,Ab,Ieff,hTop};}
 
 /* ---------- 7. البناء ---------- */
@@ -880,6 +899,7 @@ function govR(){
   return S;}
 function build(){
   [gS,gC,gB,gD].forEach(clr);QTY={};KIND={};PC={};NP=0;PLATES=0;ANCH=0;PVINFO={};LEGS=[];
+  STEEL_TOP=-1e9;PV_TOP=-1e9;
   makeSite();syncToArr();
   const keep=snapM();ARES=[];
   const ox=ARR[AI].x,oz=ARR[AI].z;
@@ -3228,6 +3248,8 @@ function report(){
      : `<tr><td>قوة الجائز N</td><td class="n">${R.N.toFixed(1)} kN</td><td>N = M/d ، d = ${R.d.toFixed(2)} م</td></tr>`}
    <tr><td>الجهد σ</td><td class="n">${R.sig.toFixed(0)} MPa</td><td>${chk(R.sig,157)} ${R.beam?'انحنائي':'محوري'} — الحد 157 MPa</td></tr>
    <tr><td>نسبة الاستغلال</td><td class="n">${(R.util*100).toFixed(0)}%</td><td>${chk(R.util,1)}</td></tr>
+   ${R.braceN?`<tr><td>قوة الكتيفة السفلية (ضغط)</td><td class="n">${R.braceN.toFixed(1)} kN</td>
+     <td>توازن العزم عند المرساة: N = w·S/(2·f·sin α) ، α = ${R.g.braceAng.toFixed(0)}°</td></tr>`:''}
    <tr><td>${R.beam?'عطالة المقطع I':'العطالة المكافئة'}</td><td class="n">${R.Ieff.toFixed(0)} سم⁴</td><td>${R.beam?'المقطع نفسه':'ΣA·y²'}</td></tr>
    <tr><td>الهبوط δ</td><td class="n">${R.def.toFixed(1)} مم = L/${R.defR.toFixed(0)}</td><td>${R.defR>200?'<span class="tag t-ok">سليم</span>':(R.defR>150?'<span class="tag t-w">مقبول</span>':'<span class="tag t-b">كبير</span>')} الحد L/200</td></tr></table>
   ${R.util>1?`<div class="note"><b>الاستغلال يتجاوز 100%</b> — ${R.beam?'كبّر مقطع الجائز أو حوّل النظام إلى جمالون':'كبّر المقاطع أو ارفع ارتفاع الجمالون'} أو قلّل تباعد الإطارات قبل التنفيذ.</div>`:''}

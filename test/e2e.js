@@ -254,10 +254,16 @@ const nt=await pg.evaluate(()=>{
   const s1={M:R.Mmax,t:R.tdeg,sec:ARR[0].secUsed};
   M.S=5;build();
   const s2={M:R.Mmax,t:R.tdeg,sec:ARR[0].secUsed};
-  // الشدّاد
-  M.S=3;M.stayH=2.2;build();const stay={n:KIND['شدّاد علوي']?1:0};
+  M.S=3;M.stayH=2.2;build();
+  const stay={n:KIND['شدّاد علوي']?1:0,brace:KIND['كتيفة سفلية']?1:0};
+  // لا فولاذ يعلو أعلى نقطة في الألواح — وإلا ظلّلها
+  const clear={};
+  Object.keys(TPL).filter(k=>TPL[k].cover==='pv').forEach(tp=>{
+    ARR=[];AI=0;M.bOn=0;OBS=[];M.tpl=tp;applyTpl(tp);M.cat=TPL[tp].cat;build();
+    clear[tp]={steelTop:+STEEL_TOP.toFixed(3),pvTop:+PV_TOP.toFixed(3),
+      warn:VAL.msgs.some(m=>/يعلو مستوى الألواح/.test(m))};});
   M.bOn=1;M.tpl='S1';applyTpl('S1');build();
-  return {...r,s1,s2,stay};});
+  return {...r,s1,s2,stay,clear};});
 ok(nt.S8.np>0&&nt.S8.legs===0,'قالب الواجهة ينتج ألواحاً بلا أرجل',
    nt.S8.np+' لوح · '+nt.S8.kwp+' kWp');
 ok(nt.S8.tilt>55&&nt.S8.tilt<90,'ميل ألواح الواجهة قريب من الشاقول',nt.S8.tilt+'°');
@@ -266,8 +272,10 @@ ok(nt.S8.kinds.includes('رفوف شاقولية')&&nt.S8.kinds.includes('ذرا
    'الرفوف والكتائف ضمن الكميات',nt.S8.kinds.join(' · '));
 ok(nt.S9.np>0&&nt.S9.legs===0,'المظلة الملتصقة تنتج ألواحاً بلا أرجل',
    nt.S9.np+' لوح · '+nt.S9.kwp+' kWp');
-ok(nt.S9.kinds.includes('جوائز كابولية')&&nt.S9.kinds.includes('شدّاد علوي'),
-   'الجوائز الكابولية والشدّادات ضمن الكميات',nt.S9.kinds.join(' · '));
+ok(nt.S9.kinds.includes('جوائز كابولية')&&nt.S9.kinds.includes('كتيفة سفلية'),
+   'الجوائز الكابولية والكتائف السفلية ضمن الكميات',nt.S9.kinds.join(' · '));
+ok(!nt.S9.kinds.some(k=>/علوي/.test(k)),'لا عنصر شدّ علوي فوق الألواح',
+   nt.S9.kinds.filter(k=>/علوي/.test(k)).join(' · ')||'لا شيء');
 ok(nt.S9.cant,'تُحسب كابولياً (M = wL²/2)');
 ok(nt.S8.beam&&nt.S9.beam,'القالبان يُتحقّقان كجائز لا كجمالون');
 ok(nt.S9.util<=0.95&&nt.S9.defR>=200,'المقطع المختار يحقّق الاستغلال والهبوط',
@@ -277,6 +285,13 @@ ok(nt.s2.M>nt.s1.M*2,'زيادة البروز من 3 إلى 5 م تضاعف ال
 ok(nt.s2.sec!==nt.s1.sec,'ويُرفَّع المقطع تلقائياً',nt.s1.sec+' ⇐ '+nt.s2.sec);
 ok(nt.S9.anch>0&&nt.S9.plates>0,'مسامير وبليتات التثبيت على الحائط محسوبة',
    nt.S9.anch+' مسمار · '+nt.S9.plates+' بليتة');
+ok(nt.stay.n===0&&nt.stay.brace===1,'الشدّاد العلوي استُبدل بكتيفة سفلية');
+Object.keys(nt.clear).forEach(tp=>{const c=nt.clear[tp];
+  ok(!c.warn,tp+': لا تقوية ترتفع فوق الغطاء',
+     'فولاذ '+c.steelTop+' · ألواح '+c.pvTop+' م');});
+ok(nt.clear.S9.steelTop<=nt.clear.S9.pvTop+.02,
+   'S9: أعلى فولاذ لا يتجاوز أعلى الألواح — الكتيفة كلها تحت الجائز',
+   'فولاذ '+nt.clear.S9.steelTop+' ≤ ألواح '+nt.clear.S9.pvTop+' م');
 
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
