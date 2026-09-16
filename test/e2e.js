@@ -599,6 +599,62 @@ ok(pr.old.p==='ملف قديم'&&pr.old.tpl==='S2'&&pr.old.L===9&&pr.old.sky===1
 ok(pr.bad==='threw'&&pr.alive,'ملف فاسد يُرفض باستثناء واضح والمنصة تبقى عاملة');
 ok(pr.after===0,'الحذف يزيل المشروع من القائمة');
 
+console.log('\n[5ن] تلوين الألواح المظللة');
+const sm=await pg.evaluate(()=>{
+  M.project='برج الزلقا';M.bOn=1;M.bShape='rect';M.bA=30;M.bB=20;M.bF=4;M.bFH=3;M.bPar=1;
+  M.north=0;M.sky=1;M.hud=1;M.shMark='1';M.sunOn=1;M.shadow=1;
+  const OB=()=>[{name:'بيت الدرج',kind:'stair',h:3,base:0,poly:[[12,3],[17,3],[17,8],[12,8]]},
+       {name:'مبنى مجاور',kind:'bldg',h:8,base:-12,poly:[[6,26],[24,26],[24,34],[6,34]]}];
+  OBS=OB();
+  ARR=[];AI=0;M.tpl='S1';applyTpl('S1');M.L=20;M.S=9;M.bOX=5;M.bOZ=9;M.az=180;
+  M.sMon=12;M.sDay=21;
+  const at=h=>{M.sHour=h;build();
+    return {alt:+SUN.alt.toFixed(1),full:PVSH.full,part:PVSH.part,tot:PVSH.tot,
+      red:PVM.filter(p=>p.m.material===MAT.pvShade).length,
+      amber:PVM.filter(p=>p.m.material===MAT.pvPart).length,
+      plain:PVM.filter(p=>p.m.material===MAT.pv).length};};
+  const out={late:at(15.5),noon:at(12)};
+  /* بلا عوائق لا لوح يحمرّ */
+  OBS=[];M.bPar=0;M.sHour=12;build();out.clean=
+    {full:PVSH.full,part:PVSH.part,tot:PVSH.tot,plain:PVM.filter(p=>p.m.material===MAT.pv).length};
+  /* إعادة العوائق ثم إطفاء التلوين */
+  OBS=OB();M.bPar=1;M.sHour=15.5;M.shMark='0';build();
+  out.off={full:PVSH.full,part:PVSH.part,plain:PVM.filter(p=>p.m.material===MAT.pv).length,tot:PVM.length};
+  /* وضع «أثناء المحاكاة فقط» */
+  M.shMark='anim';build();
+  out.animOff={marked:PVSH.full+PVSH.part};
+  animStart('day',4);drawSun(true);
+  out.animOn={marked:PVSH.full+PVSH.part};
+  animStop();
+  /* بعد الغروب لا تلوين */
+  M.shMark='1';M.sHour=19;build();
+  out.night={marked:PVSH.full+PVSH.part,plain:PVM.filter(p=>p.m.material===MAT.pv).length,tot:PVM.length};
+  /* سجلّ الألواح لا ينتفخ بمحاولات سلّم المقاطع */
+  M.sHour=12;M.sys='auto';build();const n1=PVM.length;build();
+  out.stable=(n1===PVM.length&&n1===NP);
+  /* الشريط يذكر العدد */
+  M.sHour=15.5;build();hudPaint();
+  out.hudKey=PVSH.full+PVSH.part>0;
+  M.shMark='1';
+  return out;});
+ok(sm.late.tot>0&&sm.late.full>0,'عند الغروب الشتوي تحمرّ الألواح المظللة كلياً',
+   sm.late.full+' أحمر من '+sm.late.tot+' عند ارتفاع '+sm.late.alt+'°');
+ok(sm.late.red===sm.late.full&&sm.late.amber===sm.late.part,
+   'ومواد الألواح تطابق العدّاد',sm.late.red+' أحمر · '+sm.late.amber+' كهرماني');
+ok(sm.late.red+sm.late.amber+sm.late.plain===sm.late.tot,'كل لوح بلون واحد فقط');
+ok(sm.noon.full+sm.noon.part<sm.late.full+sm.late.part,
+   'وعدد المظلَّل في الظهيرة أقلّ منه عند الغروب',
+   'ظهيرة '+(sm.noon.full+sm.noon.part)+' · غروب '+(sm.late.full+sm.late.part));
+ok(sm.clean.full===0&&sm.clean.part===0&&sm.clean.plain===sm.clean.tot,
+   'بلا عوائق ولا عمامة لا لوح يحمرّ',sm.clean.tot+' لوحاً سليماً');
+ok(sm.off.full===0&&sm.off.plain===sm.off.tot,'إيقاف التلوين يعيد كل الألواح إلى لونها');
+ok(sm.animOff.marked===0&&sm.animOn.marked>0,
+   'وضع «أثناء المحاكاة فقط» يلوّن عند التشغيل وحده',
+   'ساكن '+sm.animOff.marked+' ⇐ محاكاة '+sm.animOn.marked);
+ok(sm.night.marked===0&&sm.night.plain===sm.night.tot,'وتحت الأفق لا تلوين');
+ok(sm.stable,'سجلّ الألواح لا ينتفخ بمحاولات سلّم المقاطع ولا بإعادة البناء');
+ok(sm.hudKey,'شريط المعلومات يعرض عدد الألواح المظللة');
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة

@@ -205,7 +205,7 @@ const M={cat:'solar',tpl:'S1',project:'مشروع جديد',client:'',site:'',mu
  tMin:0,tCellMax:70,invVmax:1000,invVmin:200,invIsc:30,invMppt:2,invKW:10,
  loadD:30,loadNight:45,loadPk:6,gridPh:1,gridV:230,gridPf:.95,
  batChem:'lifepo4',batV:48,batVm:51.2,batAh:200,batDays:1,batDoD:90,invModel:'deye12',
- sky:1,bFin:'stone',hud:1,vidScope:'day',
+ sky:1,bFin:'stone',hud:1,vidScope:'day',shMark:'1',
  trayType:'tray',trayY:2.05,trayOpen:1,showCab:1,roomBg:1,showLbl:1,showDim3:1};
 let SITE=null,TRACE_POLY=null,LEGS=[],VAL={ok:true,msgs:[]};
 let KML_POLY=null,KMLP=[],OBS=[],OBSW=[],GEO=null,SUN={alt:0,az:180,up:false},SUNT=null,SHW=null;
@@ -411,6 +411,7 @@ const F={
  sky:{l:'سماء وإضاءة واقعية',t:'s',o:[['1','تشغيل'],['0','إيقاف']],num:1},
  bFin:{l:'تشطيب واجهة المبنى',t:'s',o:[['stone','حجر بيج'],['sand','رملي'],['grey','رمادي فاتح'],['white','أبيض'],['brick','طوب أحمر']]},
  hud:{l:'شريط المعلومات في المشهد',t:'s',o:[['1','إظهار'],['0','إخفاء']],num:1},
+ shMark:{l:'تلوين الألواح المظللة',t:'s',o:[['1','دائماً'],['anim','أثناء المحاكاة فقط'],['0','إيقاف']]},
  vidScope:{l:'نطاق الفيديو',t:'s',o:[['day','اليوم المحدّد'],['season','الفصول الأربعة'],['months','الأشهر الاثنا عشر']]},
  sMon:{l:'الشهر',t:'s',num:1,o:[['1','كانون الثاني'],['2','شباط'],['3','آذار'],['4','نيسان'],['5','أيار'],['6','حزيران'],['7','تموز'],['8','آب'],['9','أيلول'],['10','تشرين الأول'],['11','تشرين الثاني'],['12','كانون الأول']]},
  sDay:{l:'اليوم',t:'r',min:1,max:31,st:1},
@@ -482,7 +483,10 @@ const D2=new THREE.DirectionalLight(0xffffff,.2); D2.position.set(-11,9,-9); sce
 const MAT={top:new THREE.MeshLambertMaterial({color:0x7d8a95}),bot:new THREE.MeshLambertMaterial({color:0x93a0ab}),
  web:new THREE.MeshLambertMaterial({color:0xa6b1bb}),post:new THREE.MeshLambertMaterial({color:0x53606c}),
  rail:new THREE.MeshLambertMaterial({color:0xb3bdc6}),brace:new THREE.MeshLambertMaterial({color:0xF1471E}),
- pv:new THREE.MeshLambertMaterial({color:0x16243d}),slat:new THREE.MeshLambertMaterial({color:0x8d8577}),
+ pv:new THREE.MeshLambertMaterial({color:0x16243d}),
+ /* اللوح المظلّل يقع في الظل أصلاً، فبلا إشعاع ذاتي يخرج أسود لا أحمر */
+ pvShade:new THREE.MeshLambertMaterial({color:0xC0392B,emissive:0x6E1A12}),
+ pvPart:new THREE.MeshLambertMaterial({color:0xE8A33D,emissive:0x6B4A10}),slat:new THREE.MeshLambertMaterial({color:0x8d8577}),
  sheet:new THREE.MeshLambertMaterial({color:0xdfe3e6,transparent:true,opacity:.9,side:THREE.DoubleSide}),
  edge:new THREE.LineBasicMaterial({color:0xc9d3db}),ground:new THREE.MeshLambertMaterial({color:0xd3cec3}),
  wall:new THREE.MeshLambertMaterial({color:0xcdc6b8}),mass:new THREE.MeshLambertMaterial({color:0xc9c2b4}),
@@ -571,6 +575,8 @@ function tube(p1,p2,w,h,mat){
   m.position.copy(p1).add(p2).multiplyScalar(.5);
   m.quaternion.setFromUnitVectors(V(0,0,1),d.normalize()); return m;}
 let QTY={},KIND={},PC={},NP=0,PLATES=0,ANCH=0,PVINFO={};
+/* سجلّ الألواح لتلوين المظلَّل منها: نقاط فحص بإحداثيات المصفوفة المحلّية */
+let PVM=[],BUILDI=0,PVSH={full:0,part:0,tot:0},SHMARKED=false;
 let STEEL_TOP=-1e9,PV_TOP=-1e9,PVBAND=null;   /* PVBAND: منسوبا أدنى وأعلى لوح على الواجهة */   /* لرصد أي عنصر يعلو مستوى الألواح فيظلّلها */
 const BASE={secT:'100x50x3',secB:'50x50x2.5',secW:'50x50x2.5',secP:'100x100x4',secR:'50x50x2.5',diag:1,orient:'auto',fix:'base',coat:'paint'};
 function addM(kind,sec,p1,p2,mat,mark){
@@ -660,7 +666,14 @@ function cover(type,x0,x1,s0,slopeLen,pt){
         PV_TOP=Math.max(PV_TOP,c.y+.085+Math.abs(PANEL.t/2*Math.cos(rot))
                                     +Math.abs(pick.h/2*Math.sin(rot)));
         const m=new THREE.Mesh(new THREE.BoxGeometry(pick.w,PANEL.t,pick.h),MAT.pv);
-        m.position.set(px0+i*(pick.w+g),c.y+.085,c.z); m.rotation.x=rot; gC.add(m);
+        const px=px0+i*(pick.w+g);
+        m.position.set(px,c.y+.085,c.z); m.rotation.x=rot; gC.add(m);
+        /* خمس نقاط على اللوح: مركزه وأربع زواياه مقلّمة — تُحسب هنا لأن pt.at متاح */
+        const pts=[];
+        [[0,0],[-.40,-.40],[.40,-.40],[-.40,.40],[.40,.40]].forEach(([u,v])=>{
+          const q=pt.at(sr+pick.h*(.5+v));
+          pts.push([px+u*pick.w,q.z,q.y+.085]);});
+        PVM.push({m,pts,ai:BUILDI});
         const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),MAT.edge);
         e.position.copy(m.position); e.rotation.x=rot; gC.add(e);}}
   }else if(type==='slat'){
@@ -1054,23 +1067,23 @@ function govR(){
   S.gov=g;S.nArr=ARR.length;S.g=g.g;
   return S;}
 function build(){
-  [gS,gC,gB,gD].forEach(clr);QTY={};KIND={};PC={};NP=0;PLATES=0;ANCH=0;PVINFO={};LEGS=[];
+  [gS,gC,gB,gD].forEach(clr);QTY={};KIND={};PC={};NP=0;PLATES=0;ANCH=0;PVINFO={};LEGS=[];PVM=[];
   STEEL_TOP=-1e9;PV_TOP=-1e9;PVBAND=null;
   makeSite();syncToArr();
   const keep=snapM();ARES=[];
   const ox=ARR[AI].x,oz=ARR[AI].z;
   ARR.forEach((a,i)=>{
-    applyArr(a);NOGRND=(i>0);
+    applyArr(a);NOGRND=(i>0);BUILDI=i;
     const T=TPL[M.tpl];T.id=M.tpl;
     const marks=[gS.children.length,gC.children.length,gB.children.length,gD.children.length];
     const s0={QTY:JSON.parse(JSON.stringify(QTY)),KIND:JSON.parse(JSON.stringify(KIND)),
       PC:JSON.parse(JSON.stringify(PC)),NP,PLATES,ANCH,nLeg:LEGS.length,
-      sTop:STEEL_TOP,pTop:PV_TOP,band:PVBAND};
+      sTop:STEEL_TOP,pTop:PV_TOP,band:PVBAND,nPV:PVM.length};
     const undo=()=>{QTY=JSON.parse(JSON.stringify(s0.QTY));KIND=JSON.parse(JSON.stringify(s0.KIND));
       PC=JSON.parse(JSON.stringify(s0.PC));NP=s0.NP;PLATES=s0.PLATES;ANCH=s0.ANCH;
       LEGS.length=s0.nLeg;
       /* محاولة مرفوضة يجب ألا تترك أثرها في رصد الارتفاعات وإلا حذّرنا بمقطع لم يُستعمل */
-      STEEL_TOP=s0.sTop;PV_TOP=s0.pTop;PVBAND=s0.band;
+      STEEL_TOP=s0.sTop;PV_TOP=s0.pTop;PVBAND=s0.band;PVM.length=s0.nPV;
       [gS,gC,gB,gD].forEach((gg,k)=>gg.children.splice(marks[k]).forEach(c=>{
         if(c&&c.traverse)c.traverse(o=>{if(o.geometry&&o.geometry.dispose)o.geometry.dispose();});}));};
     const runOne=sv=>{
@@ -1109,6 +1122,28 @@ function build(){
   R=govR();R.g.legs=LEGS.slice();
   validate();drawSite();badge();drawSun();applyShadows();
   touch();}
+/* ---- تلوين الألواح المظللة أثناء المحاكاة ---- */
+function markShade(){
+  const mode=String(M.shMark===undefined?'1':M.shMark);
+  const on=(mode==='1'||(mode==='anim'&&!!ANIM))&&SUN.up&&SUN.alt>1&&PVM.length>0;
+  if(!on){
+    if(SHMARKED)PVM.forEach(p=>{if(p.m.material!==MAT.pv)p.m.material=MAT.pv;});
+    PVSH={full:0,part:0,tot:PVM.length};SHMARKED=false;return;}
+  /* لوحات كثيرة ⇒ نقطة المركز وحدها، وإلا خمس نقاط لكل لوح */
+  const fine=PVM.length<=260;
+  let full=0,part=0;
+  PVM.forEach(p=>{
+    const a=ARR[p.ai]||ARR[0];
+    if(!a){p.m.material=MAT.pv;return;}
+    const q=fine?p.pts:p.pts.slice(0,1);
+    let n=0;
+    for(const t of q){const w=arrPt(a,t[0],t[1]);
+      if(shadedAt(w[0],w[1],t[2]))n++;}
+    let mt=MAT.pv;
+    if(n===q.length){mt=MAT.pvShade;full++;}
+    else if(n>0){mt=MAT.pvPart;part++;}
+    if(p.m.material!==mt)p.m.material=mt;});
+  PVSH={full,part,tot:PVM.length};SHMARKED=true;}
 function dims(T,g){
   const L=M.L,S=M.S,hi=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2);
   gD.add(dLine(V(0,-.45,S+.7),V(L,-.45,S+.7)));
@@ -1403,6 +1438,7 @@ function drawSun(fast){
     SKY.visible=!RVIEW;
   }else{HEMI.color.setHex(0xffffff);HEMI.groundColor.setHex(0x93a3b0);SKY.visible=false;}
   litWindows(night||SUN.alt<4);
+  markShade();
   if(!fast){clr(gSun); if(+M.sunOn)drawCompass(cx,cz,rad);}
   const show=!!+M.sunOn;
   const up=SUN.up&&SUN.alt>0;
@@ -1479,14 +1515,28 @@ function hudPaint(){
   x.textAlign='center';x.fillText(hhmm(rise),cx-r-4,cy+26);x.fillText(hhmm(set),cx+r+4,cy+26);
   x.direction='rtl';x.fillStyle='#C9D7E4';x.font='600 30px Tajawal, Arial';
   x.fillText(M.project||'iCOOL Steel Studio',cx,44);
-  if(SHW&&isFinite(SHW.frac)){
+  const marked=PVSH.tot>0&&(PVSH.full||PVSH.part);
+  if(marked){
+    const bad=PVSH.full+PVSH.part;
+    x.fillStyle='#F1471E';x.font='bold 32px Tajawal, Arial';
+    x.fillText(bad+' من '+PVSH.tot+' لوحاً مظلّلة',cx,88);
+    /* مفتاح الألوان: كلّي أحمر وجزئي كهرماني */
+    const ly=112,bw=22;
+    x.direction='ltr';
+    [['#C0392B','كلّي '+PVSH.full,cx-150],['#E8A33D','جزئي '+PVSH.part,cx+30]].forEach(([c,t,lx])=>{
+      x.fillStyle=c;x.fillRect(lx,ly,bw,bw);
+      x.fillStyle='#D7E2EC';x.font='500 26px Tajawal, Arial';x.textAlign='left';
+      x.fillText(t,lx+bw+8,ly+11);});
+    x.direction='rtl';x.textAlign='center';
+  }else if(SHW&&isFinite(SHW.frac)){
     x.fillStyle=SHW.frac>.05?'#F1471E':'#3FCF6B';x.font='bold 32px Tajawal, Arial';
     x.fillText('تظليل '+(SHW.frac*100).toFixed(0)+'%',cx,88);}
   hudTex.needsUpdate=true;}
 function hudDraw(){
   const on=!!+M.hud&&!RVIEW;
   if(!on)return;
-  const key=[M.sMon,M.sDay,(+M.sHour).toFixed(2),M.project,SHW?SHW.frac:0].join('|');
+  const key=[M.sMon,M.sDay,(+M.sHour).toFixed(2),M.project,SHW?SHW.frac:0,
+    PVSH.full,PVSH.part,PVSH.tot].join('|');
   if(key!==HUDKEY){HUDKEY=key;hudPaint();}
   const w=stage.clientWidth||1,h=stage.clientHeight||1;
   const hh=Math.max(.10,Math.min(.155,118/h))*2;     /* ارتفاع الشريط بإحداثيات NDC */
@@ -4531,6 +4581,22 @@ function dock(){
     bn.onclick=()=>{const d=new Date();M.sMon=d.getMonth()+1;M.sDay=d.getDate();
       M.sHour=+(d.getHours()+d.getMinutes()/60).toFixed(2);build();dock();};qc.appendChild(bn);
     el.appendChild(qc);
+
+    grp('كشف التظليل على الألواح');
+    field(el,'shMark');
+    {const d2=document.createElement('div');d2.className='note';
+     if(!PVSH.tot)d2.innerHTML='لا ألواح في المشهد الحالي.';
+     else if(PVSH.full||PVSH.part)
+       d2.innerHTML='الآن: <b style="color:#C0392B">'+PVSH.full+'</b> لوحاً مظلّلاً كلياً و'+
+         '<b style="color:#E8A33D">'+PVSH.part+'</b> جزئياً من '+PVSH.tot+
+         ' ('+(((PVSH.full+PVSH.part)/PVSH.tot)*100).toFixed(0)+'%).';
+     else d2.innerHTML=(SUN.up&&SUN.alt>1)
+       ? '<b style="color:#2E8B57">لا لوح مظلّل</b> في هذه اللحظة من '+PVSH.tot+' لوحاً.'
+       : 'الشمس تحت الأفق — لا تلوين.';
+     el.appendChild(d2);}
+    tip('اللوح <b style="color:#C0392B">الأحمر</b> مظلّل بكامله و<b style="color:#E8A33D">الكهرماني</b> '+
+        'مظلّل جزئياً. شغّل المحاكاة وراقب أي لوح يحمرّ ومتى — هناك موضع الخلل. '+
+        'التلوين يظهر في الفيديو المسجَّل أيضاً.');
 
     grp('محاكاة حركة الشمس');
     {const S0=seasonOf(+M.sMon,+M.sDay);
