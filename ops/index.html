@@ -132,6 +132,14 @@ tr.sum td{font-weight:900;background:#f7f9fc;border-top:2px solid var(--line)}
   .card{box-shadow:none;break-inside:avoid}
   tr{break-inside:avoid}.doc h4{break-after:avoid}
 }
+.grp{border:1px solid var(--line);border-radius:12px;margin:0 12px 10px;overflow:hidden;background:#fff}
+.grph{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--blue-l);border-bottom:1px solid #cfe1f3}
+.grph .gi{font-size:15px}.grph .gn{flex:1;font-weight:800;color:var(--blue-d);font-size:14.5px}
+.mrow{display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:1px solid var(--line2)}
+.mrow .mn{flex:1;font-size:14.5px;font-weight:600}
+.mrow .mq{width:74px;text-align:center;padding:8px 4px;margin:0}
+.mrow .mu{font-size:11.5px;color:var(--mut);min-width:34px}
+.addrow{width:100%;border:0;background:none;padding:10px;color:var(--blue);font-weight:800;font-size:13.5px}
 </style>
 </head>
 <body>
@@ -266,7 +274,7 @@ function seed(){
   items:catalog(),
   contacts:[{id:uid(),name:'الوالد — المحل',phone:'',role:'طلبات البضاعة',updatedAt:now()},
             {id:uid(),name:'الأخ — المتابعة',phone:'',role:'استفسارات الزبائن',updatedAt:now()}],
-  expTypes:['بنزين','مازوت','نقل / تكسي','أكل عمال','صيانة سيارة','كرا معدات','أخرى'],
+  expTypes:['بنزين','مازوت','عدّة ومعدات','نقل / تكسي','أكل عمال','صيانة سيارة','كرا معدات','أخرى'],
   tasks:['تركيب مكيف','صيانة مكيف','تعبئة غاز','تمديدات نحاس','تركيب طاقة شمسية','صيانة إنفرتر',
     'تمديدات صحية','تركيب مغاسل','شوفاج','مسبح','عزل','كهرباء وتابلوه','كشف وتسعير','تنظيف وتسليم'],
   days:[],jobs:[],atts:[],fixes:[],orders:[],inquiries:[]
@@ -280,6 +288,7 @@ function loadLocal(){
   const s=seed();
   for(const k in s){if(DB[k]==null)DB[k]=s[k]}
   for(const k in s.meta){if(DB.meta[k]==null)DB.meta[k]=s.meta[k]}
+  s.expTypes.forEach(t=>{if(!DB.expTypes.includes(t))DB.expTypes.splice(s.expTypes.indexOf(t),0,t)});
   DB.items.forEach(i=>{if(!i.hist)i.hist=[];if(i.sup==null)i.sup=''});
   DB.workers.forEach(w=>{if(w.phone==null)w.phone=''});
   try{SY.cfg=JSON.parse(localStorage.getItem(CFGKEY)||'null')}catch(e){SY.cfg=null}
@@ -431,7 +440,7 @@ function renderTabs(){
   const T=S.role==='foreman'
     ?(frmFull()
       ?[['day','👷','العمال'],['mat','📦','البضاعة'],['cash','💵','نقد'],['follow','📎','متابعة'],['send','📤','إرسال']]
-      :[['day','📋','الورقة'],['follow','📷','صور'],['send','📤','إرسال']])
+      :[['day','📋','الورقة'],['cash','💵','نقد'],['follow','📷','صور'],['send','📤','إرسال']])
     :S.role==='manager'
     ?[['dash','📊','لوحة'],['days','🗓','يوميات'],['jobs','📅','مواعيد'],['rep','📈','تقارير'],['arch','🗄','أرشيف'],['data','⚙️','بيانات']]
     :[['orders','🧾','الطلبات'],['inq','📞','استفسارات'],['cat','🔎','البضاعة']];
@@ -468,9 +477,9 @@ const frmFull=()=>!!DB.meta.frmFull;
 function viewForeman(){
   const d=curDay();
   if(!frmFull()){
-    /* تبويبا البضاعة والنقد مطويّان داخل الورقة أو منقولان للإدارة */
-    if(S.tab==='mat'||S.tab==='cash')S.tab='day';
-    return S.tab==='follow'?vFollow(d):S.tab==='send'?vSend(d):vLabor(d)+vMat(d);
+    /* البضاعة مطويّة داخل الورقة، والنقد قسم مستقلّ بأبوابه الخمسة */
+    if(S.tab==='mat')S.tab='day';
+    return S.tab==='cash'?vCashSimple(d):S.tab==='follow'?vFollow(d):S.tab==='send'?vSend(d):vLabor(d)+vSheetMat(d);
   }
   return S.tab==='day'?vLabor(d):S.tab==='mat'?vMat(d):S.tab==='cash'?vCash(d):S.tab==='follow'?vFollow(d):vSend(d);
 }
@@ -501,10 +510,127 @@ function vLabor(d){
       ${LW().filter(w=>w.active).map(w=>`<button class="chip" data-act="addWorker" data-id="${w.id}" ${dis}>+ ${esc(w.name)}</button>`).join('')}
       <button class="chip o" data-act="pk" data-kind="worker" ${dis}>🔍 بحث / عامل جديد</button></div>
     ${d.labor.length?rows:'<div class="empty">اضغط اسم أي عامل بالأعلى لتسجيل دوامه.</div>'}
-    <div class="tot"><span>مجموع الساعات</span><span>${fmt(dayHours(d))} ساعة</span></div>
-    ${full?`<div class="tot"><span>كلفة اليد العاملة</span><span>${cur()}${fmt(dayLab(d))}</span></div>`:''}</div>
+    <div class="tot" data-tot="hours"><span>مجموع الساعات</span><span>${fmt(dayHours(d))} ساعة</span></div>
+    ${full?`<div class="tot" data-tot="lab"><span>كلفة اليد العاملة</span><span>${cur()}${fmt(dayLab(d))}</span></div>`:''}</div>
   ${d.labor.length?`<button class="btn ghost w" data-act="allTimes" ${dis}>⏱ ضبط دوام الجميع 8:00 — 17:00</button><div style="height:10px"></div>`:''}
   <button class="btn ghost w" data-act="copyPrev" ${dis}>📋 نسخ عمال آخر يومية</button>`;
+}
+/* ===== بضاعة الورشات: العنوان أولاً ثمّ البنود تحته =====
+   الزبون يُختار مرّة لكل ورشة لا مرّة لكل بند — هذا وحده ما يرفع عبء الإدخال.
+   بضاعة المستودع بلا سعر (الإدارة تسعّرها)؛ الشراء النقدي له بابه في تبويب النقد. */
+const stockOf=d=>(d.materials||[]).filter(m=>m.src!=='شراء من السوق');
+const buysOf =d=>(d.materials||[]).filter(m=>m.src==='شراء من السوق');
+function matGroups(d){
+  const g=[],ix=new Map();
+  stockOf(d).forEach(m=>{const k=m.clientId||'';
+    if(!ix.has(k)){ix.set(k,g.length);g.push({clientId:k,rows:[]})}
+    g[ix.get(k)].rows.push({m,i:d.materials.indexOf(m)})});
+  return g;
+}
+function vSheetMat(d){
+  const dis=locked(d)?'disabled':'';
+  const G=matGroups(d);
+  const grp=G.map(g=>`<div class="grp">
+    <div class="grph"><span class="gi">🏗</span>
+      <div class="gn">${g.clientId?esc(clientName(g.clientId)):'بلا ورشة محدّدة'}</div>
+      <span class="badge s">${g.rows.length} بند</span>
+      <button class="del" data-act="pkGrp" data-cid="${g.clientId}" ${dis}>✎</button></div>
+    ${g.rows.map(({m,i})=>`<div class="mrow">
+      <div class="mn">${esc(itemName(m))}</div>
+      <input type="number" inputmode="decimal" class="mq" value="${m.qty}" data-act="fld" data-p="materials" data-i="${i}" data-k="qty" ${dis}>
+      <span class="mu">${esc(item(m.itemId)?item(m.itemId).unit:'وحدة')}</span>
+      <button class="del" data-act="delMat" data-i="${i}" ${dis}>✕</button></div>`).join('')}
+    <button class="addrow" data-act="addToGrp" data-cid="${g.clientId}" ${dis}>＋ بند إلى ${g.clientId?esc(clientName(g.clientId)):'هذه المجموعة'}</button>
+  </div>`).join('');
+  return `<div class="card"><h3>📦 بضاعة الورشات <span class="n">${stockOf(d).length} بند</span></h3>
+    ${G.length?grp:'<div class="empty">ابدأ باختيار الورشة، ثمّ أضف بنودها تحتها.</div>'}
+    <div class="pad"><button class="btn ghost w" data-act="newGrp" ${dis}>🏗 ＋ بضاعة ورشة جديدة</button></div>
+    <div class="tot" data-tot="count"><span>عدد البنود</span><span>${stockOf(d).length}</span></div></div>`;
+}
+/* ===== نقد الفورمان =====
+   السعر هنا يعرفه الفورمان لأنه دفعه بيده: شراء نقدي · محروقات · عدّة.
+   بضاعة المستودع وحدها بلا سعر، وتسعّرها الإدارة من الفاتورة. */
+function vCashSimple(d){
+  const dis=locked(d)?'disabled':'';
+  const bal=custodyBal(d);
+  const isFuel=e=>e.type==='بنزين'||e.type==='مازوت';
+  const isTool=e=>e.type==='عدّة ومعدات';
+  const eRows=(pred,ph)=>d.expenses.map((e,i)=>({e,i})).filter(({e})=>pred(e)).map(({e,i})=>`<div class="item">
+    <div class="hd"><div class="nm">${esc(e.type)}</div><span class="badge s">${cur()}${fmt(e.amount)}</span>
+      <button class="del" data-act="delExp" data-i="${i}" ${dis}>✕</button></div>
+    ${isFuel(e)?`<div class="g3" style="margin-bottom:8px">
+      <div><label class="f">ليتر</label><input type="number" inputmode="decimal" value="${e.liters||''}" data-act="fld" data-p="expenses" data-i="${i}" data-k="liters" ${dis}></div>
+      <div><label class="f">سعر الليتر</label><input type="number" inputmode="decimal" value="${e.lprice||''}" data-act="fld" data-p="expenses" data-i="${i}" data-k="lprice" ${dis}></div>
+      <div><label class="f">المبلغ</label><input type="number" inputmode="decimal" value="${e.amount}" data-act="fld" data-p="expenses" data-i="${i}" data-k="amount" ${dis}></div></div>`
+    :`<div class="g2" style="margin-bottom:8px">
+      <div><label class="f">المبلغ المدفوع</label><input type="number" inputmode="decimal" value="${e.amount}" data-act="fld" data-p="expenses" data-i="${i}" data-k="amount" ${dis}></div>
+      <div><label class="f">${ph}</label><input type="text" value="${esc(e.note||'')}" data-act="fld" data-p="expenses" data-i="${i}" data-k="note" ${dis}></div></div>`}
+    <button class="pick ${e.clientId?'':'empty'}" data-act="pk" data-kind="client" data-p="expenses" data-i="${i}" ${dis}>${e.clientId?esc(clientName(e.clientId)):'بلا ورشة (مصروف عام)'}</button>
+  </div>`).join('');
+
+  const buys=d.materials.map((m,i)=>({m,i})).filter(({m})=>m.src==='شراء من السوق').map(({m,i})=>`<div class="item">
+    <div class="hd"><div class="nm">${esc(itemName(m))}</div><span class="badge ${n(m.price)?'s':'r'}">${cur()}${fmt(matTotal(m))}</span>
+      <button class="del" data-act="delMat" data-i="${i}" ${dis}>✕</button></div>
+    <div class="g3" style="margin-bottom:8px">
+      <div><label class="f">الكمية</label><input type="number" inputmode="decimal" value="${m.qty}" data-act="fld" data-p="materials" data-i="${i}" data-k="qty" ${dis}></div>
+      <div><label class="f">سعر الوحدة</label><input type="number" inputmode="decimal" value="${m.price}" data-act="fld" data-p="materials" data-i="${i}" data-k="price" ${dis}></div>
+      <div><label class="f">من محل</label>
+        <button class="pick sm ${m.supId?'':'empty'}" data-act="pk" data-kind="supplier" data-p="materials" data-i="${i}" ${dis}>${m.supId?esc(supName(m.supId)):'اختر'}</button></div></div>
+    <button class="pick ${m.clientId?'':'empty'}" data-act="pk" data-kind="client" data-p="materials" data-i="${i}" ${dis}>${m.clientId?esc(clientName(m.clientId)):'لأي ورشة؟'}</button>
+  </div>`).join('');
+
+  const rev=d.revenues.map((r,i)=>`<div class="item">
+    <div class="hd"><div class="nm">${r.clientId?esc(clientName(r.clientId)):'زبون'}</div><span class="badge a">${cur()}${fmt(r.amount)}</span>
+      <button class="del" data-act="delRev" data-i="${i}" ${dis}>✕</button></div>
+    <div class="g2" style="margin-bottom:8px">
+      <div><label class="f">المبلغ المقبوض</label><input type="number" inputmode="decimal" value="${r.amount}" data-act="fld" data-p="revenues" data-i="${i}" data-k="amount" ${dis}></div>
+      <div><label class="f">ملاحظة</label><input type="text" value="${esc(r.note||'')}" data-act="fld" data-p="revenues" data-i="${i}" data-k="note" ${dis}></div></div>
+    <button class="pick ${r.clientId?'':'empty'}" data-act="pk" data-kind="client" data-p="revenues" data-i="${i}" ${dis}>${r.clientId?esc(clientName(r.clientId)):'من أي زبون؟'}</button>
+  </div>`).join('');
+
+  const cin=d.custody.map((c,i)=>({c,i})).filter(({c})=>c.dir==='in').map(({c,i})=>`<div class="item">
+    <div class="hd"><div class="nm">⬅️ ${esc(c.label||'استلام')}</div><span class="badge a" dir="ltr">+${cur()}${fmt(c.amount)}</span>
+      <button class="del" data-act="delCash" data-i="${i}" ${dis}>✕</button></div>
+    <div class="g2">
+      <div><label class="f">المبلغ</label><input type="number" inputmode="decimal" value="${c.amount}" data-act="fld" data-p="custody" data-i="${i}" data-k="amount" ${dis}></div>
+      <div><label class="f">من (اسم)</label><input type="text" value="${esc(c.note||'')}" data-act="fld" data-p="custody" data-i="${i}" data-k="note" ${dis}></div></div>
+  </div>`).join('');
+
+  return `${lockNote(d)}
+  <div class="card"><h3>🛒 مشتريات نقدية <span class="n">${buysOf(d).length}</span></h3>
+    <div class="chips"><div class="t">ما اشتريته من السوق ودفعت ثمنه — السعر مطلوب هنا</div>
+      <button class="chip" data-act="newBuy" ${dis}>＋ شراء نقدي</button></div>
+    ${buys||'<div class="empty">لا مشتريات نقدية اليوم.</div>'}
+    <div class="tot" data-tot="buys"><span>مجموع الشراء النقدي</span><span>${cur()}${fmt(custodyBuys(d))}</span></div></div>
+
+  <div class="card"><h3>⛽️ مصاريف محروقات <span class="n">${d.expenses.filter(isFuel).length}</span></h3>
+    <div class="chips">
+      <button class="chip" data-act="addExp" data-t="بنزين" ${dis}>＋ بنزين</button>
+      <button class="chip o" data-act="addExp" data-t="مازوت" ${dis}>＋ مازوت</button></div>
+    ${eRows(isFuel,'ملاحظة')||'<div class="empty">لا محروقات اليوم.</div>'}
+    <div class="tot"><span>ليترات</span><span>${fmt(d.expenses.filter(isFuel).reduce((a,e)=>a+n(e.liters),0))} ل</span></div>
+    <div class="tot"><span>قيمة المحروقات</span><span>${cur()}${fmt(d.expenses.filter(isFuel).reduce((a,e)=>a+n(e.amount),0))}</span></div></div>
+
+  <div class="card"><h3>🧰 العدّة والمصاريف الأخرى <span class="n">${d.expenses.filter(e=>!isFuel(e)).length}</span></h3>
+    <div class="chips">
+      <button class="chip" data-act="addExp" data-t="عدّة ومعدات" ${dis}>＋ عدّة ومعدات</button>
+      ${DB.expTypes.filter(t=>t!=='بنزين'&&t!=='مازوت'&&t!=='عدّة ومعدات').map(t=>`<button class="chip o" data-act="addExp" data-t="${esc(t)}" ${dis}>＋ ${esc(t)}</button>`).join('')}</div>
+    ${eRows(e=>!isFuel(e),'وصف / ملاحظة')||'<div class="empty">لا مصاريف أخرى.</div>'}
+    <div class="tot"><span>مجموع المصاريف</span><span>${cur()}${fmt(dayExp(d))}</span></div></div>
+
+  <div class="card"><h3>🧾 مقبوضات نقدية من الزبون <span class="n">${d.revenues.length}</span></h3>
+    <div class="chips"><div class="t">ما قبضته من الزبائن اليوم</div>
+      <button class="chip" data-act="newRevC" ${dis}>＋ مقبوض من زبون</button></div>
+    ${rev||'<div class="empty">لم تقبض شيئاً من زبون اليوم.</div>'}
+    <div class="tot"><span>مجموع المقبوض</span><span>${cur()}${fmt(dayRev(d))}</span></div></div>
+
+  <div class="card"><h3>💵 مقبوضات نقدية من iCOOL <span class="n">${d.custody.filter(c=>c.dir==='in').length}</span></h3>
+    <div class="chips"><div class="t">ما سلّمتك إيّاه الإدارة لتصرف منه</div>
+      <button class="chip" data-act="addCash" data-d="in" data-l="استلام من iCOOL" ${dis}>＋ استلمت من iCOOL</button></div>
+    ${cin||'<div class="empty">لم تستلم عهدة اليوم.</div>'}
+    <div class="tot"><span>استلمت</span><span>${cur()}${fmt(custodyIn(d))}</span></div>
+    <div class="tot"><span>صرفت (شراء + مصاريف)</span><span>${cur()}${fmt(custodyOut(d))}</span></div>
+    <div class="tot"><span><b>الباقي معك</b></span><span style="color:${bal<0?'var(--bad)':'var(--ok)'}"><b>${cur()}${fmt(bal)}</b></span></div></div>`;
 }
 function vMat(d){
   const dis=locked(d)?'disabled':'';
@@ -536,9 +662,9 @@ function vMat(d){
       ${freq.map(it=>`<button class="chip" data-act="addMat" data-id="${it.id}" ${dis}>+ ${esc(it.name)}</button>`).join('')}
       <button class="chip o" data-act="pk" data-kind="item" ${dis}>🔍 بحث / بند جديد</button></div>
     ${d.materials.length?rows:'<div class="empty">ابحث عن البند أو اضغط أحد البنود السريعة بالأعلى.</div>'}
-    ${full?`<div class="tot"><span>قيمة البضاعة</span><span>${cur()}${fmt(dayMat(d))}</span></div>
-    <div class="tot"><span>شراء نقدي</span><span>${cur()}${fmt(custodyBuys(d))}</span></div>
-    <div class="tot"><span>على حساب الموردين</span><span>${cur()}${fmt(d.materials.filter(m=>m.pay==='على الحساب').reduce((s,m)=>s+matTotal(m),0))}</span></div>`
+    ${full?`<div class="tot" data-tot="mat"><span>قيمة البضاعة</span><span>${cur()}${fmt(dayMat(d))}</span></div>
+    <div class="tot" data-tot="buys"><span>شراء نقدي</span><span>${cur()}${fmt(custodyBuys(d))}</span></div>
+    <div class="tot" data-tot="cred"><span>على حساب الموردين</span><span>${cur()}${fmt(d.materials.filter(m=>m.pay==='على الحساب').reduce((s,m)=>s+matTotal(m),0))}</span></div>`
     :`<div class="tot"><span>عدد البنود</span><span>${d.materials.length}</span></div>`}</div>`;
 }
 function vCash(d){
@@ -556,7 +682,7 @@ function vCash(d){
   </div>`).join('');
   const cash=d.custody.map((c,i)=>`<div class="item">
     <div class="hd"><div class="nm">${c.dir==='in'?'⬅️ ':'➡️ '}${esc(c.label||'')}</div>
-      <span class="badge ${c.dir==='in'?'a':'r'}">${c.dir==='in'?'+':'−'}${cur()}${fmt(c.amount)}</span>
+      <span class="badge ${c.dir==='in'?'a':'r'}" dir="ltr">${c.dir==='in'?'+':'−'}${cur()}${fmt(c.amount)}</span>
       <button class="del" data-act="delCash" data-i="${i}" ${dis}>✕</button></div>
     <div class="g2" style="margin-bottom:${c.label==='دفعة لمورّد'?'8px':'0'}">
       <div><label class="f">المبلغ</label><input type="number" inputmode="decimal" value="${c.amount}" data-act="fld" data-p="custody" data-i="${i}" data-k="amount" ${dis}></div>
@@ -620,27 +746,36 @@ function vSend(d){
   if(!d.foreman)probs.push('اسم الفورمان غير محدّد');
   if(!d.labor.length)probs.push('لا يوجد عمال مسجّلين');
   d.labor.forEach((r,i)=>{if(!r.clientId)probs.push(`العامل ${i+1}: مكان العمل غير محدّد`)});
-  d.materials.forEach((m,i)=>{if(!m.clientId)probs.push(`البند ${i+1}: الموقع غير محدّد`);
-    if(!n(m.qty))probs.push(`البند ${i+1}: الكمية صفر`);
-    /* السعر والمورّد تضعهما الإدارة من الفاتورة، فلا يُطالَب بهما الفورمان */
-    if(full&&!n(m.price))probs.push(`البند ${i+1}: السعر صفر`);
-    if(full&&m.src==='شراء من السوق'&&!m.supId)probs.push(`البند ${i+1}: المورّد غير محدّد`)});
+  d.materials.forEach((m,i)=>{const nm=itemName(m);
+    if(!m.clientId)probs.push(`${nm}: الورشة غير محدّدة`);
+    if(!n(m.qty))probs.push(`${nm}: الكمية صفر`);
+    /* سعر بضاعة المستودع تضعه الإدارة؛ أمّا الشراء النقدي فالفورمان دفعه بيده */
+    if(m.src==='شراء من السوق'&&!n(m.price))probs.push(`${nm}: شراء نقدي بلا سعر`);
+    if(full&&m.src!=='شراء من السوق'&&!n(m.price))probs.push(`${nm}: السعر صفر`);
+    if(full&&m.src==='شراء من السوق'&&!m.supId)probs.push(`${nm}: المورّد غير محدّد`)});
+  d.expenses.forEach(e=>{if(!n(e.amount))probs.push(`${esc(e.type)}: المبلغ صفر`)});
+  d.revenues.forEach(r=>{if(!n(r.amount))probs.push(`مقبوض من ${r.clientId?clientName(r.clientId):'زبون'}: المبلغ صفر`)});
+  d.custody.forEach(c=>{if(!n(c.amount))probs.push(`${esc(c.label||'عهدة')}: المبلغ صفر`)});
   const sum=`يومية ${dayName(d.date)} ${d.date}
 الفورمان: ${d.foreman||'—'}
 عمال ${d.labor.length} — ساعات ${fmt(dayHours(d))}
 ${d.labor.map(r=>`• ${workerName(r.workerId)} | ${r.from||''}-${r.to||''} | ${clientName(r.clientId)} | ${r.task||''}`).join('\n')}
-بضاعة ${full?cur()+fmt(dayMat(d)):d.materials.length+' بند'}
-${d.materials.map(m=>full
+بضاعة ${full?cur()+fmt(dayMat(d)):stockOf(d).length+' بند'}
+${(full?d.materials:stockOf(d)).map(m=>full
   ?`• ${itemName(m)} ${fmt(m.qty)}×${fmt(m.price)}=${fmt(matTotal(m))} | ${clientName(m.clientId)}`
-  :`• ${itemName(m)} ${fmt(m.qty)} | ${clientName(m.clientId)}`).join('\n')}${full
-  ?`\nمصاريف ${cur()}${fmt(dayExp(d))} — مقبوض ${cur()}${fmt(dayRev(d))} — عهدة ${cur()}${fmt(custodyBal(d))}`:''}`;
+  :`• ${itemName(m)} ${fmt(m.qty)} | ${clientName(m.clientId)}`).join('\n')}${full?'':buysOf(d).length?`
+شراء نقدي ${cur()}${fmt(custodyBuys(d))}
+${buysOf(d).map(m=>`• ${itemName(m)} ${fmt(m.qty)}×${fmt(m.price)}=${fmt(matTotal(m))} | ${clientName(m.clientId)}`).join('\n')}`:''}
+مصاريف ${cur()}${fmt(dayExp(d))} — مقبوض ${cur()}${fmt(dayRev(d))} — عهدة ${cur()}${fmt(custodyBal(d))}`;
   return `<div class="kpis">
     <div class="kpi b"><div class="l">عمال</div><div class="v">${d.labor.length}</div></div>
     <div class="kpi b"><div class="l">ساعات</div><div class="v">${fmt(dayHours(d))}</div></div>
     ${full?`<div class="kpi n"><div class="l">بضاعة + مصاريف</div><div class="v">${cur()}${fmt(dayMat(d)+dayExp(d))}</div></div>
     <div class="kpi p"><div class="l">مقبوض</div><div class="v">${cur()}${fmt(dayRev(d))}</div></div>`
     :`<div class="kpi b"><div class="l">بنود بضاعة</div><div class="v">${d.materials.length}</div></div>
-    <div class="kpi ${attsOf(d.id).length?'p':'n'}"><div class="l">صور مرفقة</div><div class="v">${attsOf(d.id).length}</div></div>`}</div>
+    <div class="kpi n"><div class="l">صرفت نقداً</div><div class="v">${cur()}${fmt(custodyOut(d))}</div></div>
+    <div class="kpi p"><div class="l">قبضت</div><div class="v">${cur()}${fmt(dayRev(d))}</div></div>
+    <div class="kpi ${custodyBal(d)<0?'n':'p'}"><div class="l">باقي العهدة</div><div class="v">${cur()}${fmt(custodyBal(d))}</div></div>`}</div>
   ${probs.length?`<div class="note"><b>قبل الإرسال أكمل:</b><br>${probs.map(p=>'• '+esc(p)).join('<br>')}</div>`:''}
   <div class="card"><h3>📤 إرسال يومية ${dayName(d.date)} ${d.date}</h3>
     <div class="pad"><label class="f">ملاحظة للإدارة</label>
@@ -896,7 +1031,7 @@ function cashDesk(d){
   </div>`).join('');
   const cash=d.custody.map((c,i)=>`<div class="item">
     <div class="hd"><div class="nm">${c.dir==='in'?'⬅️ ':'➡️ '}${esc(c.label||'')}</div>
-      <span class="badge ${c.dir==='in'?'a':'r'}">${c.dir==='in'?'+':'−'}${cur()}${fmt(c.amount)}</span>
+      <span class="badge ${c.dir==='in'?'a':'r'}" dir="ltr">${c.dir==='in'?'+':'−'}${cur()}${fmt(c.amount)}</span>
       <button class="del" data-act="delCashM" data-id="${d.id}" data-i="${i}">✕</button></div>
     <div class="g2" style="margin-bottom:${c.label==='دفعة لمورّد'?'8px':'0'}">
       <div><label class="f">المبلغ</label><input type="number" inputmode="decimal" value="${c.amount}" data-act="fldD" data-day="${d.id}" data-p="custody" data-i="${i}" data-k="amount"></div>
@@ -1648,6 +1783,22 @@ function applyPick(id){
   const d=curDay();
   if(p.kind==='foreman'){d.foreman=id;DB.meta.foreman=id;saveMeta()}
   else if(p.kind==='worker'){c.p==null?addLabor(id):d.labor[c.i].workerId=id}
+  else if(p.kind==='client'&&c.mode==='matgrp'){
+    /* اختيار الورشة يفتح منتقي البند فوراً: المجموعة تُنشأ ببندها الأوّل */
+    S.matCid=id;closePicker();openPicker('item',{mode:'matadd'});return}
+  else if(p.kind==='client'&&c.mode==='matmove'){
+    /* تغيير عنوان مجموعة كاملة يُعيد توجيه كل بنودها */
+    const from=S.matCid||'';
+    d.materials.forEach(m=>{if(m.src!=='شراء من السوق'&&(m.clientId||'')===from)m.clientId=id});
+    saveDay(d);closePicker();render();return}
+  else if(p.kind==='client'&&c.mode==='revadd'){
+    d.revenues.push({id:uid(),clientId:id,amount:'',note:'',kind:'قبض نقدي'});
+    saveDay(d);closePicker();render();return}
+  else if(p.kind==='item'&&(c.mode==='matadd'||c.mode==='buyadd')){
+    addMat(id);const m=d.materials[d.materials.length-1];
+    if(c.mode==='matadd'){m.clientId=S.matCid||'';m.src='المستودع';m.price=0}
+    else{m.src='شراء من السوق';m.pay='نقداً';m.qty=1}
+    saveDay(d);closePicker();render();return}
   else if(p.kind==='item'){if(c.mode==='manage'){closePicker();editItem(id);return}
     if(c.p==null)addMat(id);else{const m=d.materials[c.i],it=item(id)||{};m.itemId=id;m.price=it.price||m.price;if(it.sup)m.supId=it.sup}}
   else if(p.kind==='client'){if(c.mode!=='manage')d[c.p][c.i].clientId=id}
@@ -1859,6 +2010,12 @@ document.addEventListener('click',e=>{
     case 'addCash':if(need())break;d.custody.push({id:uid(),dir:t.dataset.d,label:t.dataset.l,amount:'',note:'',supId:''});saveDay(d);render();break;
     case 'delCash':if(need())break;d.custody.splice(i,1);saveDay(d);render();break;
     case 'addRev':if(need())break;d.revenues.push({id:uid(),clientId:'',amount:'',kind:'قبض نقدي'});saveDay(d);render();break;
+    /* ===== الإدخال المجمّع: الورشة أولاً ثمّ بنودها ===== */
+    case 'newGrp':if(need())break;openPicker('client',{mode:'matgrp'});break;
+    case 'addToGrp':if(need())break;S.matCid=t.dataset.cid||'';openPicker('item',{mode:'matadd'});break;
+    case 'pkGrp':if(need())break;S.matCid=t.dataset.cid||'';openPicker('client',{mode:'matmove'});break;
+    case 'newBuy':if(need())break;openPicker('item',{mode:'buyadd'});break;
+    case 'newRevC':if(need())break;openPicker('client',{mode:'revadd'});break;
     case 'delRev':if(need())break;d.revenues.splice(i,1);saveDay(d);render();break;
     case 'send':{if(!d.foreman){toast('حدّد اسم الفورمان');break}
       if(!d.labor.length){toast('سجّل عاملاً واحداً على الأقل');break}
@@ -1999,12 +2156,14 @@ document.addEventListener('change',e=>{
   else if(a==='fld'&&['src','from','to','kind','pay'].includes(t.dataset.k))render();
 });
 function refreshTotals(){
-  const d=curDay(),t=document.querySelectorAll('.tot');if(!t.length)return;
-  if(S.tab==='mat'){t[0].lastElementChild.textContent=cur()+fmt(dayMat(d));
-    if(t[1])t[1].lastElementChild.textContent=cur()+fmt(custodyBuys(d));
-    if(t[2])t[2].lastElementChild.textContent=cur()+fmt(d.materials.filter(m=>m.pay==='على الحساب').reduce((s,m)=>s+matTotal(m),0))}
-  if(S.tab==='day'){t[0].lastElementChild.textContent=fmt(dayHours(d))+' ساعة';
-    if(t[1])t[1].lastElementChild.textContent=cur()+fmt(dayLab(d))}
+  const d=curDay();
+  const put=(k,txt)=>{const e=document.querySelector(`.tot[data-tot="${k}"]`);if(e)e.lastElementChild.textContent=txt};
+  put('hours',fmt(dayHours(d))+' ساعة');
+  put('lab',cur()+fmt(dayLab(d)));
+  put('count',String(stockOf(d).length));
+  put('mat',cur()+fmt(dayMat(d)));
+  put('buys',cur()+fmt(custodyBuys(d)));
+  put('cred',cur()+fmt(d.materials.filter(m=>m.pay==='على الحساب').reduce((s,m)=>s+matTotal(m),0)));
 }
 /* ================= صحة التخزين ================= */
 let ST={pct:0,used:0,quota:0,persist:false};
