@@ -140,6 +140,8 @@ tr.sum td{font-weight:900;background:#f7f9fc;border-top:2px solid var(--line)}
 .mrow .mq{width:74px;text-align:center;padding:8px 4px;margin:0}
 .mrow .mu{font-size:11.5px;color:var(--mut);min-width:34px}
 .addrow{width:100%;border:0;background:none;padding:10px;color:var(--blue);font-weight:800;font-size:13.5px}
+.chips.sug{background:#fbfcfe;border-top:1px solid var(--line2);padding-top:8px}
+.chips.sug .t{color:var(--blue-d)}
 </style>
 </head>
 <body>
@@ -283,6 +285,7 @@ function seed(){
 /* ================= التخزين ================= */
 const COLS=['workers','items','clients','suppliers','contacts','days','jobs','atts','fixes','orders','inquiries'];
 function loadLocal(){
+  bankLoad();
   let raw=null;try{raw=localStorage.getItem(KEY)||localStorage.getItem(OLD)}catch(e){}
   try{DB=raw?JSON.parse(raw):seed()}catch(e){DB=seed()}
   const s=seed();
@@ -304,6 +307,73 @@ function blobGet(id){return blobs()[id]||''}
 function blobSet(id,data){try{const b=blobs();b[id]=data;localStorage.setItem(BLOB,JSON.stringify(b))}catch(e){toast('لا مساحة كافية للصور')}}
 function blobDel(id){try{const b=blobs();delete b[id];localStorage.setItem(BLOB,JSON.stringify(b))}catch(e){}}
 
+/* ================= بنك الداتا =================
+   ملفّ اشتقاقات من منصّة القراءة: الأسماء المصحّحة وأسعار البضاعة وما تستهلكه
+   كل ورشة. يُدمج بالاسم المُطبَّع لا بالإلحاق الأعمى، وإلاّ تضاعفت القوائم.
+   يُخزَّن منفصلاً عن DB لأن حصّة localStorage ضيّقة أصلاً. */
+const BANKKEY='icool_bank';
+let BANK=null;
+function bankLoad(){try{BANK=JSON.parse(localStorage.getItem(BANKKEY)||'null')}catch(e){BANK=null}}
+function bankSave(b){try{localStorage.setItem(BANKKEY,JSON.stringify(b));BANK=b;return true}
+  catch(e){toast('البنك أكبر من مساحة الجهاز — صدّره من القارئ بعد تنظيف الأوراق');return false}}
+function bankClear(){try{localStorage.removeItem(BANKKEY)}catch(e){}BANK=null}
+
+/* بحث البنك عن بند بالاسم المُطبَّع */
+const bankItem=nm=>{if(!BANK)return null;const t=norm(nm||'');
+  return (BANK.items||[]).find(x=>norm(x.name)===t)||null};
+/* سعر مقترح: الأخير إن وُجد وإلاّ الوسيط */
+const bankPrice=nm=>{const b=bankItem(nm);return b?(b.price.last||b.price.med||0):0};
+/* ما تستهلكه ورشة عادةً — بأسماء بنود موجودة في الكتالوج */
+function bankSuggest(clientId,have){
+  if(!BANK||!clientId)return [];
+  const cn=norm(clientName(clientId));
+  const c=(BANK.clients||[]).find(x=>norm(x.name)===cn);
+  const names=c?c.items:(BANK.items||[]).slice(0,10).map(x=>x.name);
+  const skip=new Set((have||[]).map(x=>norm(itemName(x))));
+  const out=[];
+  names.forEach(nm=>{if(skip.has(norm(nm)))return;
+    const it=LI().find(x=>norm(x.name)===norm(nm));if(it)out.push(it)});
+  return out.slice(0,6);
+}
+
+function bankApply(b){
+  if(!b||b.fmt!=='icool-bank')throw new Error('هذا ليس ملف بنك داتا. المطلوب icool-bank-*.json من منصّة القراءة.');
+  const st={workers:0,clients:0,suppliers:0,items:0,tasks:0,exp:0,priced:0};
+  const D2=b.dict||{};
+  const has=(arr,nm)=>arr.find(x=>norm(x.name)===norm(nm));
+
+  (D2.worker||[]).forEach(o=>{if(!o.name||has(DB.workers,o.name))return;
+    DB.workers.push({id:uid(),name:o.name,daily:0,hourly:0,phone:'',role:'عامل',active:true,updatedAt:now()});st.workers++});
+  (D2.client||[]).forEach(o=>{if(!o.name||has(DB.clients,o.name))return;
+    DB.clients.push({id:uid(),name:o.name,type:'ورشة',phone:'',loc:'',contract:0,status:'open',created:today(),updatedAt:now()});st.clients++});
+  (D2.supplier||[]).forEach(o=>{if(!o.name||has(DB.suppliers,o.name))return;
+    DB.suppliers.push({id:uid(),name:o.name,area:'',phone:'',cat:'',terms:'',opening:0,updatedAt:now()});st.suppliers++});
+  (D2.task||[]).forEach(o=>{if(o.name&&!DB.tasks.some(t=>norm(t)===norm(o.name))){DB.tasks.push(o.name);st.tasks++}});
+  (D2.exp||[]).forEach(o=>{if(o.name&&!DB.expTypes.some(t=>norm(t)===norm(o.name))){DB.expTypes.push(o.name);st.exp++}});
+
+  /* البضاعة: البند الجديد يُضاف، والموجود يرث السعر والمورّد والتكرار */
+  (b.items||[]).forEach(o=>{
+    if(!o.name)return;
+    const pr=o.price&&(o.price.last||o.price.med)||0;
+    const sup=(o.sups||[])[0];
+    const supId=sup?(has(DB.suppliers,sup)||{}).id||'':'';
+    let it=has(DB.items,o.name);
+    if(!it){it={id:uid(),name:o.name,unit:o.unit||'قطعة',price:pr,cat:'من الأرشيف',used:o.n||0,sup:supId,hist:[]};
+      DB.items.push(it);st.items++}
+    else{
+      /* لا نطمس سعراً وضعتَه بيدك؛ نملأ الفارغ ونضيف التكرار التاريخي */
+      if(!n(it.price)&&pr){it.price=pr;st.priced++}
+      if(!it.sup&&supId)it.sup=supId;
+      if(!it.unit&&o.unit)it.unit=o.unit;
+      it.used=(it.used||0)+(o.n||0);
+    }
+    if(o.price&&(o.price.hist||[]).length)
+      it.hist=[...(o.price.hist||[]).map(h=>({d:h.d,p:h.p,s:''})).slice(-4)];
+  });
+  DB.meta.bankAt=today();
+  saveLocal();
+  return st;
+}
 /* ================= المزامنة ================= */
 let FS=null;
 function setSync(st){SY.state=st;paintPill()}
@@ -540,6 +610,9 @@ function vSheetMat(d){
       <input type="number" inputmode="decimal" class="mq" value="${m.qty}" data-act="fld" data-p="materials" data-i="${i}" data-k="qty" ${dis}>
       <span class="mu">${esc(item(m.itemId)?item(m.itemId).unit:'وحدة')}</span>
       <button class="del" data-act="delMat" data-i="${i}" ${dis}>✕</button></div>`).join('')}
+    ${(()=>{const sg=bankSuggest(g.clientId,g.rows.map(x=>x.m));
+      return sg.length?`<div class="chips sug"><div class="t">🧠 تستعمل عادةً في هذه الورشة</div>
+        ${sg.map(it=>`<button class="chip" data-act="sugAdd" data-cid="${g.clientId}" data-id="${it.id}" ${dis}>＋ ${esc(it.name)}</button>`).join('')}</div>`:''})()}
     <button class="addrow" data-act="addToGrp" data-cid="${g.clientId}" ${dis}>＋ بند إلى ${g.clientId?esc(clientName(g.clientId)):'هذه المجموعة'}</button>
   </div>`).join('');
   return `<div class="card"><h3>📦 بضاعة الورشات <span class="n">${stockOf(d).length} بند</span></h3>
@@ -1001,7 +1074,8 @@ function matPricing(d){
         <div class="g3" style="margin-bottom:8px">
           <div><label class="f">الكمية (${esc(it?it.unit:'وحدة')})</label>
             <input type="number" inputmode="decimal" value="${m.qty}" data-act="fldD" data-day="${d.id}" data-p="materials" data-i="${i}" data-k="qty"></div>
-          <div><label class="f">سعر الوحدة</label>
+          <div><label class="f">سعر الوحدة${(()=>{const b=bankItem(itemName(m));
+            return b&&b.price.k?` <span style="color:var(--blue);font-weight:800" data-act="useBank" data-day="${d.id}" data-i="${i}" data-p="${b.price.last||b.price.med}">↙${cur()}${fmt(b.price.last||b.price.med)}</span>`:''})()}</label>
             <input type="number" inputmode="decimal" value="${m.price}" data-act="fldD" data-day="${d.id}" data-p="materials" data-i="${i}" data-k="price"></div>
           <div><label class="f">المصدر</label><select data-act="fldD" data-day="${d.id}" data-p="materials" data-i="${i}" data-k="src">
             ${['المستودع','شراء من السوق','من الزبون'].map(o=>`<option ${m.src===o?'selected':''}>${o}</option>`).join('')}</select></div></div>
@@ -1696,6 +1770,21 @@ function mData(){
       <button class="btn ghost w" data-act="pk" data-kind="item" data-mode="manage">🔍 بحث وتعديل الأسعار</button>
       <div style="height:8px"></div><button class="btn ghost w" data-act="resetCat">➕ إضافة أي بنود ناقصة من القائمة القياسية</button>
       <div style="height:8px"></div><button class="btn ghost w" data-act="expItems">⬇︎ تصدير قاعدة البضاعة CSV</button></div></div>
+  <div class="card"><h3>🏦 بنك الداتا</h3><div class="pad">
+    ${BANK?`<div class="tot" style="border:0;padding:6px 0"><span>مصدره</span><span>${esc(BANK.src||'—')}</span></div>
+      <div class="tot" style="border:0;padding:6px 0"><span>المدّة المغطّاة</span><span dir="ltr">${esc(BANK.span.from||'—')} ← ${esc(BANK.span.to||'—')}</span></div>
+      <div class="tot" style="border:0;padding:6px 0"><span>الأوراق / الأسطر</span><span>${BANK.span.sheets} / ${BANK.span.rows}</span></div>
+      <div class="tot" style="border:0;padding:6px 0"><span>بنود لها سعر مؤرّخ</span><span>${(BANK.items||[]).filter(x=>x.price&&x.price.k).length}</span></div>
+      <div class="tot" style="border:0;padding:6px 0"><span>ورشات لها نمط استهلاك</span><span>${(BANK.clients||[]).length}</span></div>
+      <div style="height:10px"></div>`
+    :`<div class="mini">لا بنك داتا بعد. صدّره من منصّة القراءة: التصدير ← 🏦 بنك الداتا للمنصّة،
+       ثمّ استورده هنا. يملأ أسماء العمال والورشات والبضاعة والموردين ووصف الأعمال،
+       ويعطي كل بند سعره المؤرّخ، ويقترح على الفورمان ما تستهلكه كل ورشة عادةً.</div>
+      <div style="height:10px"></div>`}
+    <button class="btn g w" data-act="impBank">🏦 استيراد ملف بنك الداتا</button>
+    ${BANK?`<div style="height:8px"></div><button class="btn ghost w" data-act="delBank">حذف البنك من هذا الجهاز</button>
+      <div class="mini" style="margin-top:6px">الحذف لا يمسّ ما استُورد من أسماء وأسعار — يوقف الاقتراحات فقط.</div>`:''}
+  </div></div>
   <div class="card"><h3>🛡 صحة البيانات</h3><div class="pad">
     <div class="tot" style="border:0;padding:6px 0"><span>نسخة على السحابة</span><span>${SY.state==='live'?'✅ مزامنة لحظية':SY.state==='offline'?'🟠 بانتظار الشبكة':'❌ غير مفعّلة'}</span></div>
     <div class="tot" style="border:0;padding:6px 0"><span>تخزين دائم على الجهاز</span><span>${ST.persist?'✅ مضمون':'⚠️ غير مضمون'}</span></div>
@@ -1797,7 +1886,9 @@ function applyPick(id){
   else if(p.kind==='item'&&(c.mode==='matadd'||c.mode==='buyadd')){
     addMat(id);const m=d.materials[d.materials.length-1];
     if(c.mode==='matadd'){m.clientId=S.matCid||'';m.src='المستودع';m.price=0}
-    else{m.src='شراء من السوق';m.pay='نقداً';m.qty=1}
+    else{m.src='شراء من السوق';m.pay='نقداً';m.qty=1;
+      /* سعر مقترح من الأرشيف يوفّر على الفورمان كتابته، ويظلّ قابلاً للتعديل */
+      if(!n(m.price)){const bp=bankPrice(itemName(m));if(bp)m.price=bp}}
     saveDay(d);closePicker();render();return}
   else if(p.kind==='item'){if(c.mode==='manage'){closePicker();editItem(id);return}
     if(c.p==null)addMat(id);else{const m=d.materials[c.i],it=item(id)||{};m.itemId=id;m.price=it.price||m.price;if(it.sup)m.supId=it.sup}}
@@ -2014,6 +2105,9 @@ document.addEventListener('click',e=>{
     case 'newGrp':if(need())break;openPicker('client',{mode:'matgrp'});break;
     case 'addToGrp':if(need())break;S.matCid=t.dataset.cid||'';openPicker('item',{mode:'matadd'});break;
     case 'pkGrp':if(need())break;S.matCid=t.dataset.cid||'';openPicker('client',{mode:'matmove'});break;
+    case 'sugAdd':{if(need())break;addMat(t.dataset.id);
+      const m=d.materials[d.materials.length-1];m.clientId=t.dataset.cid||'';m.src='المستودع';m.price=0;
+      saveDay(d);render();break}
     case 'newBuy':if(need())break;openPicker('item',{mode:'buyadd'});break;
     case 'newRevC':if(need())break;openPicker('client',{mode:'revadd'});break;
     case 'delRev':if(need())break;d.revenues.splice(i,1);saveDay(d);render();break;
@@ -2045,6 +2139,8 @@ document.addEventListener('click',e=>{
     case 'addCashM':{const x=byId('days',t.dataset.id);if(!x)break;
       x.custody.push({id:uid(),dir:t.dataset.d,label:t.dataset.l,amount:'',note:'',supId:''});saveDay(x);render();break}
     case 'delCashM':{const x=byId('days',t.dataset.id);if(!x)break;x.custody.splice(i,1);saveDay(x);render();break}
+    case 'useBank':{const x=byId('days',t.dataset.id);if(!x)break;
+      x.materials[i].price=n(t.dataset.p);saveDay(x);render();break}
     case 'learnDay':{const x=byId('days',t.dataset.id);if(!x)break;
       let k=0;x.materials.forEach(m=>{if(n(m.price)){learnPrice(m);k++}});
       toast(k?`اعتُمد سعر ${k} بند في قاعدة البضاعة`:'لا أسعار لاعتمادها');render();break}
@@ -2106,6 +2202,22 @@ document.addEventListener('click',e=>{
       try{v?localStorage.setItem('icool_ai_key',v):localStorage.removeItem('icool_ai_key')}catch(e){}
       toast(v?'حُفظ المفتاح على هذا الجهاز':'أُزيل المفتاح');break}
     case 'exportJSON':dl('icool-backup-'+today()+'.json',JSON.stringify(DB,null,1),'application/json');markBackup();render();break;
+    case 'impBank':{const f=document.createElement('input');f.type='file';f.accept='.json,application/json';
+      f.onchange=()=>{const fl=f.files[0];if(!fl)return;const rd=new FileReader();
+        rd.onload=()=>{try{
+          const b=JSON.parse(rd.result);
+          const st=bankApply(b);
+          if(bankSave(b)){
+            const bits=[['عامل',st.workers],['ورشة',st.clients],['مورّد',st.suppliers],
+              ['بند',st.items],['وصف عمل',st.tasks],['نوع مصروف',st.exp]]
+              .filter(x=>x[1]).map(x=>`${x[1]} ${x[0]}`);
+            toast(bits.length?('أُضيف: '+bits.join(' · ')+(st.priced?` · سُعّر ${st.priced} بند`:'')):'البنك محدَّث — لا جديد');
+          }
+          render();
+        }catch(e){toast(e.message||'ملف غير صالح')}};
+        rd.readAsText(fl)};
+      f.click();break}
+    case 'delBank':if(confirm('يُحذف بنك الداتا من هذا الجهاز. الأسماء والأسعار المستوردة تبقى. متابعة؟')){bankClear();render()}break;
     case 'importJSON':{const f=document.createElement('input');f.type='file';f.accept='.json';
       f.onchange=()=>{const r=new FileReader();r.onload=()=>{try{DB=JSON.parse(r.result);saveLocal();render();toast('تم الاستيراد')}catch(err){toast('ملف غير صالح')}};r.readAsText(f.files[0])};f.click();break}
     case 'wipe':if(confirm('سيُمسح كل شيء من هذا الجهاز. متابعة؟')){DB=seed();try{localStorage.removeItem(BLOB)}catch(e){}saveLocal();render()}break;

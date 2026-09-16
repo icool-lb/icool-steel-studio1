@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d5aa7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="iCOOL Reader">
+<title>iCOOL Reader — قراءة اليوميات وتحويلها إلى جدول</title>
+<style>
+:root{--blue:#0d5aa7;--blue-d:#08406f;--blue-l:#e8f1fa;--orange:#f7941d;--orange-l:#fff4e3;
+--bg:#eef2f7;--card:#fff;--line:#dce3ec;--line2:#eff3f8;--txt:#0f1b2d;--mut:#65758b;
+--ok:#12855a;--ok-l:#e6f6ef;--bad:#c62828;--bad-l:#fdecec;--r:14px;--sh:0 1px 2px rgba(15,27,45,.06),0 6px 18px rgba(15,27,45,.06)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+background:var(--bg);color:var(--txt);font-size:16px;line-height:1.5;padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+.wrap{max-width:1000px;margin:0 auto;padding:12px}
+.top{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,var(--blue),var(--blue-d));color:#fff;padding:calc(8px + env(safe-area-inset-top)) 12px 10px}
+.top-in{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:9px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800}
+.logo b{background:var(--orange);color:#fff;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:14px}
+.logo span{font-size:16px}.logo i{font-style:normal;font-size:11px;opacity:.75;display:block;font-weight:600;margin-top:-3px}
+.top .sp{flex:1}
+.pill{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:12px;overflow:hidden}
+.card>h3{margin:0;padding:12px 14px;font-size:15px;font-weight:800;border-bottom:1px solid var(--line2);display:flex;gap:8px;align-items:center;background:#fbfcfe}
+.card>h3 .n{margin-inline-start:auto;font-size:12px;color:var(--mut);font-weight:700}
+.pad{padding:12px 14px}
+label.f{display:block;font-size:12px;font-weight:700;color:var(--mut);margin:0 0 4px 2px}
+input,select,textarea,button{font-family:inherit;font-size:16px}
+input[type=text],input[type=number],input[type=time],input[type=date],select,textarea{
+width:100%;background:#fff;border:1.5px solid var(--line);border-radius:11px;padding:10px 12px;color:var(--txt)}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.o{background:var(--orange)}.btn.g{background:var(--ok)}.btn.r{background:var(--bad)}
+.btn.ghost{background:#fff;color:var(--blue);border:1.5px solid var(--line)}
+.btn.w{width:100%}.btn.sm{padding:7px 11px;font-size:13.5px;border-radius:10px}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--blue-l);color:var(--blue-d);border:1px solid #cfe1f3;border-radius:999px;padding:6px 11px;font-size:13.5px;font-weight:700;margin:0 0 6px 6px}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.chip.o{background:var(--orange-l);border-color:#f6dcb4;color:#8a5200}
+.chips{padding:10px 14px 6px;border-bottom:1px solid var(--line2);background:#fbfcfe}
+.mini{font-size:12px;color:var(--mut);font-weight:700}
+.note{background:var(--orange-l);border:1px solid #f6dcb4;color:#7a4a00;border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:600;margin-bottom:12px}
+.note.b{background:var(--bad-l);border-color:#f3c5c5;color:#8a1c1c}
+.note.g{background:var(--ok-l);border-color:#bfe5d3;color:#0d5c40}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:11px;box-shadow:var(--sh)}
+.kpi .l{font-size:11px;color:var(--mut);font-weight:800}.kpi .v{font-size:19px;font-weight:900}
+.opt{padding:12px 14px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:10px;font-size:15px}
+.opt .sub{margin-inline-start:auto;font-size:12px;color:var(--mut);font-weight:700;text-align:end;white-space:nowrap}
+.empty{padding:22px;text-align:center;color:var(--mut);font-size:14px}
+.badge{font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;background:var(--line2);color:var(--mut)}
+.badge.a{background:var(--ok-l);color:var(--ok)}.badge.r{background:var(--bad-l);color:var(--bad)}
+.badge.d{background:var(--orange-l);color:#8a5200}.badge.s{background:var(--blue-l);color:var(--blue-d)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line2);text-align:start;white-space:nowrap}
+th{background:#f7f9fc;font-size:11px;color:var(--mut);font-weight:800;position:sticky;top:0;z-index:2}
+td.num{text-align:end;font-variant-numeric:tabular-nums}
+td.cell{cursor:pointer}
+td.raw{color:var(--bad);font-weight:700}
+td.fixed{color:var(--ok)}
+tr.sum td{font-weight:900;background:#f7f9fc}
+.seg{display:flex;background:#e4eaf2;border-radius:12px;padding:4px;gap:4px;margin-bottom:12px;overflow-x:auto}
+.seg button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:9px;font-weight:800;font-size:13px;color:var(--mut);white-space:nowrap}
+.seg button.on{background:#fff;color:var(--blue-d);box-shadow:var(--sh)}
+.tabbar{position:fixed;inset-inline:0;bottom:0;z-index:45;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar div{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
+.tabbar button{background:none;border:0;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mut);font-size:10.5px;font-weight:800}
+.tabbar button .ic{font-size:18px;line-height:1}.tabbar button.on{color:var(--blue)}
+.sheet{position:fixed;inset:0;z-index:80;background:rgba(9,20,35,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet .box{background:#fff;width:100%;max-width:1000px;max-height:92vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.sheet .hd{padding:14px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:10px}
+.sheet .bd{overflow:auto;padding:0 0 14px}
+.x{background:var(--line2);border:0;border-radius:10px;width:34px;height:34px;font-weight:800;color:var(--mut)}
+.thumb{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 12px 12px}
+.cgrid.head{padding-bottom:4px}
+.cdh{font-size:10px;color:var(--mut);font-weight:800;text-align:center}
+.cday{background:#f7f9fc;border:1px solid var(--line2);border-radius:9px;min-height:42px;padding:4px;text-align:center;font-size:13px;font-weight:700}
+.cday b{display:block;font-weight:800}
+.cday i{font-style:normal;font-size:10px;color:#fff;background:var(--blue);border-radius:99px;padding:0 5px;display:inline-block;margin-top:2px}
+.cday.has{background:var(--blue-l);border-color:#cfe1f3;color:var(--blue-d)}
+.cday.sel{background:var(--orange);color:#fff;border-color:var(--orange)}
+.crop{width:100%;border-radius:8px;border:1.5px solid var(--orange);background:#fff;margin-top:6px}
+.crop.nocrop{opacity:.85;max-height:150px;object-fit:cover;object-position:top}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px}
+.bar{height:8px;background:var(--line2);border-radius:99px;overflow:hidden;margin:8px 0}
+.bar i{display:block;height:100%;background:var(--ok)}
+@media(max-width:640px){.kpis{grid-template-columns:1fr 1fr}.gal{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-in">
+    <div class="logo"><b>iC</b><div><span>iCOOL Reader</span><i id="sub">قراءة اليوميات وأرشفتها</i></div></div>
+    <div class="sp"></div><span class="pill" id="pill">—</span>
+  </div>
+</div>
+<div class="wrap" id="app"></div>
+<div class="tabbar"><div id="tabs"></div></div>
+<div id="modal"></div>
+<script>
+/* =========================================================
+   iCOOL Reader v1.0
+   تصوير الأوراق → استخراج → جدول تراكمي → قاموس يصحّح نفسه → Excel
+   البيانات في IndexedDB (مساحة كبيرة تكفي آلاف الأوراق)
+   ========================================================= */
+const VER='v2.4';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today=()=>ymd(new Date());
+const n=v=>{const x=parseFloat(v);return isNaN(x)?0:x};
+const fmt=v=>(Math.round(n(v)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآٱ]/g,'ا')
+  .replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[ؤئ]/g,'ء').replace(/[^\u0600-\u06FF0-9a-zA-Z]/g,'').toLowerCase();
+const DW=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const KINDS={worker:'عامل',client:'ورشة / زبون',item:'بند بضاعة',supplier:'مورّد',task:'وصف عمل',exp:'نوع مصروف'};
+
+let D={sheets:[],rows:[],dict:[]};
+let S={tab:'in',q:'',month:'',kind:'worker',rowType:'all',busy:'',prog:0,sel:null,err:'',
+  cal:'',calDay:'',fFrom:'',fTo:'',fClient:'',fWorker:''};
+
+/* ================= IndexedDB ================= */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('icool_reader',1);
+  r.onupgradeneeded=()=>{const db=r.result;['sheets','rows','dict','cfg'].forEach(s=>{
+    if(!db.objectStoreNames.contains(s))db.createObjectStore(s,{keyPath:'id'})})};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function dbAll(store){const db=await idb();return new Promise((res,rej)=>{
+  const t=db.transaction(store,'readonly'),q=t.objectStore(store).getAll();
+  q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error)})}
+async function dbPut(store,objs){const db=await idb();return new Promise((res,rej)=>{
+  const t=db.transaction(store,'readwrite'),o=t.objectStore(store);
+  (Array.isArray(objs)?objs:[objs]).forEach(x=>o.put(x));
+  t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+async function dbDel(store,id){const db=await idb();return new Promise((res,rej)=>{
+  const t=db.transaction(store,'readwrite');t.objectStore(store).delete(id);
+  t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+async function dbClear(store){const db=await idb();return new Promise((res)=>{
+  const t=db.transaction(store,'readwrite');t.objectStore(store).clear();t.oncomplete=()=>res()})}
+const cfgGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return''}};
+const cfgSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+
+/* ================= القاموس — قلب التصحيح الذاتي ================= */
+/* سجل واحد لكل كلمة صحيحة، ويحمل كل الأشكال التي قُرئت بها */
+function dictFind(kind,raw){
+  const t=norm(raw);if(!t)return null;
+  return D.dict.find(d=>d.kind===kind&&(norm(d.canon)===t||(d.variants||[]).some(v=>norm(v.v)===t)))||null;
+}
+function canonOf(kind,raw){const d=dictFind(kind,raw);return d?d.canon:(raw||'')}
+function isKnown(kind,raw){return !!dictFind(kind,raw)}
+async function learn(kind,raw,canon,confirmed){
+  canon=String(canon||'').trim();if(!canon)return;
+  let d=D.dict.find(x=>x.kind===kind&&norm(x.canon)===norm(canon));
+  if(!d){d={id:uid(),kind,canon,variants:[],n:0,created:today(),updated:today()};D.dict.push(d)}
+  d.canon=canon;
+  const r=String(raw||'').trim();
+  if(r&&norm(r)!==norm(canon)){
+    const v=d.variants.find(x=>norm(x.v)===norm(r));
+    if(v)v.n=(v.n||1)+1;else d.variants.push({v:r,n:1,first:today()});
+  }
+  d.n=(d.n||0)+1;d.updated=today();
+  if(confirmed)d.prov=false;
+  /* إن كان هذا الشكل مسجّلاً تحت كلمة أخرى، انقله */
+  D.dict.forEach(o=>{if(o!==d&&o.kind===kind)o.variants=(o.variants||[]).filter(v=>norm(v.v)!==norm(r))});
+  await dbPut('dict',D.dict.filter(x=>x.kind===kind));
+}
+async function mergeCanon(kind,fromCanon,toCanon){
+  const a=D.dict.find(x=>x.kind===kind&&norm(x.canon)===norm(fromCanon));
+  const b=D.dict.find(x=>x.kind===kind&&norm(x.canon)===norm(toCanon));
+  if(!a||!b||a===b)return;
+  b.variants=[...(b.variants||[]),{v:a.canon,n:a.n||1,first:a.created},...(a.variants||[])];
+  b.n=(b.n||0)+(a.n||0);b.updated=today();
+  D.dict=D.dict.filter(x=>x!==a);
+  await dbClear('dict');await dbPut('dict',D.dict);
+}
+/* تشابه لاقتراح التصحيح */
+function sim(a,b){
+  a=norm(a);b=norm(b);if(!a||!b)return 0;if(a===b)return 1;
+  const m=a.length,k=b.length,dp=Array.from({length:m+1},(_,i)=>[i,...Array(k).fill(0)]);
+  for(let j=0;j<=k;j++)dp[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=k;j++)
+    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return 1-dp[m][k]/Math.max(m,k);
+}
+function suggest(kind,raw){
+  let best=null,bs=0;
+  D.dict.filter(d=>d.kind===kind).forEach(d=>{
+    const s=Math.max(sim(raw,d.canon),...(d.variants||[]).map(v=>sim(raw,v.v)));
+    if(s>bs){bs=s;best=d}});
+  return bs>=.62?{d:best,s:bs}:null;
+}
+/* كل القيم الخام غير المعروفة، مجمّعة */
+function unknowns(){
+  const map={};
+  D.rows.forEach(r=>{
+    fieldsOf(r.type).forEach(f=>{
+      if(!f.kind)return;const raw=r[f.k];if(!raw)return;
+      if(isKnown(f.kind,raw))return;
+      const key=f.kind+'|'+norm(raw);
+      map[key]=map[key]||{kind:f.kind,fk:f.k,raw,n:0,rows:[]};
+      map[key].n++;map[key].rows.push(r.id);
+    })});
+  return Object.values(map).sort((a,b)=>b.n-a.n);
+}
+/* ================= أعمدة كل نوع صف ================= */
+function fieldsOf(type){
+  if(type==='labor')return [
+    {k:'worker',t:'العامل',kind:'worker'},{k:'from',t:'من'},{k:'to',t:'إلى'},
+    {k:'hours',t:'ساعات',num:1},{k:'ot',t:'إضافي',num:1},
+    {k:'client',t:'الورشة / الزبون',kind:'client'},{k:'task',t:'العمل المنجز',kind:'task'}];
+  if(type==='material')return [
+    {k:'item',t:'البند',kind:'item'},{k:'qty',t:'الكمية',num:1},{k:'unit',t:'الوحدة'},
+    {k:'price',t:'السعر',num:1},{k:'total',t:'القيمة',num:1,calc:1},
+    {k:'source',t:'المصدر'},{k:'supplier',t:'المورّد',kind:'supplier'},{k:'client',t:'الموقع',kind:'client'}];
+  if(type==='expense')return [
+    {k:'item',t:'نوع المصروف',kind:'exp'},{k:'amount',t:'المبلغ',num:1},{k:'note',t:'ملاحظة'},{k:'client',t:'الموقع',kind:'client'}];
+  return [{k:'client',t:'الزبون',kind:'client'},{k:'amount',t:'المبلغ',num:1},{k:'note',t:'البيان'}];
+}
+const TYPES={labor:'الدوام',material:'البضاعة',expense:'المصاريف',revenue:'الإيرادات'};
+/* القيمة المعروضة = الخام مصحّحاً عبر القاموس (يسري على الماضي والمستقبل) */
+function shown(r,f){
+  const v=r[f.k];
+  if(f.k==='total')return n(r.qty)*n(r.price);
+  if(!f.kind)return v||'';
+  return canonOf(f.kind,v);
+}
+const isRaw=(r,f)=>f.kind&&r[f.k]&&!isKnown(f.kind,r[f.k]);
+const wasFixed=(r,f)=>f.kind&&r[f.k]&&isKnown(f.kind,r[f.k])&&norm(canonOf(f.kind,r[f.k]))!==norm(r[f.k]);
+const months=()=>[...new Set(D.rows.map(r=>(r.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+function rowsView(){
+  let rs=D.rows.filter(r=>r.type===S.rowType);
+  if(S.month)rs=rs.filter(r=>(r.date||'').startsWith(S.month));
+  const q=S.q.trim();
+  if(q)rs=rs.filter(r=>fieldsOf(r.type).some(f=>norm(String(shown(r,f))).includes(norm(q))));
+  return rs.sort((a,b)=>(String(a.date||'')+refOf(a)).localeCompare(String(b.date||'')+refOf(b)));
+}
+/* ================= القراءة الآلية ================= */
+const AIKEY=()=>cfgGet('icool_ai_key');
+function fileToB64(file,max,q){
+  return new Promise((res,rej)=>{const fr=new FileReader();
+    fr.onerror=()=>rej(new Error('تعذّرت قراءة الصورة'));
+    fr.onload=()=>{const im=new Image();im.onerror=()=>rej(new Error('صورة غير صالحة'));
+      im.onload=()=>{const sc=Math.min(1,max/Math.max(im.width,im.height));
+        const c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);
+        c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+        res(c.toDataURL('image/jpeg',q).split(',')[1])};im.src=fr.result};
+    fr.readAsDataURL(file)})}
+function hintBlock(){
+  const g=k=>D.dict.filter(d=>d.kind===k&&(!d.prov||(d.seen||d.n||0)>=3))
+    .sort((a,b)=>((a.prov?0:1)-(b.prov?0:1))||((b.n||0)-(a.n||0))).slice(0,120);
+  const line=k=>g(k).map(d=>d.variants&&d.variants.length
+      ?`${d.canon} (يُكتب أحياناً: ${d.variants.slice(0,4).map(v=>v.v).join('، ')})`:d.canon).join(' | ');
+  const parts=[];
+  Object.keys(KINDS).forEach(k=>{const l=line(k);if(l)parts.push(`${KINDS[k]}: ${l}`)});
+  return parts.length?`قاموس معتمد من صاحب العمل — طابِق ما تقرأه على هذه الأسماء حرفياً ولا تخترع صيغاً أخرى:
+${parts.join('\n')}`:'';
+}
+const PROMPT=()=>`أنت مساعد إدخال بيانات لشركة مقاولات لبنانية (تكييف، طاقة شمسية، سباكة، شوفاج، كهرباء، مسابح).
+الصورة «جدول يومية» بخط اليد فيه جدولان:
+الأول: اسم العامل، بدء العمل، انتهاء العمل، موقع العمل، العمل المنجز، اضافي.
+الثاني: البضاعة المستخدمة، الكمية، المصدر، الموقع.
+أعد JSON فقط بلا أي نص أو markdown:
+{"date":"YYYY-MM-DD","dayName":"","dateSure":true,"dateBox":[0,0,0,0],"foreman":"","labor":[{"worker":"","from":"HH:MM","to":"HH:MM","ot":"","client":"","task":"","sure":true,"box":[0,0,1,0],"boxes":{"worker":[0,0,0,0],"client":[0,0,0,0],"task":[0,0,0,0]}}],
+"materials":[{"item":"","qty":1,"unit":"","price":null,"source":"","supplier":"","client":"","sure":true,"box":[0,0,1,0],"boxes":{"item":[0,0,0,0],"supplier":[0,0,0,0],"client":[0,0,0,0]}}],
+"expenses":[{"item":"","amount":0,"note":"","client":""}],
+"revenues":[{"client":"","amount":0,"note":""}],"unclear":[""]}
+قواعد:
+- التاريخ مكتوب في ترويسة الورقة أعلى اليمين وهو مذكور مرتين: اسم اليوم بالعربية (الأحد، الاثنين، الثلاثاء، الأربعاء، الخميس، الجمعة، السبت) وتحته أو بجانبه التاريخ الرقمي بصيغة يوم/شهر/سنة مثل 21/8/2026.
+- اقرأ الاثنين معاً: ضع التاريخ الرقمي محوّلاً إلى YYYY-MM-DD في date، واسم اليوم كما هو مكتوب في dayName. لا تستنتج التاريخ من أي شيء آخر في الصفحة.
+- تحقّق من تطابق اسم اليوم مع التاريخ الرقمي. إن لم يتطابقا أو كان أحدهما غير واضح، ضع dateSure:false واذكر السبب في unclear.
+- dateBox: إطار [x1,y1,x2,y2] حول منطقة الترويسة التي فيها اسم اليوم والتاريخ، لأعرضها لصاحب العمل للتأكيد.
+- الوقت 24 ساعة؛ إن كان الانتهاء أصغر من البدء فهو مساءً فأضف 12.
+- الخط المتموّج أو علامة التكرار تعني نفس قيمة السطر الأعلى، فاملأها بالقيمة نفسها.
+- source إحدى: المستودع أو شراء من السوق أو من الزبون. اسم المحل أو الشخص الذي جُلبت منه البضاعة ضعه في supplier.
+- لا تخترع أرقاماً ولا أسماء. الأسعار غالباً غير مكتوبة فاتركها null.
+- ضع sure:false لأي سطر غير واضح، واذكر ما لم يتضح في unclear.
+- box لكل سطر: [x1,y1,x2,y2] كنِسب من عرض وارتفاع الصورة (بين 0 و1) تحيط بشريط ذلك السطر الأفقي كاملاً.
+- boxes: إحداثيات كل خلية على حدة تحيط بالكلمة المكتوبة بخط اليد نفسها فقط لا بالعمود كله ولا بترويسة الجدول: worker حول اسم العامل، client حول اسم الورشة أو الزبون، task حول وصف العمل، item حول اسم البند، supplier حول اسم المورّد. اجعل الإطار ضيقاً حول الكتابة مع هامش صغير. هذه أهم نقطة في المهمة لأن صاحب العمل يصحّح من هذه القصاصات.
+${hintBlock()}`;
+/* إنقاذ استجابة مقطوعة: نقصّ عند آخر عنصر مكتمل ونغلق الأقواس */
+function parseLoose(txt){
+  const st0=txt.indexOf('{');if(st0<0)throw new Error('استجابة بلا JSON');
+  const t=txt.slice(st0);
+  try{return JSON.parse(t)}catch(e){}
+  const ends=[];for(let i=0;i<t.length;i++)if(t[i]==='}'||t[i]===']')ends.push(i);
+  for(let k=ends.length-1;k>=0;k--){
+    const cand=t.slice(0,ends[k]+1);
+    const stack=[];let inStr=false,esc=false,bad=false;
+    for(const ch of cand){
+      if(inStr){if(esc)esc=false;else if(ch==='\\')esc=true;else if(ch==='"')inStr=false;continue}
+      if(ch==='"')inStr=true;
+      else if(ch==='{'||ch==='[')stack.push(ch);
+      else if(ch==='}'||ch===']'){if(!stack.length){bad=true;break}stack.pop()}
+    }
+    if(bad||inStr)continue;
+    let close='';for(let i=stack.length-1;i>=0;i--)close+=(stack[i]==='{'?'}':']');
+    try{const j=JSON.parse(cand+close);j._truncated=true;return j}catch(e){}
+  }
+  throw new Error('تعذّر إصلاح الاستجابة المقطوعة');
+}
+async function shrink(b64,max,q){
+  try{const im=await imgFromB64(b64);const sc=Math.min(1,max/Math.max(im.width,im.height));
+    const c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',q).split(',')[1];
+  }catch(e){return b64}
+}
+const PROMPT_C=()=>PROMPT()
+  .replace(/,"box":\[0,0,1,0\],"boxes":\{[^}]*\}/g,'')
+  .replace(/,"dateBox":\[0,0,0,0\]/g,'')
+  +'\nمهم: لا تُخرج أي حقول box أو boxes أو dateBox إطلاقاً في هذه المحاولة، واختصر قدر الإمكان مع الحفاظ على كل الأسطر.';
+async function callAI(b64,compact){
+  const key=AIKEY();
+  const h={'Content-Type':'application/json','anthropic-version':'2023-06-01'};
+  if(key){h['x-api-key']=key;h['anthropic-dangerous-direct-browser-access']='true'}
+  const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),180000);
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:h,signal:ctl.signal,body:JSON.stringify({
+      model:'claude-sonnet-4-6',max_tokens:8000,
+      messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:compact?PROMPT_C():PROMPT()}]}]})});
+    if(!r.ok){
+      const e=new Error(r.status===401?'مفتاح API غير صالح':'الخادم ردّ برمز '+r.status);
+      e.code=r.status;throw e;
+    }
+    const d=await r.json();
+    const txt=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('\n').replace(/```json|```/g,'').trim();
+    const j=parseLoose(txt);
+    j._stop=d.stop_reason||'';
+    return j;
+  }finally{clearTimeout(tm)}
+}
+/* محاولات متتابعة: شبكة ← انتظار، قطع ← وضع مختصر بلا إحداثيات */
+async function callAIRetry(sh){
+  const img=await shrink(sh.full,1200,.62);
+  let lastErr=null;
+  for(let att=1;att<=3;att++){
+    try{
+      const compact=att>=2;
+      const j=await callAI(img,compact);
+      if(j._truncated&&att<3){lastErr=new Error('استجابة مقطوعة');continue}
+      return j;
+    }catch(e){
+      lastErr=e;
+      if(e.code===401)throw e;
+      await new Promise(r2=>setTimeout(r2,att*2500));
+    }
+  }
+  throw lastErr||new Error('فشل غير معروف');
+}
+function hoursBetween(a,b){
+  if(!a||!b)return '';
+  const [h1,m1]=a.split(':').map(Number),[h2,m2]=b.split(':').map(Number);
+  if([h1,m1,h2,m2].some(isNaN))return '';
+  let m=(h2*60+m2)-(h1*60+m1);if(m<0)m+=1440;return Math.round(m/60*100)/100;
+}
+function imgFromB64(b64){return new Promise((res,rej)=>{const im=new Image();
+  im.onload=()=>res(im);im.onerror=rej;im.src='data:image/jpeg;base64,'+b64})}
+async function ahash(b64){
+  try{const im=await imgFromB64(b64);const c=document.createElement('canvas');c.width=8;c.height=8;
+    const x=c.getContext('2d');x.drawImage(im,0,0,8,8);const d=x.getImageData(0,0,8,8).data;
+    const g=[];for(let i=0;i<64;i++)g.push((d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11));
+    const av=g.reduce((a,b)=>a+b,0)/64;
+    return g.map(v=>v>av?'1':'0').join('');
+  }catch(e){return ''}
+}
+async function dhash(b64){
+  try{const im=await imgFromB64(b64);const W=17,H=16;
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const x=c.getContext('2d');x.drawImage(im,0,0,W,H);const d=x.getImageData(0,0,W,H).data;
+    const g=[];for(let i=0;i<W*H;i++)g.push(d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11);
+    let bits='';
+    for(let y=0;y<H;y++)for(let xx=0;xx<W-1;xx++)bits+=g[y*W+xx]>g[y*W+xx+1]?'1':'0';
+    return bits;
+  }catch(e){return ''}
+}
+const ham=(a,b)=>{if(!a||!b||a.length!==b.length)return 99;let c=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i])c++;return c};
+function seqFor(date){return D.sheets.filter(s=>s.date===date&&s.status==='تمت').length+1}
+function refFor(date,seq){
+  return date?`IC-${date.replace(/-/g,'')}-${String(seq).padStart(2,'0')}`:`IC-NA-${uid().slice(0,4)}`;
+}
+const sheetOf=id=>D.sheets.find(s=>s.id===id)||{};
+const refOf=r=>sheetOf(r.sheetId).ref||'';
+/* قصاصة الكلمة من الورقة الأصلية */
+const cropCache={};
+async function cropFor(row,field,pad){
+  const ck=row.id+'|'+(field||'');
+  if(cropCache[ck])return cropCache[ck];
+  const sh=sheetOf(row.sheetId);const src=sh.full||sh.img;
+  const bx=(field&&row.boxes&&row.boxes[field]&&row.boxes[field].length===4&&row.boxes[field][2]>0)?row.boxes[field]:row.box;
+  if(!src||!bx||bx.length<4)return '';
+  try{
+    const im=await imgFromB64(src);
+    let [x1,y1,x2,y2]=bx.map(Number);
+    if([x1,y1,x2,y2].some(isNaN))return '';
+    if(x2<=x1)x2=1;if(y2<=y1)y2=y1+0.04;
+    const P=pad==null?0.012:pad;
+    x1=Math.max(0,x1-P);y1=Math.max(0,y1-P);x2=Math.min(1,x2+P);y2=Math.min(1,y2+P);
+    const w=Math.max(8,(x2-x1)*im.width),h=Math.max(8,(y2-y1)*im.height);
+    const c=document.createElement('canvas');const sc=Math.min(2,900/w);
+    c.width=Math.round(w*sc);c.height=Math.round(h*sc);
+    c.getContext('2d').drawImage(im,x1*im.width,y1*im.height,w,h,0,0,c.width,c.height);
+    const u=c.toDataURL('image/jpeg',.8);cropCache[ck]=u;return u;
+  }catch(e){return ''}
+}
+async function cropSheet(sh,box,key){
+  const ck=sh.id+'|'+(key||'h');
+  if(cropCache[ck])return cropCache[ck];
+  const src=sh.full||sh.img;if(!src)return '';
+  try{
+    const im=await imgFromB64(src);
+    let [x1,y1,x2,y2]=(box&&box.length===4&&box[2]>0)?box.map(Number):[0.35,0,1,0.13];
+    x1=Math.max(0,x1-.02);y1=Math.max(0,y1-.01);x2=Math.min(1,x2+.02);y2=Math.min(1,y2+.02);
+    const w=Math.max(10,(x2-x1)*im.width),h=Math.max(10,(y2-y1)*im.height);
+    const c=document.createElement('canvas'),sc=Math.min(2,900/w);
+    c.width=Math.round(w*sc);c.height=Math.round(h*sc);
+    c.getContext('2d').drawImage(im,x1*im.width,y1*im.height,w,h,0,0,c.width,c.height);
+    const u=c.toDataURL('image/jpeg',.8);cropCache[ck]=u;return u;
+  }catch(e){return ''}
+}
+async function fillCrops(){
+  for(const el of [...document.querySelectorAll('[data-scrop]')]){
+    const sh=sheetOf(el.dataset.scrop);if(!sh.id)continue;
+    const u=await cropSheet(sh,sh.dateBox,'h');
+    if(u){el.src=u;el.style.display='block'}
+  }
+  const els=[...document.querySelectorAll('[data-crop]')];
+  for(const el of els){
+    const r=D.rows.find(x=>x.id===el.dataset.crop);if(!r)continue;
+    const u=await cropFor(r,el.dataset.cropk||'');
+    if(u){el.src=u;el.style.display='block'}
+    else{const sh=sheetOf(r.sheetId);if(sh.img){el.src='data:image/jpeg;base64,'+sh.img;el.style.display='block';el.classList.add('nocrop')}}
+  }
+}
+/* المرحلة ١: أرشفة الصور فقط — بلا إنترنت وبلا كلفة */
+async function importOnly(files){
+  S.busy='يؤرشف الصور…';S.prog=0;render();
+  let add=0,dup=0;
+  for(let i=0;i<files.length;i++){
+    S.prog=Math.round(i/files.length*100);S.busy=`أرشفة ${i+1} من ${files.length}`;
+    if(i%5===0)render();
+    try{
+      const sh={id:uid(),name:files[i].name||('ورقة '+(i+1)),added:today(),status:'بانتظار',date:'',foreman:'',rows:0,pass:0,order:D.sheets.length+i};
+      sh.full=await fileToB64(files[i],1500,.72);
+      sh.img=await fileToB64(files[i],620,.45);
+      sh.hash=await ahash(sh.img);
+      sh.hash2=await dhash(sh.full);
+      /* لا يُحذف ولا يُتجاهل أي ملف. الاشتباه بالتكرار يُعلَّم فقط ليقرّره صاحب العمل */
+      const near=D.sheets.filter(x=>x.id!==sh.id&&x.hash2&&sh.hash2).map(x=>({x,d:ham(x.hash2,sh.hash2)}))
+        .filter(o=>o.d<=14).sort((a,b)=>a.d-b.d)[0];
+      if(near){sh.dupFlag=true;sh.dupOf=near.x.id;sh.dupDist=near.d;dup++}
+      D.sheets.push(sh);await dbPut('sheets',sh);add++;
+    }catch(e){}
+  }
+  S.busy='';S.prog=0;render();
+  const exact=D.sheets.filter(x=>x.dupFlag&&x.dupDist===0);
+  if(exact.length&&confirm(`${exact.length} من الصور التي رفعتها مطابقة تماماً لأوراق موجودة عندك (بصمة متطابقة 100%).\n\nموافق = احذف المكرّر تماماً\nإلغاء = أبقِ كل شيء وراجعه بنفسك`)){
+    const ids=new Set(exact.map(x=>x.id));
+    D.sheets=D.sheets.filter(x=>!ids.has(x.id));D.rows=D.rows.filter(r=>!ids.has(r.sheetId));
+    for(const id of ids)await dbDel('sheets',id);
+    await dbClear('rows');await dbPut('rows',D.rows);render();
+  }
+  alert(`أُرشفت ${add} ورقة من أصل ${files.length} ملفاً اخترته — لم يُتجاهل أي ملف.`+
+    (dup?`\n\nاشتُبه بتكرار ${dup} ورقة. لن تُحذف: راجعها واحدة تلو الأخرى في بطاقة «أوراق مشتبه بتكرارها».`:''));
+}
+/* المرحلة ٢: طابور القراءة — يعمل بعاملين، يتوقف ويُستأنف */
+let QRUN=false;
+async function readOne(sh,isRe){
+  const j=await callAIRetry(sh);
+  sh.date=j.date||sh.date||'';sh.foreman=j.foreman||sh.foreman||'';sh.raw=j;sh.pass=(sh.pass||0)+1;
+  sh.dayName=j.dayName||'';sh.dateBox=j.dateBox||null;sh.dateSure=j.dateSure!==false;
+  sh.dateFlag='';
+  if(sh.date&&/^\d{4}-\d{2}-\d{2}$/.test(sh.date)){
+    const w=DW[new Date(sh.date+'T12:00:00').getDay()];
+    if(sh.dayName&&norm(sh.dayName).indexOf(norm(w))<0&&norm(w).indexOf(norm(sh.dayName))<0)
+      sh.dateFlag=`الورقة تقول «${sh.dayName}» والتاريخ ${sh.date} يقع يوم ${w}`;
+  }else sh.dateFlag='لم يُقرأ التاريخ الرقمي';
+  if(!sh.dateSure&&!sh.dateFlag)sh.dateFlag='القارئ غير واثق من التاريخ';
+  const mk=(type,o)=>({id:uid(),sheetId:sh.id,type,date:sh.date,foreman:sh.foreman,sure:o.sure!==false,...o});
+  const rows=[];
+  (j.labor||[]).forEach(x=>rows.push(mk('labor',{worker:x.worker||'',from:x.from||'',to:x.to||'',
+    hours:hoursBetween(x.from,x.to),ot:x.ot||'',client:x.client||'',task:x.task||'',sure:x.sure,box:x.box||null,boxes:x.boxes||null})));
+  (j.materials||[]).forEach(x=>rows.push(mk('material',{item:x.item||'',qty:x.qty==null?'':x.qty,unit:x.unit||'',
+    price:x.price==null?'':x.price,source:x.source||'',supplier:x.supplier||'',client:x.client||'',sure:x.sure,box:x.box||null,boxes:x.boxes||null})));
+  (j.expenses||[]).forEach(x=>rows.push(mk('expense',{item:x.item||x.type||'',amount:x.amount||'',note:x.note||'',client:x.client||''})));
+  (j.revenues||[]).forEach(x=>rows.push(mk('revenue',{client:x.client||'',amount:x.amount||'',note:x.note||''})));
+  rows.forEach(r=>{r.raw=JSON.parse(JSON.stringify(r))});
+  sh.unclear=(j.unclear||[]).filter(Boolean);sh.rows=rows.length;
+  if(isRe){
+    /* الدمج: ما ثبّتَه بيدك لا يُمسّ */
+    const old=D.rows.filter(r=>r.sheetId===sh.id);
+    const byType={};old.forEach(r=>{(byType[r.type]=byType[r.type]||[]).push(r)});
+    const idx={};
+    rows.forEach(r=>{idx[r.type]=(idx[r.type]||0);const o=(byType[r.type]||[])[idx[r.type]++];
+      if(o&&o.locked)Object.keys(o.locked).forEach(k=>{if(o.locked[k]){r[k]=o[k];r.locked=r.locked||{};r.locked[k]=true}})});
+    D.rows=D.rows.filter(r=>r.sheetId!==sh.id);
+    D.rows.push(...rows);
+    await dbClear('rows');await dbPut('rows',D.rows);
+    sh.status='تمت';await dbPut('sheets',sh);
+    return;
+  }
+  const dupDate=sh.date?D.sheets.find(x=>x.id!==sh.id&&x.status==='تمت'&&x.date===sh.date):null;
+  if(dupDate){sh.status='تعارض';sh.conflictWith=dupDate.id;sh.dupKind='يوجد يومية بالتاريخ نفسه';sh.pending=rows;await dbPut('sheets',sh);return}
+  sh.seq=seqFor(sh.date);sh.ref=refFor(sh.date,sh.seq);sh.status='تمت';
+  D.rows.push(...rows);await dbPut('rows',rows);await dbPut('sheets',sh);
+}
+async function runQueue(){
+  if(QRUN)return;QRUN=true;render();
+  const worker=async()=>{
+    while(QRUN){
+      const sh=D.sheets.find(x=>x.status==='بانتظار'||x.status==='إعادة');
+      if(!sh)break;
+      const isRe=sh.status==='إعادة';sh.status='يُقرأ';
+      try{await readOne(sh,isRe)}
+      catch(e){sh.status='خطأ';sh.err=e.message;await dbPut('sheets',sh)}
+      render();
+    }
+  };
+  const par=Math.max(1,Math.min(3,n(cfgGet('icool_par'))||2));
+  await Promise.all(Array.from({length:par},()=>worker()));
+  QRUN=false;render();
+}
+async function markReread(list){
+  for(const sh of list){if(sh.status==='تمت'||sh.status==='خطأ'){sh.status='إعادة';await dbPut('sheets',sh)}}
+  render();
+}
+/* جودة الورقة: نسبة الكلمات المعروفة في القاموس */
+function quality(sh){
+  const rs=D.rows.filter(r=>r.sheetId===sh.id);
+  let tot=0,ok=0;
+  rs.forEach(r=>fieldsOf(r.type).forEach(f=>{if(!f.kind||!r[f.k])return;tot++;if(isKnown(f.kind,r[f.k]))ok++}));
+  if(!tot)return rs.length?0:100;
+  return Math.round(ok/tot*100);
+}
+/* بناء القاموس من كل القراءات السابقة: تجميع الأشكال المتقاربة تحت الأكثر تكراراً */
+async function seedDictFromRows(){
+  const kinds={};
+  D.rows.forEach(r=>fieldsOf(r.type).forEach(f=>{
+    if(!f.kind||!r[f.k])return;
+    const v=String(r[f.k]).trim();if(!v)return;
+    (kinds[f.kind]=kinds[f.kind]||{})[v]=(kinds[f.kind][v]||0)+1;
+  }));
+  let made=0,merged=0,left=0;
+  for(const kind of Object.keys(kinds)){
+    const list=Object.entries(kinds[kind]).sort((a,b)=>b[1]-a[1]);
+    for(const [val,cnt] of list){
+      if(dictFind(kind,val))continue;
+      const sg=suggest(kind,val);
+      if(sg&&sg.s>=0.86){await learn(kind,val,sg.d.canon);merged++;continue}
+      if(cnt>=2){await learn(kind,val,val);
+        const d=dictFind(kind,val);if(d){d.prov=true;d.seen=cnt;await dbPut('dict',d)}
+        made++;}
+      else left++;
+    }
+  }
+  render();
+  alert(`بُني القاموس من قراءاتك السابقة:\n\n${made} كلمة تكرّرت مرتين فأكثر اعتُمدت مبدئياً\n${merged} شكل متقارب ضُمّ إلى كلمته\n${left} كلمة ظهرت مرة واحدة تُركت في مركز التصحيح لأنها غالباً خطأ قراءة\n\nالمعتمد مبدئياً مُعلَّم في القاموس — أكّده أو صحّحه، فالمؤكَّد فقط يُرسل بثقة مع القراءات الجديدة.`);
+}
+/* تطبيق القاموس تلقائياً على الكلمات القريبة جداً */
+async function autoDict(th){
+  const u=unknowns();let c=0;
+  for(const x of u){const sg=suggest(x.kind,x.raw);
+    if(sg&&sg.s>=th){await learn(x.kind,x.raw,sg.d.canon);c++}}
+  render();alert(`اعتُمدت ${c} كلمة تلقائياً بتشابه ${Math.round(th*100)}% فأكثر. راجع الباقي يدوياً.`);
+}
+async function ingest(files){
+  S.busy='reading';S.err='';S.prog=0;render();
+  let ok=0;
+  for(let i=0;i<files.length;i++){
+    S.prog=Math.round(i/files.length*100);S.busy=`الورقة ${i+1} من ${files.length}`;render();
+    const sh={id:uid(),name:files[i].name||('ورقة '+(i+1)),added:today(),status:'قيد القراءة',date:'',foreman:'',rows:0};
+    try{
+      const big=await fileToB64(files[i],1600,.82);
+      sh.full=await fileToB64(files[i],1500,.72);   /* أرشيف الورقة */
+      sh.img=await fileToB64(files[i],620,.45);      /* مصغّرة */
+      sh.hash=await ahash(sh.img);
+      const j=await callAI(big);
+      sh.date=j.date||'';sh.foreman=j.foreman||'';sh.raw=j;sh.status='تمت';
+      const mk=(type,o)=>({id:uid(),sheetId:sh.id,type,date:sh.date,foreman:sh.foreman,sure:o.sure!==false,...o});
+      const rows=[];
+      (j.labor||[]).forEach(x=>rows.push(mk('labor',{worker:x.worker||'',from:x.from||'',to:x.to||'',
+        hours:hoursBetween(x.from,x.to),ot:x.ot||'',client:x.client||'',task:x.task||'',sure:x.sure,
+        box:x.box||null,boxes:x.boxes||null})));
+      (j.materials||[]).forEach(x=>rows.push(mk('material',{item:x.item||'',qty:x.qty==null?'':x.qty,unit:x.unit||'',
+        price:x.price==null?'':x.price,source:x.source||'',supplier:x.supplier||'',client:x.client||'',sure:x.sure,
+        box:x.box||null,boxes:x.boxes||null})));
+      (j.expenses||[]).forEach(x=>rows.push(mk('expense',{item:x.item||x.type||'',amount:x.amount||'',note:x.note||'',client:x.client||''})));
+      (j.revenues||[]).forEach(x=>rows.push(mk('revenue',{client:x.client||'',amount:x.amount||'',note:x.note||''})));
+      rows.forEach(r=>{r.raw=JSON.parse(JSON.stringify(r))});
+      sh.rows=rows.length;sh.unclear=(j.unclear||[]).filter(Boolean);
+      /* كشف التكرار: نفس الصورة أو نفس تاريخ اليومية */
+      const dupDate=sh.date?D.sheets.find(x=>x.status==='تمت'&&x.date===sh.date):null;
+      if(dupDate){
+        sh.status='تعارض';sh.conflictWith=dupDate.id;
+        sh.dupKind='يوجد يومية بالتاريخ نفسه';
+        sh.pending=rows;D.sheets.push(sh);await dbPut('sheets',sh);
+      }else{
+        sh.seq=seqFor(sh.date);sh.ref=refFor(sh.date,sh.seq);
+        D.rows.push(...rows);D.sheets.push(sh);
+        await dbPut('rows',rows);await dbPut('sheets',sh);ok++;
+      }
+    }catch(e){sh.status='خطأ';sh.err=e.message;D.sheets.push(sh);await dbPut('sheets',sh);S.err=e.message}
+  }
+  S.busy='';S.prog=0;S.tab=ok?'table':'in';render();
+}
+/* ================= التصدير ================= */
+async function XL(){
+  if(window.XLSX)return window.XLSX;
+  await new Promise((res,rej)=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=res;s.onerror=()=>rej(new Error('تعذّر تحميل مكتبة Excel — تحقّق من الإنترنت'));
+    document.head.appendChild(s)});
+  return window.XLSX;
+}
+function aoa(type){
+  const F=fieldsOf(type);
+  const head=['المرجع','التاريخ','الفورمان',...F.map(f=>f.t),'ملف الورقة'];
+  const rows=D.rows.filter(r=>r.type===type)
+    .sort((a,b)=>(String(a.date)+refOf(a)).localeCompare(String(b.date)+refOf(b)))
+    .map(r=>[refOf(r),r.date||'',canonOf('worker',r.foreman)||r.foreman||'',
+      ...F.map(f=>{const v=shown(r,f);return f.num?n(v):v}),
+      sheetOf(r.sheetId).name||'']);
+  return [head,...rows];
+}
+function monthlySummary(){
+  const map={};
+  D.rows.forEach(r=>{const m=(r.date||'').slice(0,7);if(!m)return;
+    map[m]=map[m]||{days:new Set(),hours:0,matVal:0,exp:0,rev:0,lines:0};
+    const o=map[m];o.days.add(r.date);o.lines++;
+    if(r.type==='labor')o.hours+=n(r.hours);
+    if(r.type==='material')o.matVal+=n(r.qty)*n(r.price);
+    if(r.type==='expense')o.exp+=n(r.amount);
+    if(r.type==='revenue')o.rev+=n(r.amount)});
+  return [['الشهر','أيام','أسطر','ساعات عمل','قيمة البضاعة','مصاريف','إيرادات'],
+    ...Object.entries(map).sort().map(([m,o])=>[m,o.days.size,o.lines,o.hours,o.matVal,o.exp,o.rev])];
+}
+function dictAoa(){
+  return [['النوع','الكلمة الصحيحة','عدد الأشكال','الأشكال التي قُرئت بها','مرات الاستعمال','آخر تحديث'],
+    ...D.dict.map(d=>[KINDS[d.kind]||d.kind,d.canon,(d.variants||[]).length,
+      (d.variants||[]).map(v=>`${v.v} (${v.n})`).join(' • '),d.n||0,d.updated||''])];
+}
+async function exportFiltered(){
+  try{
+    S.busy='يبني ملف Excel…';render();
+    const X=await XL(),wb=X.utils.book_new();
+    const rs=allRows();
+    const data=[GH,...rs.map(gRow)];
+    const ws=X.utils.aoa_to_sheet(data);ws['!views']=[{RTL:true}];ws['!cols']=GH.map(()=>({wch:16}));
+    X.utils.book_append_sheet(wb,ws,'الجدول العام');
+    const info=[['الفلترة المطبَّقة',''],['من',S.fFrom||'—'],['إلى',S.fTo||'—'],
+      ['الورشة / الزبون',S.fClient||'الكل'],['العامل',S.fWorker||'الكل'],['بحث',S.q||'—'],['عدد الأسطر',rs.length]];
+    const wi=X.utils.aoa_to_sheet(info);wi['!views']=[{RTL:true}];X.utils.book_append_sheet(wb,wi,'الفلترة');
+    X.writeFile(wb,`icool-جدول-${S.fClient||'الكل'}-${today()}.xlsx`);
+    S.busy='';render();
+  }catch(e){S.busy='';S.err=e.message;render()}
+}
+async function exportXlsx(){
+  try{
+    S.busy='يبني ملف Excel…';render();
+    const X=await XL(),wb=X.utils.book_new();
+    const add=(name,data)=>{const ws=X.utils.aoa_to_sheet(data);ws['!views']=[{RTL:true}];
+      ws['!cols']=(data[0]||[]).map(()=>({wch:16}));X.utils.book_append_sheet(wb,ws,name)};
+    add('ملخص شهري',monthlySummary());
+    add('الدوام',aoa('labor'));
+    add('البضاعة',aoa('material'));
+    add('المصاريف',aoa('expense'));
+    add('الإيرادات',aoa('revenue'));
+    add('القاموس',dictAoa());
+    add('الجدول العام',[GH,...D.rows.sort((a,b)=>(String(a.date||'')+refOf(a)).localeCompare(String(b.date||'')+refOf(b))).map(gRow)]);
+    X.writeFile(wb,`icool-يوميات-${today()}.xlsx`);
+    S.busy='';render();
+  }catch(e){S.busy='';S.err=e.message;render()}
+}
+function dl(name,content,type){const b=new Blob(['\ufeff'+content],{type:type||'text/plain;charset=utf-8'});
+  const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+function exportOpsCSV(){
+  let s='نوع,تاريخ,فورمان,اسم,من,إلى,زبون,عمل,كمية,سعر,مصدر,مورّد,مبلغ,ملاحظة\n';
+  const Q=v=>`"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  D.rows.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(r=>{
+    const F=fieldsOf(r.type),g=k=>{const f=F.find(x=>x.k===k);return f?shown(r,f):''};
+    if(r.type==='labor')s+=['عمل',r.date,r.foreman,Q(g('worker')),r.from,r.to,Q(g('client')),Q(g('task')),'','','','','',''].join(',')+'\n';
+    else if(r.type==='material')s+=['بضاعة',r.date,r.foreman,Q(g('item')),'','',Q(g('client')),'',n(r.qty),n(r.price),Q(r.source||''),Q(g('supplier')),'',''].join(',')+'\n';
+    else if(r.type==='expense')s+=['مصروف',r.date,r.foreman,Q(g('item')),'','',Q(g('client')),'','','','','',n(r.amount),Q(r.note||'')].join(',')+'\n';
+    else s+=['ايراد',r.date,r.foreman,'','','',Q(g('client')),'','','','','',n(r.amount),Q(r.note||'')].join(',')+'\n';
+  });
+  dl('icool-ops-import.csv',s,'text/csv;charset=utf-8');
+}
+
+/* ================= بنك الداتا =================
+   الباكاب الكامل ثقيل لأن كل ورقة تحمل صورتين base64 (sh.full وsh.img) داخل
+   نفس الـJSON. النصوص وحدها — وهي الداتا الحقيقية — جزء صغير منه.
+   مستويان للتصدير:
+     buildBank() ⇐ اشتقاقات للمنصّة (أسماء · أسعار · ارتباطات). صغير يُستورد فوراً.
+     buildData() ⇐ الأرشيف كاملاً بلا صور. للحفظ والتحليل.
+   كلاهما يكتب القيم **المصحّحة** عبر canonOf لا الخام المقروء من الصورة. */
+const BANKV=1;
+const leanRow=r=>{const o={};
+  for(const k in r){if(k==='raw'||k==='box'||k==='boxes')continue;o[k]=r[k]}
+  return o};
+const leanSheet=sh=>{const o={};
+  for(const k in sh){if(k==='full'||k==='img')continue;o[k]=sh[k]}
+  return o};
+
+/* القيمة المصحّحة لحقل في سطر */
+const cv=(r,k,kind)=>{const v=r[k];return kind?canonOf(kind,v):(v||'')};
+
+function buildBank(){
+  const mats=D.rows.filter(r=>r.type==='material');
+  const labs=D.rows.filter(r=>r.type==='labor');
+  const exps=D.rows.filter(r=>r.type==='expense');
+  const revs=D.rows.filter(r=>r.type==='revenue');
+  const dates=D.rows.map(r=>r.date).filter(Boolean).sort();
+
+  /* الأسماء المعتمدة لكل نوع، مرتّبة بالتكرار الفعلي في الأسطر لا بعدّاد القاموس */
+  const seen={};
+  const bump=(kind,name)=>{if(!name)return;(seen[kind]=seen[kind]||{})[name]=(seen[kind][name]||0)+1};
+  labs.forEach(r=>{bump('worker',cv(r,'worker','worker'));bump('client',cv(r,'client','client'));bump('task',cv(r,'task','task'))});
+  mats.forEach(r=>{bump('item',cv(r,'item','item'));bump('client',cv(r,'client','client'));bump('supplier',cv(r,'supplier','supplier'))});
+  exps.forEach(r=>{bump('exp',cv(r,'item','exp'));bump('client',cv(r,'client','client'))});
+  revs.forEach(r=>{bump('client',cv(r,'client','client'))});
+
+  const dict={};
+  Object.keys(KINDS).forEach(kind=>{
+    const cnt=seen[kind]||{};
+    /* كل اسم في القاموس ولو لم يظهر بعد، وكل اسم ظهر ولو لم يدخل القاموس */
+    const names=new Set(Object.keys(cnt));
+    D.dict.filter(d=>d.kind===kind).forEach(d=>names.add(d.canon));
+    dict[kind]=[...names].filter(Boolean).map(nm=>{
+      const d=D.dict.find(x=>x.kind===kind&&norm(x.canon)===norm(nm));
+      return {name:nm,n:cnt[nm]||0,
+        variants:d?(d.variants||[]).map(v=>v.v).slice(0,8):[]};
+    }).sort((a,b)=>b.n-a.n);
+  });
+
+  /* البضاعة: الوحدة الغالبة · إحصاء السعر · المورّدون · الورشات التي استهلكتها */
+  const byItem={};
+  mats.forEach(r=>{
+    const nm=cv(r,'item','item');if(!nm)return;
+    const o=byItem[nm]=byItem[nm]||{name:nm,n:0,units:{},prices:[],sups:{},clients:{}};
+    o.n++;
+    if(r.unit)o.units[r.unit]=(o.units[r.unit]||0)+1;
+    const pr=n(r.price);if(pr>0)o.prices.push({d:r.date||'',p:pr});
+    const sp=cv(r,'supplier','supplier');if(sp)o.sups[sp]=(o.sups[sp]||0)+1;
+    const cl=cv(r,'client','client');if(cl)o.clients[cl]=(o.clients[cl]||0)+1;
+  });
+  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  const items=Object.values(byItem).map(o=>{
+    const ps=o.prices.slice().sort((a,b)=>a.p-b.p).map(x=>x.p);
+    const byDate=o.prices.slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+    const med=ps.length?(ps.length%2?ps[(ps.length-1)/2]:(ps[ps.length/2-1]+ps[ps.length/2])/2):0;
+    return {name:o.name,n:o.n,unit:top(o.units)[0]||'قطعة',
+      price:{last:byDate.length?byDate[byDate.length-1].p:0,med:Math.round(med*100)/100,
+        min:ps[0]||0,max:ps[ps.length-1]||0,k:ps.length,
+        hist:byDate.slice(-6)},
+      sups:top(o.sups).slice(0,3),clients:top(o.clients).slice(0,6)};
+  }).sort((a,b)=>b.n-a.n);
+
+  /* ما تستهلكه كل ورشة عادةً — يغذّي الاقتراح داخل مجموعة البضاعة */
+  const byClient={};
+  mats.forEach(r=>{const cl=cv(r,'client','client'),nm=cv(r,'item','item');
+    if(!cl||!nm)return;const o=byClient[cl]=byClient[cl]||{};o[nm]=(o[nm]||0)+1});
+  const clients=Object.entries(byClient).map(([name,o])=>({name,items:top(o).slice(0,12)}));
+
+  return {fmt:'icool-bank',v:BANKV,made:today(),src:'icool-reader '+VER,
+    span:{from:dates[0]||'',to:dates[dates.length-1]||'',
+      sheets:D.sheets.length,rows:D.rows.length,
+      labor:labs.length,material:mats.length,expense:exps.length,revenue:revs.length},
+    dict,items,clients};
+}
+
+const buildData=()=>({fmt:'icool-data',v:BANKV,made:today(),src:'icool-reader '+VER,
+  sheets:D.sheets.map(leanSheet),rows:D.rows.map(leanRow),dict:D.dict});
+
+function toastR(msg){
+  let e=document.getElementById('toastR');
+  if(!e){e=document.createElement('div');e.id='toastR';
+    e.style.cssText='position:fixed;inset-inline:16px;bottom:16px;z-index:999;background:#0b2440;color:#fff;'
+      +'padding:13px 16px;border-radius:12px;font-weight:700;font-size:14px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)';
+    document.body.appendChild(e)}
+  e.textContent=msg;e.style.display='block';
+  clearTimeout(toastR._t);toastR._t=setTimeout(()=>{e.style.display='none'},4200);
+}
+const kb=b=>b<1048576?(b/1024).toFixed(0)+' ك.ب':(b/1048576).toFixed(1)+' م.ب';
+function exportBank(){const j=JSON.stringify(buildBank());
+  dl('icool-bank-'+today()+'.json',j,'application/json');
+  toastR(`بنك الداتا ${kb(j.length)} — استورده في منصّة الورش`)}
+function exportData(){const j=JSON.stringify(buildData());
+  dl('icool-data-'+today()+'.json',j,'application/json');
+  toastR(`الأرشيف بلا صور ${kb(j.length)}`)}
+/* الأحجام تُحسب فعلياً لا تقديراً، ليرى صاحب العمل أين ذهبت الميغابايتات */
+function bankSizes(){
+  let img=0;D.sheets.forEach(sh=>{img+=(sh.full||'').length+(sh.img||'').length});
+  return {full:JSON.stringify(D).length,img,bank:JSON.stringify(buildBank()).length,
+    data:JSON.stringify(buildData()).length};
+}
+const backupJSON=()=>dl('icool-reader-backup-'+today()+'.json',JSON.stringify(D),'application/json');
+/* نسخة مجزّأة: ملفات صغيرة تنجح على الهاتف حيث يفشل الملف الضخم */
+async function backupChunks(per){
+  per=per||20;
+  const N=Math.ceil(D.sheets.length/per)||1;
+  for(let i=0;i<N;i++){
+    const sheets=D.sheets.slice(i*per,(i+1)*per);
+    const ids=new Set(sheets.map(x=>x.id));
+    const part={part:i+1,of:N,sheets,rows:D.rows.filter(r=>ids.has(r.sheetId)),dict:i===0?D.dict:[]};
+    dl(`icool-part-${String(i+1).padStart(2,'0')}-of-${N}.json`,JSON.stringify(part),'application/json');
+    await new Promise(r=>setTimeout(r,900));
+  }
+  alert(`نُزّلت ${N} ملفاً. احفظها كلها، واستوردها في الجهاز الآخر بزر «استعادة / دمج» دفعة واحدة.`);
+}
+/* الاستعادة بالدمج: لا تمسح ما عندك */
+async function mergeBackup(objs,replace){
+  if(replace){D={sheets:[],rows:[],dict:[]};await dbClear('rows');await dbClear('sheets');await dbClear('dict')}
+  let ns=0,nr=0,nd=0;
+  for(const j of objs){
+    (j.sheets||[]).forEach(sh=>{if(!D.sheets.find(x=>x.id===sh.id)){D.sheets.push(sh);ns++}});
+    (j.rows||[]).forEach(r=>{if(!D.rows.find(x=>x.id===r.id)){D.rows.push(r);nr++}});
+    (j.dict||[]).forEach(d=>{const ex=D.dict.find(x=>x.kind===d.kind&&norm(x.canon)===norm(d.canon));
+      if(ex){(d.variants||[]).forEach(v=>{if(!(ex.variants||[]).some(y=>norm(y.v)===norm(v.v)))(ex.variants=ex.variants||[]).push(v)})}
+      else{D.dict.push(d);nd++}});
+  }
+  await dbPut('sheets',D.sheets);await dbPut('rows',D.rows);await dbPut('dict',D.dict);
+  render();alert(`دُمج: ${ns} ورقة، ${nr} سطر، ${nd} كلمة قاموس.\nالإجمالي الآن: ${D.sheets.length} ورقة و${D.rows.length} سطر.`);
+}
+</script>
+<script>
+/* ================= الواجهة ================= */
+function render(){
+  document.getElementById('pill').textContent=`${VER}${D.rows.length?' • '+D.rows.length+' سطر':''}`;
+  const T=[['in','📷','الإدخال'],['cal','📅','التقويم'],['table','📊','الجدول'],['fix','⚠️','التصحيح'],['dict','🧠','القاموس'],['out','⬇️','التصدير']];
+  document.getElementById('tabs').style.gridTemplateColumns='repeat(6,1fr)';
+  document.getElementById('tabs').innerHTML=T.map(t=>
+    `<button data-a="tab" data-k="${t[0]}" class="${S.tab===t[0]?'on':''}"><span class="ic">${t[1]}</span>${t[2]}</button>`).join('');
+  document.getElementById('app').innerHTML=
+    S.busy?vBusy():S.tab==='in'?vIn():S.tab==='table'?vTable():S.tab==='fix'?vFix():S.tab==='dict'?vDict():S.tab==='cal'?vCal():vOut();
+  setTimeout(fillCrops,30);
+}
+const vBusy=()=>`<div class="card"><h3>⏳ ${esc(S.busy)}</h3><div class="pad" style="text-align:center">
+  <div style="font-size:40px">📄</div><div class="bar"><i style="width:${S.prog}%"></i></div>
+  <div class="mini">القراءة نحو ١٥ ثانية للورقة. لا تغلق الصفحة.</div></div></div>`;
+function vIn(){
+  const key=AIKEY(),bad=D.sheets.filter(s=>s.status==='خطأ');
+  const cf=D.sheets.filter(s=>s.status==='تعارض');
+  const dupq=D.sheets.filter(s=>s.dupFlag);
+  const wait=D.sheets.filter(s=>s.status==='بانتظار'||s.status==='إعادة').length;
+  const done=D.sheets.filter(s=>s.status==='تمت').length;
+  const err=D.sheets.filter(s=>s.status==='خطأ').length;
+  const reading=D.sheets.filter(s=>s.status==='يُقرأ').length;
+  const needDate=D.sheets.filter(s=>s.status==='تمت'&&(!s.date||s.dateFlag));
+  const u=unknowns().length;
+  return `${S.err?`<div class="note b">${esc(S.err)}</div>`:''}
+  ${key?'':`<div class="note">أدخل مفتاح Anthropic API مرة واحدة من تبويب التصدير ← الإعدادات ليبدأ العمل.</div>`}
+  <div class="kpis">
+    <div class="kpi"><div class="l">إجمالي الأوراق</div><div class="v">${D.sheets.length}</div></div>
+    <div class="kpi"><div class="l">أسطر</div><div class="v">${D.rows.length}</div></div>
+    <div class="kpi"><div class="l">قاموس</div><div class="v">${D.dict.length}</div></div>
+    <div class="kpi"><div class="l">تحتاج تصحيح</div><div class="v" style="color:${u?'var(--bad)':'var(--ok)'}">${u}</div></div></div>
+  <div class="card"><h3>① أرشفة الصور <span class="n">بلا إنترنت وبلا كلفة</span></h3><div class="pad">
+    <div class="mini" style="margin-bottom:10px">ارفع كل ما لديك ولو ٣٥٠ ورقة دفعة واحدة. تُحفظ الصور وتُكشف المكرّرات فوراً، ولا تُقرأ الآن. هذه خطوة آمنة لا تفشل ولا تكلّف شيئاً.</div>
+    <button class="btn w" data-a="import">🗂 استيراد صور الأوراق</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost w" data-a="shoot">أو استيراد وقراءة مباشرة (دفعة صغيرة)</button>
+  </div></div>
+  <div class="card"><h3>② طابور القراءة <span class="n">${wait} بانتظار • ${done} مقروءة</span></h3><div class="pad">
+    ${wait||QRUN?`<div class="bar"><i style="width:${done+wait?Math.round(done/(done+wait)*100):0}%"></i></div>`:''}
+    <div class="mini" style="margin-bottom:10px">تُقرأ ورقتان معاً. يمكنك الإيقاف والخروج والعودة لاحقاً — الطابور محفوظ. كلفة القراءة التقديرية نحو سنتين إلى ثلاثة للورقة الواحدة.</div>
+    ${QRUN?`<button class="btn r w" data-a="qStop">⏸ إيقاف القراءة (${esc(reading)} قيد المعالجة)</button>`
+      :`<button class="btn g w" data-a="qStart" ${wait?'':'disabled style=opacity:.5'}>▶️ تشغيل القراءة (${wait} ورقة)</button>`}
+    ${err?`<div style="height:8px"></div><button class="btn ghost w" data-a="qRetry">إعادة محاولة ${err} ورقة فشلت</button>`:''}
+  </div></div>
+  <div class="card"><h3>③ تحسين القراءة بالقاموس</h3><div class="pad">
+    <div class="mini" style="margin-bottom:10px">بعد أن يكبر بنك التصحيحات، أعد قراءة الأوراق الأضعف فيقرأها النظام وبين يديه أسماؤك المعتمدة. ما ثبّتَه بيدك لا يتغيّر عند إعادة القراءة.</div>
+    <button class="btn o w" data-a="reWeak">🔁 إعادة قراءة أضعف ٢٠ ورقة</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost w" data-a="reAll">🔁 إعادة قراءة كل الأوراق (جولة كاملة)</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost w" data-a="auto85">⚡️ اعتماد الكلمات المتطابقة تلقائياً (تشابه ٨٥٪+)</button>
+    <div style="height:8px"></div>
+    <button class="btn w" data-a="seedDict">🧠 بناء القاموس من كل القراءات السابقة (${D.rows.length} سطر)</button>
+    <div class="mini" style="margin-top:6px">يستخرج كل الأسماء التي قُرئت حتى الآن، ويضمّ المتقاربة تحت الأكثر تكراراً، فتصبح مرجعاً يُرسل مع كل قراءة جديدة.</div>
+  </div></div>
+  ${dupq.length?`<div class="card"><h3>🔍 أوراق مشتبه بتكرارها <span class="n">${dupq.length}</span></h3>
+    <div class="pad mini">لم يُحذف شيء. النظام لاحظ تشابهاً بصرياً فقط — وكل أوراقك على النموذج المطبوع نفسه فالتشابه وارد. قارن بعينك وقرّر.</div>
+    ${dupq.slice(0,20).map(sh=>{const o=sheetOf(sh.dupOf);
+      return `<div class="opt" style="display:block">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><div class="mini">المؤرشفة سابقاً</div>
+            ${o.img?`<img class="thumb" src="data:image/jpeg;base64,${o.img}">`:'<div class="mini">—</div>'}
+            <div class="mini">${esc(o.date||o.name||'')}</div></div>
+          <div style="flex:1"><div class="mini">هذه الورقة</div>
+            <img class="thumb" src="data:image/jpeg;base64,${sh.img}">
+            <div class="mini">${esc(sh.date||sh.name||'')}</div></div></div>
+        <div class="mini" style="margin-top:6px">درجة التشابه: ${256-(sh.dupDist||0)}/256</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px">
+          <button class="btn sm g" data-a="dupKeep" data-id="${sh.id}">ورقتان مختلفتان — أبقِ الاثنتين</button>
+          <button class="btn sm r" data-a="dupDel" data-id="${sh.id}">نعم مكرّرة — احذف هذه</button></div>
+      </div>`}).join('')}
+    ${dupq.length>20?`<div class="pad mini">تُعرض أول ٢٠ من ${dupq.length}.</div>`:''}</div>`:''}
+  ${cf.length?`<div class="card"><h3>🚫 يوميات مكرّرة تنتظر قرارك <span class="n">${cf.length}</span></h3>
+    ${cf.map(s2=>{const old=sheetOf(s2.conflictWith);
+      return `<div class="opt" style="display:block">
+        <div class="note b" style="margin:0 0 8px">${esc(s2.dupKind)} — ${esc(s2.date||'بلا تاريخ')}</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><div class="mini">القديمة ${esc(old.ref||'')} — ${old.rows||0} سطر</div>
+            ${old.img?`<img class="thumb" src="data:image/jpeg;base64,${old.img}">`:''}</div>
+          <div style="flex:1"><div class="mini">الجديدة — ${(s2.pending||[]).length} سطر</div>
+            ${s2.img?`<img class="thumb" src="data:image/jpeg;base64,${s2.img}">`:''}</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px">
+          <button class="btn sm r" data-a="cfDrop" data-id="${s2.id}">رفض الجديدة</button>
+          <button class="btn sm o" data-a="cfReplace" data-id="${s2.id}">استبدال القديمة</button>
+          <button class="btn sm ghost" data-a="cfKeep" data-id="${s2.id}">إبقاء الاثنتين</button>
+        </div></div>`}).join('')}</div>`:''}
+  ${needDate.length?`<div class="card"><h3>📅 تواريخ تحتاج تأكيدك <span class="n">${needDate.length}</span></h3>
+    <div class="pad mini">التاريخ يُقرأ من ترويسة الورقة نفسها (اسم اليوم + التاريخ الرقمي)، ويُقارن أحدهما بالآخر. هذه الأوراق لم يتطابق فيها الاثنان أو لم يتضح أحدهما — أكّدها من قصاصة الترويسة أمامك.</div>
+    ${needDate.slice(0,25).map(sh=>`<div class="opt" style="display:block">
+      <img class="crop" data-scrop="${sh.id}" style="display:none">
+      <div class="mini" style="margin-top:6px">${esc(sh.dateFlag||'')}${sh.dayName?' • قرأ اسم اليوم: '+esc(sh.dayName):''}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="date" id="nd_${sh.id}" value="${esc(sh.date||'')}">
+        <button class="btn sm" data-a="setDate" data-id="${sh.id}">تثبيت</button>
+        <button class="btn sm ghost" data-a="openSheet" data-id="${sh.id}">الورقة</button></div>
+      ${sh.date?`<div class="mini" style="margin-top:4px">التاريخ الحالي يقع يوم ${esc(DW[new Date(sh.date+'T12:00:00').getDay()])}</div>`:''}
+    </div>`).join('')}
+    ${needDate.length>25?`<div class="pad mini">تُعرض أول ٢٥ من ${needDate.length}.</div>`:''}</div>`:''}
+  ${bad.length?`<div class="card"><h3>⚠️ أوراق فشلت <span class="n">${bad.length}</span></h3>
+    ${bad.map(s=>`<div class="opt"><div><b>${esc(s.name)}</b><div class="mini">${esc(s.err||'')}</div></div>
+      <button class="btn sm ghost" data-a="delSheet" data-id="${s.id}">حذف</button></div>`).join('')}</div>`:''}
+  <div class="card"><h3>🗂 الأوراق المقروءة <span class="n">${D.sheets.filter(s=>s.status==='تمت').length}</span></h3>
+    ${D.sheets.filter(s=>s.status==='تمت').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,40).map(s=>`
+      <div class="opt" data-a="openSheet" data-id="${s.id}">
+        <div><b>${esc(s.date||'بلا تاريخ')}</b><div class="mini">${esc(s.ref||'')} • ${s.rows} سطر • جودة ${quality(s)}%${s.pass>1?' • قراءة '+s.pass:''}</div></div>
+        <div class="sub">${s.dateFlag?'<span class="badge r">تاريخ؟</span> ':''}<span class="badge ${quality(s)>=80?'a':quality(s)>=50?'d':'r'}">${quality(s)}%</span></div></div>`).join('')||'<div class="empty">لا أوراق بعد.</div>'}</div>`;
+}
+function allRows(){
+  let rs=D.rows.slice();
+  if(S.fFrom)rs=rs.filter(r=>(r.date||'')>=S.fFrom);
+  if(S.fTo)rs=rs.filter(r=>(r.date||'')<=S.fTo);
+  if(S.fClient)rs=rs.filter(r=>norm(canonOf('client',r.client))===norm(S.fClient));
+  if(S.fWorker)rs=rs.filter(r=>norm(canonOf('worker',r.worker))===norm(S.fWorker)||norm(canonOf('worker',r.foreman))===norm(S.fWorker));
+  const q=S.q.trim();
+  if(q)rs=rs.filter(r=>fieldsOf(r.type).some(f=>norm(String(shown(r,f))).includes(norm(q))));
+  return rs.sort((a,b)=>(String(a.date||'')+refOf(a)).localeCompare(String(b.date||'')+refOf(b)));
+}
+const GH=['المرجع','التاريخ','الفورمان','النوع','العامل / البند','الوصف','الورشة / الزبون','ساعات','كمية','سعر','القيمة','المورّد','المصدر'];
+function gRow(r){
+  const F=fieldsOf(r.type),g=k=>{const f=F.find(x=>x.k===k);return f?shown(r,f):''};
+  const val=r.type==='material'?n(r.qty)*n(r.price):r.type==='labor'?'':n(r.amount);
+  return [refOf(r),r.date||'',canonOf('worker',r.foreman),TYPES[r.type],
+    r.type==='labor'?g('worker'):g('item'),
+    r.type==='labor'?g('task'):(r.note||''),
+    g('client'),
+    r.type==='labor'?n(r.hours):'',
+    r.type==='material'?n(r.qty):'',
+    r.type==='material'?n(r.price):'',
+    val,
+    r.type==='material'?g('supplier'):'',
+    r.type==='material'?(r.source||''):''];
+}
+function clientList(){
+  const set={};D.rows.forEach(r=>{const c=canonOf('client',r.client);if(c)set[c]=(set[c]||0)+1});
+  return Object.entries(set).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+}
+function workerList(){
+  const set={};D.rows.forEach(r=>{const w=canonOf('worker',r.worker);if(w)set[w]=(set[w]||0)+1});
+  return Object.entries(set).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+}
+function vAll(){
+  const rs=allRows();
+  const hrs=rs.filter(r=>r.type==='labor').reduce((s,r)=>s+n(r.hours),0);
+  const mat=rs.filter(r=>r.type==='material').reduce((s,r)=>s+n(r.qty)*n(r.price),0);
+  const exp=rs.filter(r=>r.type==='expense').reduce((s,r)=>s+n(r.amount),0);
+  const rev=rs.filter(r=>r.type==='revenue').reduce((s,r)=>s+n(r.amount),0);
+  return `<div class="card"><h3>🧾 الجدول العام <span class="n">${rs.length} سطر</span></h3>
+    <div class="pad">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="f">من تاريخ</label><input type="date" value="${esc(S.fFrom||'')}" data-a="fFrom"></div>
+        <div><label class="f">إلى تاريخ</label><input type="date" value="${esc(S.fTo||'')}" data-a="fTo"></div></div>
+      <div style="height:8px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="f">الورشة / الزبون</label><select data-a="fClient"><option value="">الكل</option>
+          ${clientList().map(c=>`<option ${S.fClient===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+        <div><label class="f">العامل</label><select data-a="fWorker"><option value="">الكل</option>
+          ${workerList().map(c=>`<option ${S.fWorker===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div></div>
+      <div style="height:8px"></div>
+      <input type="text" id="q" value="${esc(S.q)}" data-a="q" placeholder="بحث حر في كل الأعمدة…">
+      <div style="height:9px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn g w" data-a="xlsxFilt">📊 تصدير المعروض إلى Excel</button>
+        <button class="btn ghost w" data-a="clearF">مسح الفلاتر</button></div>
+    </div>
+    <div class="kpis" style="padding:0 12px 12px;margin:0">
+      <div class="kpi"><div class="l">ساعات عمل</div><div class="v">${fmt(hrs)}</div></div>
+      <div class="kpi"><div class="l">قيمة بضاعة</div><div class="v">${fmt(mat)}</div></div>
+      <div class="kpi"><div class="l">مصاريف</div><div class="v">${fmt(exp)}</div></div>
+      <div class="kpi"><div class="l">إيرادات</div><div class="v">${fmt(rev)}</div></div></div>
+    <div class="scroll" style="max-height:62vh"><table>
+      <tr>${GH.map(h=>`<th>${h}</th>`).join('')}</tr>
+      ${rs.slice(0,600).map(r=>{const g=gRow(r);
+        return `<tr>${g.map((v,i)=>`<td class="${[7,8,9,10].includes(i)?'num':''}">${esc(typeof v==='number'?(v?fmt(v):''):v)}</td>`).join('')}</tr>`}).join('')
+      ||`<tr><td colspan="${GH.length}" class="empty">لا نتائج ضمن هذه الفلترة.</td></tr>`}
+    </table></div>
+    ${rs.length>600?`<div class="pad mini">يُعرض أول ٦٠٠ سطر من ${rs.length}. التصدير يشمل الكل.</div>`:''}</div>`;
+}
+function vTable(){
+  if(S.rowType==='all')return `<div class="seg">${[...Object.entries(TYPES),['all','الجدول العام']].map(([k,v])=>
+    `<button data-a="rtype" data-k="${k}" class="${S.rowType===k?'on':''}">${v}</button>`).join('')}</div>`+vAll();
+  const rs=rowsView(),F=fieldsOf(S.rowType);
+  const ms=months();
+  const sums={};F.filter(f=>f.num).forEach(f=>sums[f.k]=rs.reduce((s,r)=>s+n(shown(r,f)),0));
+  return `<div class="seg">${[...Object.entries(TYPES).map(([k,v])=>[k,v+' ('+D.rows.filter(r=>r.type===k).length+')']),['all','الجدول العام']].map(([k,v])=>
+    `<button data-a="rtype" data-k="${k}" class="${S.rowType===k?'on':''}">${v}</button>`).join('')}</div>
+  <div class="card"><div class="chips" style="border:0">
+    <button class="chip ${!S.month?'on':''}" data-a="month" data-k="">كل الشهور</button>
+    ${ms.map(m=>`<button class="chip ${S.month===m?'on':''}" data-a="month" data-k="${m}">${m}</button>`).join('')}</div>
+    <div class="pad" style="padding-top:0"><input type="text" id="q" value="${esc(S.q)}" data-a="q" placeholder="ابحث في الجدول…"></div>
+    <div class="mini pad" style="padding-top:0">اضغط أي خلية باسم عامل أو ورشة أو بند لتصحيحها — التصحيح يسري على كل الأسطر المشابهة في كل الشهور.</div>
+    <div class="scroll" style="max-height:65vh">
+    <table><tr><th>المرجع</th><th>التاريخ</th><th>الفورمان</th>${F.map(f=>`<th>${f.t}</th>`).join('')}</tr>
+    ${rs.map(r=>`<tr>
+      <td class="mini">${esc(refOf(r))}</td><td>${esc(r.date||'')}</td><td>${esc(canonOf('worker',r.foreman))}</td>
+      ${F.map(f=>{const v=shown(r,f);
+        const cls=f.num?'num':(isRaw(r,f)?'cell raw':wasFixed(r,f)?'cell fixed':f.kind?'cell':'');
+        return `<td class="${cls}" ${f.kind?`data-a="cell" data-id="${r.id}" data-k="${f.k}" data-kind="${f.kind}"`:''}>${esc(f.num?fmt(v):v)}</td>`}).join('')}
+    </tr>`).join('')||`<tr><td colspan="${F.length+3}" class="empty">لا أسطر.</td></tr>`}
+    ${rs.length?`<tr class="sum"><td colspan="3">المجموع (${rs.length} سطر)</td>
+      ${F.map(f=>`<td class="num">${f.num?fmt(sums[f.k]):''}</td>`).join('')}</tr>`:''}
+    </table></div></div>`;
+}
+function vFix(){
+  const u=unknowns();
+  return `<div class="card"><h3>⚠️ مركز التصحيح <span class="n">${u.length} كلمة</span></h3>
+    <div class="pad"><button class="btn ghost w" data-a="auto85">⚡️ اعتماد المتطابق تلقائياً (٨٥٪+)</button></div>
+    <div class="pad mini">هذه كلمات قرأها النظام ولم تُعتمد بعد في القاموس. اعتمادها مرة واحدة يصحّح كل أسطرها في كل الشهور.</div>
+    ${u.slice(0,60).map((x,i)=>{const sg=suggest(x.kind,x.raw);
+      return `<div class="opt" style="display:block">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div><b>${esc(x.raw)}</b><div class="mini">${KINDS[x.kind]} • ${x.n} سطر${x.rows[0]?' • '+esc(refOf(D.rows.find(r=>r.id===x.rows[0])||{})):''}</div></div>
+          <div class="sub">${sg?`<button class="btn sm g" data-a="accept" data-kind="${x.kind}" data-raw="${esc(x.raw)}" data-canon="${esc(sg.d.canon)}">= ${esc(sg.d.canon)}</button>`:''}</div>
+        </div>
+        ${x.rows.slice(0,3).map(rid=>`<img class="crop" data-crop="${rid}" data-cropk="${x.fk}" style="display:none">`).join('')}
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="text" id="fx${i}" value="${esc(sg?sg.d.canon:x.raw)}" placeholder="الكلمة الصحيحة">
+          <button class="btn sm" data-a="acceptIn" data-kind="${x.kind}" data-raw="${esc(x.raw)}" data-i="${i}">اعتماد</button>
+        </div></div>`}).join('')||'<div class="empty">لا شيء يحتاج تصحيحاً — كل الكلمات معتمدة.</div>'}
+    ${u.length>60?`<div class="pad mini">تُعرض أول ٦٠ كلمة من ${u.length}.</div>`:''}</div>`;
+}
+function vDict(){
+  const list=D.dict.filter(d=>d.kind===S.kind).sort((a,b)=>((b.prov?1:0)-(a.prov?1:0))||((b.n||0)-(a.n||0)));
+  return `<div class="seg">${Object.entries(KINDS).map(([k,v])=>
+    `<button data-a="kind" data-k="${k}" class="${S.kind===k?'on':''}">${v}</button>`).join('')}</div>
+  ${D.dict.filter(d=>d.prov).length?`<div class="note">${D.dict.filter(d=>d.prov).length} كلمة معتمدة مبدئياً من قراءات سابقة — أكّدها أو صحّحها. غير المؤكَّد لا يُرسل مع القراءات الجديدة إلا إن تكرّر كثيراً.</div>`:''}
+  <div class="card"><h3>🧠 ${KINDS[S.kind]} <span class="n">${list.length}</span></h3>
+    <div class="pad"><div style="display:flex;gap:8px">
+      <input type="text" id="newCanon" placeholder="أضف كلمة صحيحة جديدة">
+      <button class="btn sm" data-a="addCanon">إضافة</button></div>
+      <div class="mini" style="margin-top:8px">كل كلمة تحمل أشكالها التي قرأها النظام. حذف شكل خاطئ يعيد أسطره إلى مركز التصحيح.</div></div>
+    ${list.map(d=>`<div class="opt" style="display:block">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div><b>${esc(d.canon)}</b> ${d.prov?'<span class="badge d">مبدئي</span>':''}
+          <div class="mini">${(d.variants||[]).length} شكل • ${d.n||0} استعمال${d.seen?' • ظهر '+d.seen+' مرة':''}</div></div>
+        <div class="sub">${d.prov?`<button class="btn sm g" data-a="okCanon" data-id="${d.id}">تأكيد</button> `:''}
+          <button class="btn sm ghost" data-a="renCanon" data-id="${d.id}">تعديل</button>
+          <button class="btn sm r" data-a="delCanon" data-id="${d.id}">✕</button></div></div>
+      ${(d.variants||[]).length?`<div style="margin-top:6px">${d.variants.map(v=>
+        `<span class="chip o" data-a="delVar" data-id="${d.id}" data-v="${esc(v.v)}">${esc(v.v)} ×${v.n||1} ✕</span>`).join('')}</div>`:''}
+    </div>`).join('')||'<div class="empty">لا كلمات في هذا الباب بعد.</div>'}</div>`;
+}
+function monthOf(){if(S.cal)return S.cal;
+  const ms=[...new Set(D.sheets.filter(s=>s.date).map(s=>s.date.slice(0,7)))].sort();
+  return S.cal=(ms.length?ms[ms.length-1]:today().slice(0,7))}
+function shiftMonth(k){const [y,m]=monthOf().split('-').map(Number);
+  const d=new Date(y,m-1+k,1);S.cal=ymd(d).slice(0,7);S.calDay=''}
+function vCal(){
+  const M=monthOf(),[y,m]=M.split('-').map(Number);
+  const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
+  const byDate={};D.sheets.filter(s=>s.status==='تمت'&&s.date).forEach(s=>(byDate[s.date]=byDate[s.date]||[]).push(s));
+  const cells=[];
+  for(let i=0;i<lead;i++)cells.push('<div></div>');
+  for(let d=1;d<=days;d++){
+    const dt=`${M}-${String(d).padStart(2,'0')}`,list=byDate[dt]||[];
+    const rows=D.rows.filter(r=>r.date===dt).length;
+    cells.push(`<div class="cday ${list.length?'has':''} ${S.calDay===dt?'sel':''}" data-a="calDay" data-k="${dt}">
+      <b>${d}</b>${list.length?`<i>${rows}</i>`:''}</div>`);
+  }
+  const sel=S.calDay,sheets=sel?(byDate[sel]||[]):[];
+  const rws=sel?D.rows.filter(r=>r.date===sel):[];
+  return `<div class="card"><h3>📅 تقويم اليوميات</h3>
+    <div class="pad" style="display:flex;gap:8px;align-items:center">
+      <button class="btn sm ghost" data-a="mPrev">‹ السابق</button>
+      <select data-a="mPick" style="flex:1;text-align:center;font-weight:900">
+        ${(()=>{const set=new Set(months());set.add(M);return [...set].sort().reverse()
+          .map(x=>`<option value="${x}" ${x===M?'selected':''}>${x}</option>`).join('')})()}
+      </select>
+      <button class="btn sm ghost" data-a="mNext">التالي ›</button></div>
+    <div class="cgrid head">${DW.map(d=>`<div class="cdh">${d.replace('ال','')}</div>`).join('')}</div>
+    <div class="cgrid">${cells.join('')}</div>
+    <div class="pad mini">الأيام الملوّنة فيها يوميات، والرقم الصغير عدد أسطرها. اضغط اليوم لعرض ورقته وتفاصيله.</div></div>
+  ${sel?`<div class="card" id="dayPanel"><h3>🗓 ${esc(sel)} <span class="n">${sheets.length} ورقة • ${rws.length} سطر</span></h3>
+    ${sheets.map(sh=>`<div class="pad" style="border-bottom:1px solid var(--line2)">
+      ${sh.dateFlag?`<div class="note b" style="margin:0 0 8px">تاريخ يحتاج تأكيداً: ${esc(sh.dateFlag)}</div>`:''}
+      <div class="mini">المرجع ${esc(sh.ref||'—')} • الفورمان ${esc(canonOf('worker',sh.foreman)||'—')} • أُدخلت ${esc(sh.added||'')}${sh.replaced?' • بديلة عن '+esc(sh.replaced):''}</div>
+      ${(sh.full||sh.img)?`<img class="thumb" style="margin-top:8px" src="data:image/jpeg;base64,${sh.full||sh.img}">`:''}
+      ${sh.unclear&&sh.unclear.length?`<div class="note" style="margin-top:8px">لم يتضح: ${esc(sh.unclear.join(' • '))}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <input type="date" id="ed_${sh.id}" value="${esc(sh.date||'')}">
+        <button class="btn sm o" data-a="editDate" data-id="${sh.id}">تعديل التاريخ</button>
+        <button class="btn sm o" data-a="reSheet" data-id="${sh.id}">🔁 إعادة قراءة</button>
+        <button class="btn sm ghost" data-a="dlImg" data-id="${sh.id}">⬇︎</button>
+        <button class="btn sm r" data-a="delSheet" data-id="${sh.id}">حذف</button></div>
+      <div class="mini" style="margin-top:6px">تعديل التاريخ ينقل الورقة وكل أسطرها إلى اليوم الجديد ويعيد ترقيم مرجعها.</div>
+    </div>`).join('')}
+    ${['labor','material','expense','revenue'].map(tp=>{const rs=rws.filter(r=>r.type===tp);if(!rs.length)return '';
+      const F=fieldsOf(tp);
+      return `<div class="chips"><b>${TYPES[tp]}</b> <span class="mini">${rs.length} سطر</span></div>
+      <div class="scroll pad"><table><tr>${F.map(f=>`<th>${f.t}</th>`).join('')}</tr>
+      ${rs.map(r=>`<tr>${F.map(f=>{const v=shown(r,f);
+        return `<td class="${f.num?'num':(isRaw(r,f)?'cell raw':wasFixed(r,f)?'cell fixed':f.kind?'cell':'')}"
+          ${f.kind?`data-a="cell" data-id="${r.id}" data-k="${f.k}" data-kind="${f.kind}"`:''}>${esc(f.num?fmt(v):v)}</td>`}).join('')}</tr>`).join('')}
+      </table></div>`}).join('')}
+  </div>`:''}`;
+}
+function vArch(){
+  const ok=D.sheets.filter(s=>s.status==='تمت');
+  const byM={};ok.forEach(s=>{const m=(s.date||'').slice(0,7)||'بلا تاريخ';(byM[m]=byM[m]||[]).push(s)});
+  const ms=Object.keys(byM).sort().reverse();
+  return `<div class="card"><h3>🗄 أرشيف الأوراق الأصلية <span class="n">${ok.length} ورقة</span></h3>
+    <div class="pad mini">كل صورة محفوظة كما التقطتها، مرتّبة تلقائياً بحسب التاريخ المقروء منها لا بحسب ترتيب الغاليري. اضغط أي صورة لفتحها بحجمها الكامل وتنزيلها.</div>
+    ${ms.map(m=>`<div>
+      <div class="chips" style="border-top:1px solid var(--line2)"><b>${esc(m)}</b> <span class="mini">— ${byM[m].length} ورقة</span></div>
+      <div class="gal">${byM[m].sort((a,b)=>(a.date+String(a.seq||0)).localeCompare(b.date+String(b.seq||0))).map(s=>`
+        <div><img class="thumb" src="data:image/jpeg;base64,${s.img}" data-a="openSheet" data-id="${s.id}">
+          <div class="mini" style="margin-top:3px">${esc(s.ref||'')}</div></div>`).join('')}</div></div>`).join('')||'<div class="empty">لا أوراق.</div>'}
+  </div>`;
+}
+function vOut(){
+  const key=AIKEY();
+  const SZ=D.sheets.length?bankSizes():null;
+  return `${SZ?`<div class="card"><h3>🏦 بنك الداتا</h3><div class="pad" style="display:grid;gap:9px">
+    <div class="mini">النصوص المصحّحة هي الداتا الحقيقية. الصور تشكّل ${SZ.full?Math.round(SZ.img/SZ.full*100):0}٪ من حجم الباكاب الكامل.</div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tr><td style="padding:5px 0">الباكاب الكامل (بالصور)</td><td style="text-align:end"><b>${kb(SZ.full)}</b></td></tr>
+      <tr><td style="padding:5px 0;color:#888">منها صور</td><td style="text-align:end;color:#888">${kb(SZ.img)}</td></tr>
+      <tr style="border-top:1px solid #e6ecf3"><td style="padding:5px 0">الأرشيف بلا صور</td><td style="text-align:end"><b>${kb(SZ.data)}</b></td></tr>
+      <tr><td style="padding:5px 0">بنك الداتا للمنصّة</td><td style="text-align:end"><b style="color:#0a7">${kb(SZ.bank)}</b></td></tr>
+    </table>
+    <button class="btn g w" data-a="bank">🏦 بنك الداتا للمنصّة (${kb(SZ.bank)})</button>
+    <div class="mini">أسماء العمال والورشات والبضاعة والموردين ووصف الأعمال، مع سعر كل بند وتاريخه،
+      وما تستهلكه كل ورشة عادةً. هذا ما تستورده منصّة الورش فتصير الاقتراحات والأسعار جاهزة.</div>
+    <button class="btn ghost w" data-a="data">🗄 الأرشيف كاملاً بلا صور (${kb(SZ.data)})</button>
+    <div class="mini">كل الأسطر والأوراق بلا الصور — للحفظ والتحليل، لا لاستيراده في المنصّة.</div>
+  </div></div>`:''}
+  <div class="card"><h3>⬇️ التصدير</h3><div class="pad" style="display:grid;gap:9px">
+    <button class="btn g w" data-a="xlsx">📊 تنزيل Excel تراكمي (كل الأوراق)</button>
+    <div class="mini">ست ورقات: ملخص شهري، الدوام، البضاعة، المصاريف، الإيرادات، والقاموس. القيم مصحّحة حسب القاموس لحظة التصدير.</div>
+    <button class="btn ghost w" data-a="opscsv">⬆︎ تصدير CSV جاهز لاستيراده في منصة الورش</button>
+    <button class="btn ghost w" data-a="backup">💾 نسخة احتياطية كاملة (ملف واحد)</button>
+    <button class="btn ghost w" data-a="chunks">🧩 نسخة مجزّأة — ٢٠ ورقة لكل ملف (الأنسب للهاتف)</button>
+    <button class="btn g w" data-a="restore">↩︎ استعادة / دمج ملفات نسخ</button>
+    <div class="mini">الدمج يضيف ما ينقصك ولا يمسح ما عندك. يمكنك اختيار عدة ملفات معاً.</div>
+  </div></div>
+  <div class="card"><h3>⚙️ الإعدادات</h3><div class="pad">
+    <label class="f">عدد الأوراق المقروءة معاً (١ أبطأ وأثبت على شبكة ضعيفة)</label>
+    <select data-a="par">${[1,2,3].map(v=>`<option ${String(n(cfgGet('icool_par'))||2)===String(v)?'selected':''}>${v}</option>`).join('')}</select>
+    <div style="height:10px"></div>
+    <label class="f">مفتاح Anthropic API (يُحفظ على هذا الجهاز فقط)</label>
+    <input type="text" id="k" value="${esc(key)}" placeholder="sk-ant-…">
+    <div style="height:10px"></div><button class="btn w" data-a="saveKey">حفظ المفتاح</button>
+    <div style="height:14px"></div>
+    <button class="btn r w" data-a="wipe">🗑 مسح كل الأوراق والأسطر (يبقى القاموس)</button>
+    <div style="height:8px"></div>
+    <button class="btn r w" data-a="wipeAll">🗑 مسح كل شيء بما فيه القاموس</button>
+  </div></div>
+  <div class="card"><h3>📚 كيف تعمل المنصة</h3><div class="pad mini" style="line-height:1.9">
+    ١ — تصوّر أوراق الشهر وتدخلها دفعة واحدة، فتُقرأ وتتحوّل إلى أسطر في جدول تراكمي.<br>
+    ٢ — القيمة الخام تُحفظ كما قُرئت ولا تُمسّ، والمعروض هو نتيجة مرورها بالقاموس.<br>
+    ٣ — كل تصحيح تعتمده يُخزَّن كـ «كلمة صحيحة + أشكالها»، فيُصلح كل الأسطر السابقة فوراً.<br>
+    ٤ — القاموس يُرسل مع كل قراءة جديدة، فتقل الأخطاء شهراً بعد شهر.<br>
+    ٥ — التصدير إلى Excel أو إلى ملف استيراد جاهز لمنصة الورش.
+  </div></div>`;
+}
+/* ================= نافذة تصحيح خلية ================= */
+function cellSheet(rowId,k,kind){
+  const r=D.rows.find(x=>x.id===rowId);if(!r)return;
+  const raw=r[k],cur=canonOf(kind,raw);
+  const same=D.rows.filter(x=>norm(x[k]||'')===norm(raw)&&x.type===r.type).length;
+  const list=D.dict.filter(d=>d.kind===kind).sort((a,b)=>sim(raw,b.canon)-sim(raw,a.canon)).slice(0,12);
+  document.getElementById('modal').innerHTML=`<div class="sheet" data-a="bg"><div class="box">
+    <div class="hd"><b>تصحيح ${KINDS[kind]}</b><div style="flex:1"></div><button class="x" data-a="close">✕</button></div>
+    <div class="bd">
+      <div class="pad">
+        <div class="mini">سطر الورقة الأصلية (${esc(refOf(r))})</div>
+        <img class="crop" data-crop="${r.id}" data-cropk="${k}" style="display:none;margin:6px 0 10px">
+        <div class="mini">ما قرأه النظام</div>
+        <div style="font-size:20px;font-weight:900;margin:4px 0 10px">${esc(raw||'—')}</div>
+        <label class="f">الكلمة الصحيحة</label>
+        <input type="text" id="cv" value="${esc(cur)}">
+        <div style="height:10px"></div>
+        <button class="btn g w" data-a="cellSave" data-id="${rowId}" data-k="${k}" data-kind="${kind}">
+          اعتماد وتصحيح ${same} سطر في كل الشهور</button>
+        <div style="height:8px"></div>
+        <button class="btn ghost w" data-a="cellOnly" data-id="${rowId}" data-k="${k}">تعديل هذا السطر فقط</button>
+      </div>
+      ${list.length?`<div class="pad" style="border-top:1px solid var(--line2)"><div class="mini">اختر من القاموس</div>
+        <div style="margin-top:6px">${list.map(d=>`<span class="chip" data-a="pickCanon" data-v="${esc(d.canon)}">${esc(d.canon)}</span>`).join('')}</div></div>`:''}
+    </div></div></div>`;
+  fillCrops();
+  setTimeout(()=>{const e=document.getElementById('cv');if(e){e.focus();e.select()}},150);
+}
+function sheetView(id){
+  const s=D.sheets.find(x=>x.id===id);if(!s)return;
+  const rs=D.rows.filter(r=>r.sheetId===id);
+  document.getElementById('modal').innerHTML=`<div class="sheet" data-a="bg"><div class="box">
+    <div class="hd"><b>${esc(s.date||s.name)}</b><div style="flex:1"></div><button class="x" data-a="close">✕</button></div>
+    <div class="bd">
+      <div class="pad"><div class="mini">المرجع: <b>${esc(s.ref||'—')}</b> • أُدخلت ${esc(s.added||'')}</div></div>
+      ${(s.full||s.img)?`<div class="pad"><img class="thumb" src="data:image/jpeg;base64,${s.full||s.img}">
+        <div style="height:8px"></div><button class="btn ghost w" data-a="dlImg" data-id="${s.id}">⬇︎ تنزيل صورة الورقة</button></div>`:''}
+      ${s.unclear&&s.unclear.length?`<div class="pad"><div class="note">لم يتضح للنظام: ${esc(s.unclear.join(' • '))}</div></div>`:''}
+      <div class="scroll pad"><table><tr><th>النوع</th><th>القيمة الأولى</th><th>ثانية</th><th>ثالثة</th></tr>
+        ${rs.map(r=>{const F=fieldsOf(r.type);
+          return `<tr><td>${TYPES[r.type]}</td>${F.slice(0,3).map(f=>`<td>${esc(shown(r,f))}</td>`).join('')}</tr>`}).join('')}
+      </table></div>
+      <div class="pad"><button class="btn r w" data-a="delSheet" data-id="${s.id}">حذف الورقة وأسطرها</button></div>
+    </div></div></div>`;
+}
+/* ================= الأحداث ================= */
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  const a=t.dataset.a;
+  const close=()=>{document.getElementById('modal').innerHTML=''};
+  if(a==='tab'){S.tab=t.dataset.k;render()}
+  else if(a==='rtype'){S.rowType=t.dataset.k;render()}
+  else if(a==='month'){S.month=t.dataset.k;render()}
+  else if(a==='kind'){S.kind=t.dataset.k;render()}
+  else if(a==='close'||a==='bg'){if(a==='close'||e.target.classList.contains('sheet')){close();render()}}
+  else if(a==='shoot'){const f=document.createElement('input');f.type='file';f.accept='image/*';f.multiple=true;
+    f.onchange=()=>{if(f.files.length)ingest([...f.files].slice(0,40))};f.click()}
+  else if(a==='openSheet')sheetView(t.dataset.id);
+  else if(a==='delSheet'){if(!confirm('حذف الورقة وكل أسطرها؟'))return;
+    const id=t.dataset.id;D.rows=D.rows.filter(r=>r.sheetId!==id);D.sheets=D.sheets.filter(s=>s.id!==id);
+    await dbClear('rows');await dbPut('rows',D.rows);await dbDel('sheets',id);close();render()}
+  else if(a==='dupKeep'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    delete sh.dupFlag;delete sh.dupOf;await dbPut('sheets',sh);render()}
+  else if(a==='dupDel'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    if(!confirm('حذف هذه الورقة نهائياً من الأرشيف؟'))return;
+    D.rows=D.rows.filter(r=>r.sheetId!==sh.id);D.sheets=D.sheets.filter(x=>x.id!==sh.id);
+    await dbDel('sheets',sh.id);await dbClear('rows');await dbPut('rows',D.rows);render()}
+  else if(a==='import'){const f=document.createElement('input');f.type='file';f.accept='image/*';f.multiple=true;
+    f.onchange=()=>{if(f.files.length)importOnly([...f.files])};f.click()}
+  else if(a==='qStart')runQueue();
+  else if(a==='qStop'){QRUN=false;render()}
+  else if(a==='qRetry'){await markReread(D.sheets.filter(x=>x.status==='خطأ').map(x=>{x.status='بانتظار';return x}));runQueue()}
+  else if(a==='reWeak'){const list=D.sheets.filter(x=>x.status==='تمت').sort((p,q2)=>quality(p)-quality(q2)).slice(0,20);
+    if(!list.length)return;if(!confirm('إعادة قراءة '+list.length+' ورقة؟ ما ثبّتَه بيدك يبقى.'))return;
+    await markReread(list);runQueue()}
+  else if(a==='reAll'){const list=D.sheets.filter(x=>x.status==='تمت');
+    if(!confirm('إعادة قراءة '+list.length+' ورقة؟ قد تستغرق وقتاً وكلفة.'))return;
+    await markReread(list);runQueue()}
+  else if(a==='reSheet'){const sh=D.sheets.find(x=>x.id===t.dataset.id);await markReread([sh]);runQueue()}
+  else if(a==='auto85')autoDict(.85);
+  else if(a==='seedDict'){if(confirm('سيُبنى القاموس من '+D.rows.length+' سطر سابق. متابعة؟'))seedDictFromRows()}
+  else if(a==='calDay'){S.calDay=S.calDay===t.dataset.k?'':t.dataset.k;render();
+    setTimeout(()=>{try{const p2=document.getElementById('dayPanel');if(p2&&p2.scrollIntoView)p2.scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}},80)}
+  else if(a==='mPrev'){shiftMonth(-1);render()}
+  else if(a==='mNext'){shiftMonth(1);render()}
+  else if(a==='editDate'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    const v=(document.getElementById('ed_'+sh.id)||{}).value;
+    if(!v||v===sh.date)return;
+    const clash=D.sheets.find(x=>x.id!==sh.id&&x.status==='تمت'&&x.date===v);
+    if(clash&&!confirm('يوجد يومية أخرى بهذا التاريخ ('+(clash.ref||'')+'). سيُحفظ اليومان معاً بمرجعين متتاليين. متابعة؟'))return;
+    sh.date=v;sh.seq=seqFor(v);sh.ref=refFor(v,sh.seq);sh.dateFlag='';sh.dateSure=true;
+    const rs=D.rows.filter(r=>r.sheetId===sh.id);rs.forEach(r=>r.date=v);
+    await dbPut('rows',rs);await dbPut('sheets',sh);S.calDay=v;S.cal=v.slice(0,7);render()}
+  else if(a==='fFrom'){S.fFrom=t.value;render()}
+  else if(a==='fTo'){S.fTo=t.value;render()}
+  else if(a==='clearF'){S.fFrom='';S.fTo='';S.fClient='';S.fWorker='';S.q='';render()}
+  else if(a==='xlsxFilt')exportFiltered();
+  else if(a==='cfDrop'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    D.sheets=D.sheets.filter(x=>x.id!==sh.id);await dbDel('sheets',sh.id);render()}
+  else if(a==='cfReplace'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    if(!confirm('سيُستبدل محتوى اليومية القديمة بالجديدة. متابعة؟'))return;
+    const old=sheetOf(sh.conflictWith);
+    D.rows=D.rows.filter(r=>r.sheetId!==old.id);
+    D.sheets=D.sheets.filter(x=>x.id!==old.id);
+    await dbDel('sheets',old.id);await dbClear('rows');
+    sh.status='تمت';sh.seq=old.seq||seqFor(sh.date);sh.ref=old.ref||refFor(sh.date,sh.seq);
+    sh.replaced=old.ref||'';const rows=sh.pending||[];delete sh.pending;
+    D.rows.push(...rows);await dbPut('rows',D.rows);await dbPut('sheets',sh);render()}
+  else if(a==='cfKeep'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    sh.status='تمت';sh.seq=seqFor(sh.date);sh.ref=refFor(sh.date,sh.seq);
+    const rows=sh.pending||[];delete sh.pending;
+    D.rows.push(...rows);await dbPut('rows',rows);await dbPut('sheets',sh);render()}
+  else if(a==='setDate'){const sh=D.sheets.find(x=>x.id===t.dataset.id);
+    const v=(document.getElementById('nd_'+sh.id)||{}).value;if(!v)return;
+    sh.date=v;sh.seq=seqFor(v);sh.ref=refFor(v,sh.seq);sh.dateFlag='';sh.dateSure=true;
+    D.rows.filter(r=>r.sheetId===sh.id).forEach(r=>r.date=v);
+    await dbPut('rows',D.rows.filter(r=>r.sheetId===sh.id));await dbPut('sheets',sh);render()}
+  else if(a==='dlImg'){const sh=sheetOf(t.dataset.id);
+    const b=sh.full||sh.img;if(!b)return;
+    const a2=document.createElement('a');a2.href='data:image/jpeg;base64,'+b;
+    a2.download=(sh.ref||'sheet')+'.jpg';a2.click()}
+  else if(a==='cell')cellSheet(t.dataset.id,t.dataset.k,t.dataset.kind);
+  else if(a==='pickCanon'){const e2=document.getElementById('cv');if(e2)e2.value=t.dataset.v}
+  else if(a==='cellSave'){const v=(document.getElementById('cv')||{}).value||'';
+    const r=D.rows.find(x=>x.id===t.dataset.id);
+    await learn(t.dataset.kind,r[t.dataset.k],v,true);
+    r.locked=r.locked||{};r.locked[t.dataset.k]=true;await dbPut('rows',r);close();render()}
+  else if(a==='cellOnly'){const v=(document.getElementById('cv')||{}).value||'';
+    const r=D.rows.find(x=>x.id===t.dataset.id);r[t.dataset.k]=v;
+    r.locked=r.locked||{};r.locked[t.dataset.k]=true;await dbPut('rows',r);close();render()}
+  else if(a==='accept'){await learn(t.dataset.kind,t.dataset.raw,t.dataset.canon,true);render()}
+  else if(a==='acceptIn'){const v=(document.getElementById('fx'+t.dataset.i)||{}).value||'';
+    if(v.trim()){await learn(t.dataset.kind,t.dataset.raw,v);render()}}
+  else if(a==='addCanon'){const v=(document.getElementById('newCanon')||{}).value||'';
+    if(v.trim()){await learn(S.kind,'',v);render()}}
+  else if(a==='okCanon'){const d=D.dict.find(x=>x.id===t.dataset.id);d.prov=false;await dbPut('dict',d);render()}
+  else if(a==='renCanon'){const d=D.dict.find(x=>x.id===t.dataset.id);
+    const v=prompt('الكلمة الصحيحة:',d.canon);if(v&&v.trim()){
+      const ex=D.dict.find(x=>x!==d&&x.kind===d.kind&&norm(x.canon)===norm(v));
+      if(ex){await mergeCanon(d.kind,d.canon,ex.canon)}
+      else{d.variants=[...(d.variants||[]),{v:d.canon,n:1,first:today()}];d.canon=v.trim();d.updated=today();await dbPut('dict',d)}
+      render()}}
+  else if(a==='delCanon'){if(!confirm('حذف هذه الكلمة من القاموس؟'))return;
+    D.dict=D.dict.filter(x=>x.id!==t.dataset.id);await dbDel('dict',t.dataset.id);render()}
+  else if(a==='delVar'){const d=D.dict.find(x=>x.id===t.dataset.id);
+    d.variants=(d.variants||[]).filter(v=>v.v!==t.dataset.v);await dbPut('dict',d);render()}
+  else if(a==='xlsx')exportXlsx();
+  else if(a==='opscsv')exportOpsCSV();
+  else if(a==='bank')exportBank();
+  else if(a==='data')exportData();
+  else if(a==='backup')backupJSON();
+  else if(a==='chunks')backupChunks(20);
+  else if(a==='restore'){const f=document.createElement('input');f.type='file';f.accept='.json';f.multiple=true;
+    f.onchange=async()=>{
+      const rep=D.sheets.length?!confirm('دمج مع بياناتك الحالية؟\n\nموافق = دمج (الأأمن)\nإلغاء = استبدال كل شيء'):false;
+      const objs=[];
+      for(const file of [...f.files]){
+        try{objs.push(JSON.parse(await file.text()))}catch(e){alert('ملف غير صالح: '+file.name)}
+      }
+      if(objs.length)mergeBackup(objs,rep);
+    };f.click()}
+  else if(a==='saveKey'){cfgSet('icool_ai_key',(document.getElementById('k')||{}).value.trim());render()}
+  else if(a==='wipe'){if(!confirm('مسح كل الأوراق والأسطر؟ القاموس يبقى.'))return;
+    D.rows=[];D.sheets=[];await dbClear('rows');await dbClear('sheets');render()}
+  else if(a==='wipeAll'){if(!confirm('مسح كل شيء بما فيه القاموس؟'))return;
+    D={sheets:[],rows:[],dict:[]};await dbClear('rows');await dbClear('sheets');await dbClear('dict');render()}
+});
+let qT=null;
+document.addEventListener('change',e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  const a=t.dataset.a;
+  if(a==='par'){cfgSet('icool_par',t.value)}
+  else if(a==='mPick'){S.cal=t.value;S.calDay='';render()}
+  else if(a==='fClient'){S.fClient=t.value;render()}
+  else if(a==='fWorker'){S.fWorker=t.value;render()}
+});
+document.addEventListener('input',e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  if(t.dataset.a==='q'){S.q=t.value;clearTimeout(qT);qT=setTimeout(()=>{const c=t.selectionStart;render();
+    const el=document.getElementById('q');if(el){el.focus();el.setSelectionRange(c,c)}},350)}
+});
+/* ================= الإقلاع ================= */
+(async()=>{
+  try{if(navigator.storage&&navigator.storage.persist)await navigator.storage.persist()}catch(e){}
+  try{D.sheets=await dbAll('sheets');D.rows=await dbAll('rows');D.dict=await dbAll('dict')}catch(e){}
+  render();
+})();
+</script>
+</body>
+</html>
