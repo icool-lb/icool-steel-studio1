@@ -534,6 +534,71 @@ ok(rv.modes[1].mo===6||rv.modes[1].mo===9,'وضع الفصول ينتقل إلى
 ok(rv.modes[2].mo===2,'ووضع الأشهر ينتقل إلى الشهر التالي',
    'الشهر '+rv.modes[2].mo+' اليوم '+rv.modes[2].dy);
 
+console.log('\n[5م] حفظ المشاريع: ملف ‎.icool‎ وقائمة المتصفح');
+const pr=await pg.evaluate(()=>{
+  const out={};
+  /* مشروع مميّز */
+  localStorage.removeItem('icool_prj');localStorage.removeItem('icool_auto');
+  CURPRJ=null;
+  M.project='برج الزلقا — اختبار';M.client='عبدالله';M.site='الزلقا';
+  M.bOn=1;M.bShape='rect';M.bA=26;M.bB=18;M.bF=5;M.bFH=3.1;M.bPar=1;M.north=17;
+  OBS=[{name:'بيت درج',kind:'stair',h:2.8,base:0,poly:[[2,2],[6,2],[6,6],[2,6]]}];
+  ARR=[];AI=0;M.tpl='S1';applyTpl('S1');M.L=18;M.S=10;M.bOX=4;M.bOZ=4;M.az=165;
+  M.sysType='hybrid';M.loadPk=12;M.invKW=12;M.gridPh=3;build();
+  const a2=JSON.parse(JSON.stringify(ARR[0]));a2.name='غربية';a2.az=250;a2.x=2;a2.z=12;
+  ARR.push(a2);build();
+  ROOM.on=1;ROOM.W=7;ROOM.L=5;ROOM.H=3;ROOM.door={wall:0,off:2.5,w:1,h:2.1};
+  autoLayout();
+  const sig=()=>({p:M.project,c:M.client,north:+M.north,tpl:M.tpl,bA:+M.bA,
+    az:ARR.map(a=>+a.az),arr:ARR.length,obs:OBS.length,room:+ROOM.on,eq:EQP.length,
+    ph:+M.gridPh,kwp:+R.kwp.toFixed(2)});
+  out.before=sig();
+  const file=JSON.parse(JSON.stringify(projSnap(true)));
+  out.hasAll=['M','ARR','OBS','ROOM','EQP','cam'].every(k=>file[k]!==undefined);
+  out.ver=file.v;
+  /* القائمة داخل المتصفح */
+  out.saved=prjSave(true);out.list=prjList().length;const id=CURPRJ;
+  /* اعبث بكل شيء ثم استعد من الملف */
+  prjNew();out.afterNew=sig();
+  projApply(file);out.fromFile=sig();
+  /* استعد من القائمة */
+  prjNew();prjOpen(id);out.fromList=sig();out.cur=(CURPRJ===id);
+  /* الحفظ التلقائي */
+  M.L=13.5;build();
+  const pre=JSON.parse(localStorage.getItem('icool_auto')||'null');
+  out.preL=pre?+pre.M.L:null;            /* مؤجَّل: لم يُكتب بعد */
+  flushAuto();
+  const auto=JSON.parse(localStorage.getItem('icool_auto')||'null');
+  out.autoL=auto?+auto.M.L:null;out.autoCur=auto?auto.cur:'—';
+  /* ملف قديم ناقص الحقول لا يُفقد الافتراضيات */
+  projApply({v:1,M:{project:'ملف قديم',tpl:'S2',L:9},ARR:[],AI:0});
+  out.old={p:M.project,tpl:M.tpl,L:+M.L,sky:+M.sky,vid:M.vidScope,fin:M.bFin};
+  /* ملف فاسد يرمي استثناءً ولا يُتلف الحالة */
+  try{projApply({hello:1});out.bad='no-throw';}catch(e){out.bad='threw';}
+  out.alive=!!(TPL[M.tpl]&&R&&isFinite(R.kwp));
+  /* حذف */
+  prjDel(id);out.after=prjList().length;
+  localStorage.removeItem('icool_auto');
+  return out;});
+const same=(a,b2)=>JSON.stringify(a)===JSON.stringify(b2);
+ok(pr.hasAll&&pr.ver>=2,'لقطة المشروع تحوي الموديل والمصفوفات والعوائق والغرفة والكاميرا',
+   'نسخة الصيغة '+pr.ver);
+ok(pr.saved&&pr.list===1,'الحفظ في قائمة المتصفح ينجح',pr.list+' مشروع');
+ok(pr.afterNew.arr===1&&pr.afterNew.obs===0&&pr.afterNew.eq===0&&pr.afterNew.p==='مشروع جديد',
+   '«مشروع جديد» يمسح المصفوفات والعوائق والغرفة',JSON.stringify(pr.afterNew).slice(0,60));
+ok(same(pr.fromFile,pr.before),'فتح ملف ‎.icool‎ يعيد الحالة كما كانت بالضبط',
+   pr.fromFile.arr+' مصفوفة · '+pr.fromFile.eq+' قطعة · '+pr.fromFile.kwp+' kWp');
+ok(same(pr.fromList,pr.before),'وفتحه من قائمة المتصفح كذلك');
+ok(pr.cur,'ويبقى مربوطاً بالمشروع المفتوح فيُحدَّث عند الحفظ');
+ok(Math.abs(pr.autoL-13.5)<.01,'كل تعديل يُحفظ تلقائياً في «آخر جلسة»','L = '+pr.autoL);
+ok(pr.preL!==null&&Math.abs(pr.preL-13.5)>.01,
+   'والكتابة مؤجَّلة لا مع كل حركة مزلاج',' قبل الإفراغ L = '+pr.preL);
+ok(pr.autoCur!=='—'&&pr.autoCur!==null,'ورابط المشروع يُحفظ معه فيصمد عبر إعادة التحميل');
+ok(pr.old.p==='ملف قديم'&&pr.old.tpl==='S2'&&pr.old.L===9&&pr.old.sky===1&&pr.old.vid==='day',
+   'ملف قديم ناقص الحقول يُدمج فوق الافتراضيات ولا يُفسدها',JSON.stringify(pr.old));
+ok(pr.bad==='threw'&&pr.alive,'ملف فاسد يُرفض باستثناء واضح والمنصة تبقى عاملة');
+ok(pr.after===0,'الحذف يزيل المشروع من القائمة');
+
 console.log('\n[6] التقرير والمخططات');
 const out=await pg.evaluate(()=>{
   // حالة معروفة: مصفوفتان + بيت درج + عمامة

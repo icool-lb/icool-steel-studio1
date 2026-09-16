@@ -1107,7 +1107,8 @@ function build(){
   SYSNOW='truss';
   NOGRND=false;restoreM(keep);
   R=govR();R.g.legs=LEGS.slice();
-  validate();drawSite();badge();drawSun();applyShadows();}
+  validate();drawSite();badge();drawSun();applyShadows();
+  touch();}
 function dims(T,g){
   const L=M.L,S=M.S,hi=(T.bld==='H')?M.clearH+M.ridge:Math.max(M.h1,M.h2);
   gD.add(dLine(V(0,-.45,S+.7),V(L,-.45,S+.7)));
@@ -4265,7 +4266,7 @@ function closeOv(){document.getElementById('ov').classList.remove('open');}
 
 /* ---------- 13. الواجهة ---------- */
 let TAB='design';
-const TABS=[['design','تصميم'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['pv','الطاقة والبطاريات'],['room','غرفة الكهرباء'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
+const TABS=[['design','تصميم'],['prj','المشاريع'],['bld','المبنى والأرجل'],['kml','KML والظلال'],['pv','الطاقة والبطاريات'],['room','غرفة الكهرباء'],['img','صورة → مخطط'],['ai','أوامر AI'],['out','تقرير وخرائط'],['id','الهوية']];
 function drawTabs(){
   const el=document.getElementById('tabs');el.innerHTML='';
   CATS.forEach(([id,n])=>{const b=document.createElement('button');b.textContent=n;
@@ -4862,6 +4863,61 @@ function dock(){
      <tr><th>شدّ المسامير</th><td class="n">${R.boltT.toFixed(1)} kN</td></tr>
      <tr><th>التكلفة</th><td class="n">$${R.total.toFixed(0)}</td></tr>`;
     el.appendChild(t);
+  } else if(TAB==='prj'){
+    grp('المشروع الحالي');
+    ['project','client','site'].forEach(k=>field(el,k));
+    {const st=document.createElement('div');st.className='note';
+     const inList=CURPRJ?prjList().find(x=>x.id===CURPRJ):null;
+     st.innerHTML=(inList
+       ? 'مربوط بمشروع في قائمة المتصفح: <b>'+inList.name+'</b> — آخر حفظ '+
+         new Date(inList.saved).toLocaleString('en-GB')+'.'
+       : 'غير مربوط بأي مشروع محفوظ. يُحفظ تلقائياً في «آخر جلسة» فقط.')+
+       (DIRTY?' <b style="color:#F1471E">فيه تعديلات غير محفوظة.</b>':'');
+     el.appendChild(st);}
+    grp('ملف المشروع — الأرشيف الحقيقي');
+    tip('ملف المشروع (<b><span dir="ltr">.icool</span></b>) يحوي كل شيء: الهيكل والمصفوفات والمبنى والعوائق والغرفة وتوزيع قطعها ومعطيات الطاقة والشعار. '+
+        'يُرسل بالإيميل ويُحفَظ مع ملفّ المشروع الورقي، ويُفتح على أي جهاز. <b>تخزين المتصفح وحده لا يكفي</b> — يُمحى بمسح بيانات التصفّح ولا يُزامَن بين الأجهزة.');
+    {const cb=document.createElement('div');cb.className='chips';
+     const b1=document.createElement('button');b1.textContent='💾 حفظ المشروع في ملف';
+     b1.className='o on';b1.style.cssText='flex:1;padding:10px';b1.onclick=projDownload;cb.appendChild(b1);
+     el.appendChild(cb);
+     const fi=document.createElement('input');fi.type='file';fi.accept='.icool,.json,application/json';
+     fi.onchange=e=>projOpenFile(e.target.files[0]);
+     const r=document.createElement('div');r.className='f';
+     const l=document.createElement('label');l.textContent='📂 فتح ملف مشروع';
+     r.appendChild(l);r.appendChild(fi);el.appendChild(r);}
+    grp('مشاريع هذا المتصفح');
+    {const cb=document.createElement('div');cb.className='chips';
+     [[CURPRJ?'حفظ (تحديث الحالي)':'حفظ في القائمة',()=>{if(prjSave(false))dock();}],
+      ['حفظ كمشروع جديد',()=>{if(prjSave(true))dock();}],
+      ['+ مشروع جديد',()=>{if(!DIRTY||confirm('سيُفقد ما لم يُحفظ. متابعة؟'))prjNew();}]
+     ].forEach(([n,fn],i)=>{const b=document.createElement('button');b.textContent=n;
+       if(i===0)b.className='on';b.onclick=fn;cb.appendChild(b);});
+     el.appendChild(cb);}
+    {const a=prjList();
+     if(!a.length){const d=document.createElement('div');d.className='tip';
+       d.textContent='لا مشاريع محفوظة بعد في هذا المتصفح.';el.appendChild(d);}
+     else{
+       const t=document.createElement('table');
+       let rr='<tr><th>المشروع</th><th>النموذج</th><th>آخر حفظ</th><th></th><th></th></tr>';
+       a.forEach(o=>{
+         const tp=(TPL[o.M&&o.M.tpl]||{}).n||'—';
+         rr+='<tr'+(o.id===CURPRJ?' style="background:#fff3ee"':'')+'>'+
+           '<td>'+(o.name||'—')+'</td><td>'+tp+'</td>'+
+           '<td class="n">'+new Date(o.saved).toLocaleDateString('en-GB')+'</td>'+
+           '<td><button data-o="'+o.id+'">فتح</button></td>'+
+           '<td><button data-d="'+o.id+'" class="o">حذف</button></td></tr>';});
+       t.innerHTML=rr;el.appendChild(t);
+       t.querySelectorAll('button[data-o]').forEach(b=>b.onclick=()=>{
+         if(!DIRTY||confirm('سيُفقد ما لم يُحفظ. متابعة؟'))prjOpen(b.getAttribute('data-o'));});
+       t.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>{
+         if(confirm('حذف هذا المشروع من قائمة المتصفح نهائياً؟'))prjDel(b.getAttribute('data-d'));});
+       const n=document.createElement('div');n.className='tip';
+       n.innerHTML='القائمة محفوظة في هذا المتصفح وعلى هذا الجهاز وحده. للنقل أو الأرشفة استعمل ملف المشروع (<span dir="ltr">.icool</span>) أعلاه.';
+       el.appendChild(n);}}
+    grp('الحفظ التلقائي');
+    tip('كل تعديل يُحفظ تلقائياً بعد ثانية في «آخر جلسة»، وتُستعاد عند فتح المنصة من جديد. '+
+        'هذا يحميك من التحديث أو انقطاع الكهرباء، ولا يغني عن الحفظ في القائمة أو في ملف.');
   } else if(TAB==='id'){
     grp('الهوية البصرية');
     tip('الشعار المرسوم داخل المنصة تقريبي. ارفع ملف الشعار الرسمي (PNG بخلفية شفافة) ليُستخدم في كل التقارير والخرائط.');
@@ -4949,6 +5005,143 @@ function save(){try{localStorage.setItem('icool_ss',JSON.stringify({LOGO_IMG,SIG
 function load(){try{const s=JSON.parse(localStorage.getItem('icool_ss')||'{}');
   if(s.LOGO_IMG)LOGO_IMG=s.LOGO_IMG; if(s.SIGN_IMG)SIGN_IMG=s.SIGN_IMG;}catch(e){}}
 
+/* ---------- حفظ المشاريع ---------- */
+/* مستويان: ملف مشروع ‎.icool‎ ينتقل بين الأجهزة، وقائمة داخل المتصفح مع حفظ تلقائي.
+   الأول هو الأرشيف الحقيقي — localStorage يُمحى بمسح بيانات التصفّح ولا يُزامَن. */
+const PRJV=2, PKEY='icool_prj', AKEY='icool_auto';
+let CURPRJ=null, AUTOT=null, DIRTY=false;
+function deepC(o){return o==null?o:JSON.parse(JSON.stringify(o));}
+/* دمج آمن: الحقول الناقصة في ملف قديم تبقى على قيمها الافتراضية */
+function mergeIn(dst,src){
+  if(!src||typeof src!=='object')return dst;
+  Object.keys(src).forEach(k=>{
+    const v=src[k];
+    if(v&&typeof v==='object'&&!Array.isArray(v)&&dst[k]&&typeof dst[k]==='object'&&!Array.isArray(dst[k]))
+      mergeIn(dst[k],v);
+    else dst[k]=deepC(v);});
+  return dst;}
+function projSnap(withId){
+  syncToArr();
+  const o={v:PRJV,app:'iCOOL Steel Studio',saved:new Date().toISOString(),
+    name:M.project||'مشروع',
+    M:deepC(M),ARR:deepC(ARR),AI:AI,OBS:deepC(OBS),
+    KML_POLY:deepC(KML_POLY),GEO:deepC(GEO),TRACE:deepC(TRACE_POLY),
+    ROOM:deepC(ROOM),EQP:deepC(EQP),
+    cam:{rho,theta,phi,tgt:[tgt.x,tgt.y,tgt.z]}};
+  if(withId){o.logo=LOGO_IMG||null;o.sign=SIGN_IMG||null;}
+  return o;}
+function projApply(o,opt){
+  if(!o||!o.M)throw new Error('ملف غير صالح — لا يحوي بيانات مشروع.');
+  if(+o.v>PRJV)log('الملف من نسخة أحدث من المنصة ('+o.v+') — قد تُهمل بعض الحقول.',1);
+  mergeIn(M,o.M);
+  ARR=Array.isArray(o.ARR)&&o.ARR.length?deepC(o.ARR):[];
+  AI=Math.max(0,Math.min((+o.AI||0),Math.max(0,ARR.length-1)));
+  OBS=Array.isArray(o.OBS)?deepC(o.OBS):[];
+  KML_POLY=o.KML_POLY?deepC(o.KML_POLY):null;
+  GEO=o.GEO?deepC(o.GEO):null;
+  TRACE_POLY=o.TRACE?deepC(o.TRACE):null;
+  KMLP=[];SITE=null;
+  if(o.ROOM)mergeIn(ROOM,o.ROOM);
+  EQP=Array.isArray(o.EQP)?deepC(o.EQP):[];
+  EQSEL=-1;
+  if(!TPL[M.tpl])M.tpl='S1';
+  M.cat=TPL[M.tpl].cat;
+  if(o.logo&&!(opt&&opt.keepId))LOGO_IMG=o.logo;
+  if(o.sign&&!(opt&&opt.keepId))SIGN_IMG=o.sign;
+  if(o.logo||o.sign){save();const lb=document.getElementById('logoBox');if(lb)lb.innerHTML=logoHTML(32);}
+  if(ARR.length)applyArr(ARR[AI]);
+  drawTabs();build();
+  if(o.cam&&isFinite(o.cam.rho)){rho=o.cam.rho;theta=o.cam.theta;phi=o.cam.phi;
+    tgt.set(o.cam.tgt[0],o.cam.tgt[1],o.cam.tgt[2]);place();}
+  else fit();
+  if(RVIEW)setRoomView(false);
+  dock();resize();
+  return true;}
+/* ---- ملف المشروع ---- */
+function projFileName(){
+  return ((M.project||'icool-project').replace(/[\\/:*?"<>|]+/g,'-').trim()||'icool-project')+'.icool';}
+function projDownload(){
+  try{
+    const b=new Blob([JSON.stringify(projSnap(true),null,1)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=projFileName();
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),6000);
+    DIRTY=false;
+    log('حُفظ المشروع في ملف «'+projFileName()+'» ('+(b.size/1024).toFixed(0)+' كيلوبايت).');
+  }catch(e){log('تعذّر حفظ الملف: '+e.message,1);}}
+function projOpenFile(f){
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const o=JSON.parse(r.result);
+      projApply(o);
+      CURPRJ=null;DIRTY=false;autoSave();
+      log('فُتح المشروع «'+(o.name||M.project)+'»'+(o.saved?' — محفوظ في '+new Date(o.saved).toLocaleString('en-GB'):'')+'.');
+    }catch(e){log('تعذّر فتح الملف: '+e.message,1);}
+    dock();};
+  r.onerror=()=>log('تعذّر قراءة الملف.',1);
+  r.readAsText(f);}
+/* ---- قائمة المشاريع داخل المتصفح ---- */
+function prjList(){
+  try{const a=JSON.parse(localStorage.getItem(PKEY)||'[]');return Array.isArray(a)?a:[];}
+  catch(e){return [];}}
+function prjWrite(a){
+  try{localStorage.setItem(PKEY,JSON.stringify(a));return true;}
+  catch(e){
+    log('لم يتّسع تخزين المتصفح. احذف مشروعاً قديماً من القائمة، أو احفظ في ملف ‎.icool‎ بدل ذلك.',1);
+    return false;}}
+function prjSave(asNew){
+  const a=prjList(),o=projSnap(false);
+  const i=(!asNew&&CURPRJ)?a.findIndex(x=>x.id===CURPRJ):-1;
+  if(i>=0){o.id=CURPRJ;a[i]=o;}
+  else{o.id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);a.unshift(o);CURPRJ=o.id;}
+  if(!prjWrite(a))return false;
+  DIRTY=false;
+  log((i>=0?'حُدِّث':'حُفظ')+' المشروع «'+o.name+'» في قائمة المتصفح ('+a.length+' مشروعاً).');
+  return true;}
+function prjOpen(id){
+  const o=prjList().find(x=>x.id===id);
+  if(!o){log('المشروع غير موجود.',1);return;}
+  try{projApply(o,{keepId:true});CURPRJ=id;DIRTY=false;autoSave();
+    log('فُتح «'+o.name+'» — آخر حفظ '+new Date(o.saved).toLocaleString('en-GB')+'.');}
+  catch(e){log('تعذّر فتح المشروع: '+e.message,1);}
+  dock();}
+function prjDel(id){
+  const a=prjList().filter(x=>x.id!==id);
+  if(prjWrite(a)){if(CURPRJ===id)CURPRJ=null;log('حُذف المشروع من قائمة المتصفح.');dock();}}
+function prjNew(){
+  CURPRJ=null;
+  ARR=[];AI=0;OBS=[];KML_POLY=null;KMLP=[];GEO=null;TRACE_POLY=null;SITE=null;
+  EQP=[];EQSEL=-1;ROOM.on=0;ROOM.poly=null;ROOM.src='يدوي';
+  M.project='مشروع جديد';M.client='';M.site='';M.muni='';M.parcel='';M.permit='';
+  M.cat='solar';M.tpl='S1';applyTpl('S1');
+  if(RVIEW)setRoomView(false);
+  drawTabs();build();fit();dock();
+  DIRTY=false;autoSave();
+  log('بدأ مشروع جديد. المشاريع المحفوظة تبقى في القائمة.');}
+/* ---- الحفظ التلقائي ---- */
+function autoSave(){
+  try{const o=projSnap(false);o.cur=CURPRJ;o.dirty=DIRTY;
+    localStorage.setItem(AKEY,JSON.stringify(o));}catch(e){}}
+function flushAuto(){if(AUTOT){clearTimeout(AUTOT);AUTOT=null;}autoSave();}
+function touch(){
+  DIRTY=true;
+  if(AUTOT)clearTimeout(AUTOT);
+  AUTOT=setTimeout(()=>{AUTOT=null;autoSave();},900);}
+function autoRestore(){
+  let o=null;
+  try{o=JSON.parse(localStorage.getItem(AKEY)||'null');}catch(e){}
+  if(!o||!o.M)return false;
+  try{projApply(o);
+    CURPRJ=o.cur||null;DIRTY=!!o.dirty;
+    log('استُعيدت آخر جلسة تلقائياً ('+(o.name||'مشروع')+
+        (o.saved?' — '+new Date(o.saved).toLocaleString('en-GB'):'')+'). لبدء غيرها: تبويب «المشاريع» ⇐ مشروع جديد.');
+    return true;}
+  catch(e){return false;}}
+/* لا نافذة تأكيد عند الإغلاق: الحفظ التلقائي يكفي، وإنّما نُفرغ ما تأخّر منه فوراً */
+window.addEventListener('beforeunload',flushAuto);
+
 /* ---------- كاميرا ---------- */
 let rho=24,theta=-1.05,phi=1.02,tgt=new THREE.Vector3(5,1.5,3);
 function place(){camera.position.set(tgt.x+rho*Math.sin(phi)*Math.cos(theta),tgt.y+rho*Math.cos(phi),tgt.z+rho*Math.sin(phi)*Math.sin(theta));camera.lookAt(tgt);}
@@ -4992,6 +5185,7 @@ document.getElementById('vDock').onclick=e=>{
 load();
 document.getElementById('logoBox').innerHTML=logoHTML(32);
 drawTabs();build();fit();dock();resize();
+if(autoRestore())dock();
 (function loop(){requestAnimationFrame(loop);animTick();cullWalls();
   if(SKY.visible)SKY.position.copy(camera.position);
   renderer.render(scene,camera);
