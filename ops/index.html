@@ -142,6 +142,8 @@ tr.sum td{font-weight:900;background:#f7f9fc;border-top:2px solid var(--line)}
 .addrow{width:100%;border:0;background:none;padding:10px;color:var(--blue);font-weight:800;font-size:13.5px}
 .chips.sug{background:#fbfcfe;border-top:1px solid var(--line2);padding-top:8px}
 .chips.sug .t{color:var(--blue-d)}
+.bimg{background:#eef2f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3C/svg%3E") center/24px no-repeat;min-height:64px}
+.bimg.bmiss{background:#fdecea;border:1px dashed #e88}
 </style>
 </head>
 <body>
@@ -279,11 +281,11 @@ function seed(){
   expTypes:['بنزين','مازوت','عدّة ومعدات','نقل / تكسي','أكل عمال','صيانة سيارة','كرا معدات','أخرى'],
   tasks:['تركيب مكيف','صيانة مكيف','تعبئة غاز','تمديدات نحاس','تركيب طاقة شمسية','صيانة إنفرتر',
     'تمديدات صحية','تركيب مغاسل','شوفاج','مسبح','عزل','كهرباء وتابلوه','كشف وتسعير','تنظيف وتسليم'],
-  days:[],jobs:[],atts:[],fixes:[],orders:[],inquiries:[]
+  days:[],jobs:[],atts:[],fixes:[],orders:[],inquiries:[],reqs:[]
  };
 }
 /* ================= التخزين ================= */
-const COLS=['workers','items','clients','suppliers','contacts','days','jobs','atts','fixes','orders','inquiries'];
+const COLS=['workers','items','clients','suppliers','contacts','days','jobs','atts','fixes','orders','inquiries','reqs'];
 function loadLocal(){
   bankLoad();
   let raw=null;try{raw=localStorage.getItem(KEY)||localStorage.getItem(OLD)}catch(e){}
@@ -292,7 +294,7 @@ function loadLocal(){
   for(const k in s){if(DB[k]==null)DB[k]=s[k]}
   for(const k in s.meta){if(DB.meta[k]==null)DB.meta[k]=s.meta[k]}
   s.expTypes.forEach(t=>{if(!DB.expTypes.includes(t))DB.expTypes.splice(s.expTypes.indexOf(t),0,t)});
-  DB.items.forEach(i=>{if(!i.hist)i.hist=[];if(i.sup==null)i.sup=''});
+  DB.items.forEach(i=>{if(!i.hist)i.hist=[];if(i.sup==null)i.sup='';if(i.stock==null)i.stock=0});
   DB.workers.forEach(w=>{if(w.phone==null)w.phone=''});
   try{SY.cfg=JSON.parse(localStorage.getItem(CFGKEY)||'null')}catch(e){SY.cfg=null}
 }
@@ -302,11 +304,142 @@ function saveLocal(){clearTimeout(saveT);saveT=setTimeout(()=>{
 function touch(o){o.updatedAt=now();return o}
 function save(kind,obj){if(obj)touch(obj);saveLocal();if(kind&&obj)pushDoc(kind,obj)}
 /* صور ومرفقات: تُخزَّن منفصلة عن قاعدة البيانات */
-function blobs(){try{return JSON.parse(localStorage.getItem(BLOB)||'{}')}catch(e){return{}}}
-function blobGet(id){return blobs()[id]||''}
-function blobSet(id,data){try{const b=blobs();b[id]=data;localStorage.setItem(BLOB,JSON.stringify(b))}catch(e){toast('لا مساحة كافية للصور')}}
-function blobDel(id){try{const b=blobs();delete b[id];localStorage.setItem(BLOB,JSON.stringify(b))}catch(e){}}
+/* ================= الصور: IndexedDB =================
+   كانت كل الصور في مفتاح localStorage واحد يُقرأ ويُكتب كاملاً مع كل صورة،
+   فالحصّة (~5 م.ب) تنفد عند ~٦٠ صورة ويتوقّف قبول المرفقات. IndexedDB تعطي
+   مئات الميغابايتات وتكتب سجلّاً واحداً لا القاموس كلّه.
+   القراءة غير متزامنة، لذا لا تُحقن الصورة في innerHTML: يُرسم <img data-blob>
+   ثمّ يملؤها paintBlobs() بعد الرسم. */
+const BSTORE='blobs';
+let BDB=null,BCACHE=new Map();
+const BCMAX=40;                            /* ما يُحتفظ به في الذاكرة — الباقي يُقرأ عند الحاجة */
+function bdb(){
+  if(BDB)return Promise.resolve(BDB);
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('icool_ops',1);
+    r.onupgradeneeded=()=>{const db=r.result;
+      if(!db.objectStoreNames.contains(BSTORE))db.createObjectStore(BSTORE,{keyPath:'id'})};
+    r.onsuccess=()=>{BDB=r.result;res(BDB)};
+    r.onerror=()=>rej(r.error);
+  });
+}
+function bcache(id,data){
+  BCACHE.set(id,data);
+  if(BCACHE.size>BCMAX)BCACHE.delete(BCACHE.keys().next().value);
+}
+async function blobPut(id,data){
+  bcache(id,data);
+  try{const db=await bdb();await new Promise((res,rej)=>{
+    const t=db.transaction(BSTORE,'readwrite');
+    t.objectStore(BSTORE).put({id,data});
+    t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+  catch(e){toast('تعذّر حفظ الصورة على الجهاز')}
+}
+async function blobFetch(id){
+  if(BCACHE.has(id))return BCACHE.get(id);
+  try{const db=await bdb();
+    const d=await new Promise((res,rej)=>{
+      const q=db.transaction(BSTORE,'readonly').objectStore(BSTORE).get(id);
+      q.onsuccess=()=>res(q.result?q.result.data:'');q.onerror=()=>rej(q.error)});
+    if(d)bcache(id,d);
+    return d||'';
+  }catch(e){return ''}
+}
+async function blobDel(id){
+  BCACHE.delete(id);
+  try{const db=await bdb();await new Promise(res=>{
+    const t=db.transaction(BSTORE,'readwrite');t.objectStore(BSTORE).delete(id);t.oncomplete=res})}catch(e){}
+}
+async function blobCount(){
+  try{const db=await bdb();return await new Promise(res=>{
+    const q=db.transaction(BSTORE,'readonly').objectStore(BSTORE).count();
+    q.onsuccess=()=>res(q.result||0);q.onerror=()=>res(0)})}catch(e){return 0}
+}
+/* وسم الصورة في القالب، ثمّ ملؤها بعد الرسم */
+const imgTag=(id,cls,extra)=>`<img class="${cls||'thumb'} bimg" data-blob="${id}" ${extra||''}>`;
+async function paintBlobs(){
+  const els=[...document.querySelectorAll('img.bimg[data-blob]:not([data-done])')];
+  for(const el of els){
+    el.setAttribute('data-done','1');
+    const d=await blobFetch(el.dataset.blob);
+    if(d)el.src='data:image/jpeg;base64,'+d;
+    else{el.classList.add('bmiss');el.alt='تعذّر إيجاد الصورة'}
+  }
+}
+/* ترحيل ما حُفظ سابقاً في localStorage، مرّة واحدة */
+async function blobMigrate(){
+  let raw=null;try{raw=localStorage.getItem(BLOB)}catch(e){}
+  if(!raw)return 0;
+  let o={};try{o=JSON.parse(raw)||{}}catch(e){o={}}
+  const ids=Object.keys(o);
+  if(!ids.length){try{localStorage.removeItem(BLOB)}catch(e){}return 0}
+  try{
+    const db=await bdb();
+    await new Promise((res,rej)=>{
+      const t=db.transaction(BSTORE,'readwrite'),st=t.objectStore(BSTORE);
+      ids.forEach(id=>{if(o[id])st.put({id,data:o[id]})});
+      t.oncomplete=res;t.onerror=()=>rej(t.error)});
+    /* لا يُمسح الأصل إلاّ بعد نجاح الكتابة */
+    try{localStorage.removeItem(BLOB)}catch(e){}
+    return ids.length;
+  }catch(e){return 0}
+}
 
+
+/* ================= دورة طلب البضاعة =================
+   طلب الفورمان ⇐ موافقة الإدارة ⇐ أمر شراء للمورّد ⇐ استلام ⇐ دخول المستودع.
+   الرصيد يُزاد بالاستلام ويُنقَص باعتماد اليومية، ومرّة واحدة لكل منهما. */
+const RQST=['جديد','موافَق','أمر شراء','مستلم','مرفوض'];
+/* الطوابع الزمنية أرقام من now()، فالتاريخ يُشتقّ لا يُقصّ من نصّ */
+const dOf=ts=>{if(!ts)return '';const d=new Date(ts);return isNaN(d)?'':d.toISOString().slice(0,10)};
+const RQCOL={'جديد':'d','موافَق':'b','أمر شراء':'s','مستلم':'a','مرفوض':'r'};
+const LR=()=>DB.reqs.filter(r=>!r.deleted).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.updatedAt||0)-(a.updatedAt||0));
+const reqOpen=()=>LR().filter(r=>r.status!=='مستلم'&&r.status!=='مرفوض');
+const reqBy=st=>LR().filter(r=>r.status===st);
+const reqQty=r=>(r.lines||[]).reduce((s,l)=>s+n(l.qty),0);
+const stockOfItem=id=>{const it=item(id);return it?n(it.stock):0};
+
+function newReq(clientId){
+  const r={id:uid(),date:today(),by:DB.meta.foreman||'',clientId:clientId||'',urgent:false,
+    lines:[],status:'جديد',supId:'',note:'',rejNote:'',
+    approvedAt:'',poAt:'',recvAt:'',updatedAt:now()};
+  DB.reqs.push(r);save('reqs',r);return r;
+}
+const reqById=id=>DB.reqs.find(x=>x.id===id);
+function reqSetStatus(r,st,extra){
+  r.status=st;
+  if(st==='موافَق')r.approvedAt=now();
+  if(st==='أمر شراء')r.poAt=now();
+  if(st==='مستلم')r.recvAt=now();
+  Object.assign(r,extra||{});
+  save('reqs',r);
+}
+/* الاستلام يُدخل الكميات إلى المستودع مرّة واحدة */
+function reqReceive(r){
+  if(r.stocked)return 0;
+  let k=0;
+  (r.lines||[]).forEach(l=>{
+    const q=n(l.recvQty!==''&&l.recvQty!=null?l.recvQty:l.qty);
+    if(!q)return;
+    const it=item(l.itemId);if(!it)return;
+    it.stock=n(it.stock)+q;save('items',it);k++;
+  });
+  r.stocked=true;reqSetStatus(r,'مستلم');
+  return k;
+}
+/* اعتماد اليومية يخصم بضاعة المستودع من الرصيد، مرّة واحدة لكل يومية */
+function dayConsume(d){
+  if(d.stocked)return 0;
+  let k=0;
+  (d.materials||[]).forEach(m=>{
+    if(m.src==='شراء من السوق')return;          /* الشراء النقدي لم يمرّ بالمستودع */
+    const it=item(m.itemId),q=n(m.qty);
+    if(!it||!q)return;
+    it.stock=n(it.stock)-q;save('items',it);k++;
+  });
+  d.stocked=true;saveDay(d);
+  return k;
+}
 /* ================= بنك الداتا =================
    ملفّ اشتقاقات من منصّة القراءة: الأسماء المصحّحة وأسعار البضاعة وما تستهلكه
    كل ورشة. يُدمج بالاسم المُطبَّع لا بالإلحاق الأعمى، وإلاّ تضاعفت القوائم.
@@ -406,7 +539,7 @@ async function initSync(){
 }
 function mergeDoc(kind,r){
   if(!r||!r.id)return false;
-  if(kind==='atts'&&r.data){blobSet(r.id,r.data);r=Object.assign({},r);delete r.data}
+  if(kind==='atts'&&r.data){blobPut(r.id,r.data);r=Object.assign({},r);delete r.data}
   const arr=DB[kind],i=arr.findIndex(x=>x.id===r.id);
   if(i<0){arr.push(r);return true}
   if((r.updatedAt||0)>(arr[i].updatedAt||0)){arr[i]=r;return true}
@@ -415,13 +548,14 @@ function mergeDoc(kind,r){
 let Q=[],qT=null;
 function pushDoc(kind,obj){
   const o=JSON.parse(JSON.stringify(obj));
-  if(kind==='atts'){const d=blobGet(o.id);if(d)o.data=d}
+  /* الصورة تُقرأ في flushQueue: القراءة من IndexedDB غير متزامنة وهذه الدالة ليست كذلك */
   Q.push({kind,obj:o});SY.pending=Q.length;paintPill();clearTimeout(qT);qT=setTimeout(flushQueue,900);
 }
 async function flushQueue(){
   if(!FS||!Q.length){SY.pending=0;paintPill();return}
   const batch=Q;Q=[];const {F,db}=FS,c=SY.cfg;
   for(const j of batch){try{
+    if(j.kind==='atts'&&!j.obj.data&&!j.obj.deleted){const d=await blobFetch(j.obj.id);if(d)j.obj.data=d}
     if(j.kind==='meta')await F.setDoc(F.doc(db,'sites',c.team,'config','meta'),j.obj,{merge:true});
     else await F.setDoc(F.doc(db,'sites',c.team,j.kind,j.obj.id),j.obj,{merge:true});
   }catch(e){}}
@@ -495,6 +629,7 @@ function render(){
   renderDatebar();renderTabs();paintPill();
   document.getElementById('app').innerHTML=
     !S.role?viewGate():S.role==='foreman'?viewForeman():S.role==='manager'?viewManager():viewShop();
+  paintBlobs();
 }
 function renderDatebar(){
   const bar=document.getElementById('datebar');
@@ -512,8 +647,8 @@ function renderTabs(){
       ?[['day','👷','العمال'],['mat','📦','البضاعة'],['cash','💵','نقد'],['follow','📎','متابعة'],['send','📤','إرسال']]
       :[['day','📋','الورقة'],['cash','💵','نقد'],['follow','📷','صور'],['send','📤','إرسال']])
     :S.role==='manager'
-    ?[['dash','📊','لوحة'],['days','🗓','يوميات'],['jobs','📅','مواعيد'],['rep','📈','تقارير'],['arch','🗄','أرشيف'],['data','⚙️','بيانات']]
-    :[['orders','🧾','الطلبات'],['inq','📞','استفسارات'],['cat','🔎','البضاعة']];
+    ?[['dash','📊','لوحة'],['days','🗓','يوميات'],['reqs','🧾','طلبات'],['jobs','📅','مواعيد'],['rep','📈','تقارير'],['arch','🗄','أرشيف'],['data','⚙️','بيانات']]
+    :[['po','🚚','أوامر شراء'],['orders','🧾','الطلبات'],['inq','📞','استفسارات'],['cat','🔎','البضاعة']];
   const c=S.role==='foreman'?S.tab:S.role==='manager'?S.mtab:S.stab;
   box.style.gridTemplateColumns=`repeat(${T.length},1fr)`;
   box.innerHTML=T.map(t=>`<button data-act="tab" data-k="${t[0]}" class="${c===t[0]?'on':''}"><span class="ic">${t[1]}</span>${t[2]}</button>`).join('');
@@ -597,6 +732,71 @@ function matGroups(d){
     g[ix.get(k)].rows.push({m,i:d.materials.indexOf(m)})});
   return g;
 }
+/* ورقة الطلب: نافذة واحدة تخدم الفورمان والإدارة، وما يظهر فيها يتبع الحالة */
+function reqSheet(id){
+  const r=reqById(id);if(!r){closePicker();return}
+  const mgr=S.role==='manager',shop=S.role==='shop';
+  const editable=(!mgr&&!shop&&r.status==='جديد')||(mgr&&(r.status==='جديد'||r.status==='موافَق'));
+  const recv=r.status==='أمر شراء'&&(mgr||shop);
+  const lines=(r.lines||[]).map((l,i)=>{
+    const it=item(l.itemId),st=stockOfItem(l.itemId);
+    return `<div class="item">
+      <div class="hd"><div class="nm">${esc(it?it.name:'بند')}</div>
+        <span class="badge ${st>0?'a':'s'}">بالمستودع ${fmt(st)}</span>
+        ${editable?`<button class="del" data-act="delReqLine" data-id="${r.id}" data-i="${i}">✕</button>`:''}</div>
+      <div class="${recv?'g2':''}">
+        <div><label class="f">المطلوب (${esc(it?it.unit:'وحدة')})</label>
+          <input type="number" inputmode="decimal" value="${l.qty}" data-act="fldR" data-id="${r.id}" data-i="${i}" data-k="qty" ${editable?'':'disabled'}></div>
+        ${recv?`<div><label class="f">المستلم فعلاً</label>
+          <input type="number" inputmode="decimal" value="${l.recvQty===''||l.recvQty==null?l.qty:l.recvQty}" placeholder="${l.qty}" data-act="fldR" data-id="${r.id}" data-i="${i}" data-k="recvQty"></div>`:''}</div>
+      ${editable?`<div style="height:6px"></div><input type="text" placeholder="ملاحظة (مقاس · لون · ماركة)" value="${esc(l.note||'')}" data-act="fldR" data-id="${r.id}" data-i="${i}" data-k="note">`:
+        (l.note?`<div class="mini" style="margin-top:6px">${esc(l.note)}</div>`:'')}
+    </div>`}).join('');
+
+  const wa=`طلب بضاعة — ${clientName(r.clientId)}
+${r.urgent?'*مستعجل*\n':''}${(r.lines||[]).map(l=>`• ${itemName({itemId:l.itemId})} ${fmt(l.qty)} ${(item(l.itemId)||{}).unit||''}${l.note?' ('+l.note+')':''}`).join('\n')}
+${r.note?'ملاحظة: '+r.note:''}
+${DB.meta.company} — ${r.by||DB.meta.foreman||''}`;
+
+  document.getElementById('modal').innerHTML=`<div class="sheet" data-act="closeBg"><div class="box">
+    <div class="hd"><b>🧾 طلب بضاعة</b><span class="badge ${RQCOL[r.status]||'s'}">${esc(r.status)}</span>
+      <div style="flex:1"></div><button class="x" data-act="closePicker">✕</button></div>
+    <div class="bd">
+      <div class="pad" style="border-bottom:1px solid var(--line2)">
+        <label class="f">الورشة / الزبون</label>
+        <button class="pick ${r.clientId?'':'empty'}" data-act="pkReq" data-kind="client" data-id="${r.id}" ${editable?'':'disabled'}>${r.clientId?esc(clientName(r.clientId)):'اختر الورشة'}</button>
+        ${editable?`<div style="height:9px"></div>
+        <label class="opt" style="border:0;padding:0;gap:8px"><input type="checkbox" ${r.urgent?'checked':''} data-act="reqUrgent" data-id="${r.id}" style="width:auto;margin:0"> مستعجل</label>`:''}
+      </div>
+      ${editable?`<div class="chips"><div class="t">أضف البنود المطلوبة</div>
+        <button class="chip" data-act="addReqLine" data-id="${r.id}">＋ بند</button>
+        ${bankSuggest(r.clientId,(r.lines||[]).map(l=>({itemId:l.itemId}))).map(it=>
+          `<button class="chip o" data-act="addReqSug" data-id="${r.id}" data-item="${it.id}">＋ ${esc(it.name)}</button>`).join('')}</div>`:''}
+      ${lines||'<div class="empty">لا بنود بعد.</div>'}
+      <div class="pad">
+        <label class="f">ملاحظة عامة</label>
+        <textarea data-act="fldRq" data-id="${r.id}" data-k="note" ${editable?'':'disabled'}>${esc(r.note||'')}</textarea>
+      </div>
+      ${r.status==='مرفوض'&&r.rejNote?`<div class="note">سبب الرفض: ${esc(r.rejNote)}</div>`:''}
+      ${r.supId?`<div class="pad mini" style="border-top:1px solid var(--line2)">المورّد: ${esc(supName(r.supId))}${r.poAt?' · أمر الشراء '+dOf(r.poAt):''}</div>`:''}
+      <div class="pad" style="border-top:1px solid var(--line2);display:grid;gap:9px">
+        ${(!mgr&&!shop&&r.status==='جديد')?`<button class="btn g w" data-act="sendReq" data-id="${r.id}">📤 إرسال الطلب إلى الإدارة</button>`:''}
+        ${(mgr&&r.status==='جديد')?`<button class="btn g w" data-act="okReq" data-id="${r.id}">✅ موافقة</button>
+          <button class="btn r w" data-act="noReq" data-id="${r.id}">✕ رفض</button>`:''}
+        ${(mgr&&r.status==='موافَق')?`<button class="btn w" data-act="poReq" data-id="${r.id}">🚚 إصدار أمر شراء لمورّد</button>`:''}
+        ${recv?`<button class="btn g w" data-act="recvReq" data-id="${r.id}">📦 تأكيد الاستلام وإدخاله المستودع</button>`:''}
+        <button class="btn o w" data-act="wa" data-txt="${encodeURIComponent(wa)}">💬 إرسال بواتساب</button>
+        ${(mgr||r.status==='جديد')?`<button class="btn ghost w" data-act="delReq" data-id="${r.id}">حذف الطلب</button>`:''}
+      </div>
+    </div></div></div>`;
+}
+function reqLine(r,manage){
+  const lines=(r.lines||[]).length;
+  return `<div class="opt" ${manage?`data-act="openReq" data-id="${r.id}"`:''}>
+    <div><b>${r.clientId?esc(clientName(r.clientId)):'بلا ورشة'}</b>${r.urgent?' <span class="badge r">مستعجل</span>':''}
+      <div class="mini">${lines} بند · ${fmt(reqQty(r))} وحدة · ${esc(r.date)}${r.supId?' · '+esc(supName(r.supId)):''}</div></div>
+    <div class="sub"><span class="badge ${RQCOL[r.status]||'s'}">${esc(r.status)}</span></div></div>`;
+}
 function vSheetMat(d){
   const dis=locked(d)?'disabled':'';
   const G=matGroups(d);
@@ -605,15 +805,18 @@ function vSheetMat(d){
       <div class="gn">${g.clientId?esc(clientName(g.clientId)):'بلا ورشة محدّدة'}</div>
       <span class="badge s">${g.rows.length} بند</span>
       <button class="del" data-act="pkGrp" data-cid="${g.clientId}" ${dis}>✎</button></div>
-    ${g.rows.map(({m,i})=>`<div class="mrow">
-      <div class="mn">${esc(itemName(m))}</div>
+    ${g.rows.map(({m,i})=>{const st=stockOfItem(m.itemId),short=st<n(m.qty);
+      return `<div class="mrow">
+      <div class="mn">${esc(itemName(m))}${short?` <span class="badge r" style="font-size:10px">المستودع ${fmt(st)}</span>`:''}</div>
       <input type="number" inputmode="decimal" class="mq" value="${m.qty}" data-act="fld" data-p="materials" data-i="${i}" data-k="qty" ${dis}>
       <span class="mu">${esc(item(m.itemId)?item(m.itemId).unit:'وحدة')}</span>
-      <button class="del" data-act="delMat" data-i="${i}" ${dis}>✕</button></div>`).join('')}
+      <button class="del" data-act="delMat" data-i="${i}" ${dis}>✕</button></div>`}).join('')}
     ${(()=>{const sg=bankSuggest(g.clientId,g.rows.map(x=>x.m));
       return sg.length?`<div class="chips sug"><div class="t">🧠 تستعمل عادةً في هذه الورشة</div>
         ${sg.map(it=>`<button class="chip" data-act="sugAdd" data-cid="${g.clientId}" data-id="${it.id}" ${dis}>＋ ${esc(it.name)}</button>`).join('')}</div>`:''})()}
-    <button class="addrow" data-act="addToGrp" data-cid="${g.clientId}" ${dis}>＋ بند إلى ${g.clientId?esc(clientName(g.clientId)):'هذه المجموعة'}</button>
+    <div style="display:flex">
+      <button class="addrow" data-act="addToGrp" data-cid="${g.clientId}" ${dis}>＋ بند</button>
+      <button class="addrow" style="color:var(--orange);border-inline-start:1px solid var(--line2)" data-act="newReq" data-cid="${g.clientId}" ${dis}>🧾 اطلب من المحل</button></div>
   </div>`).join('');
   return `<div class="card"><h3>📦 بضاعة الورشات <span class="n">${stockOf(d).length} بند</span></h3>
     ${G.length?grp:'<div class="empty">ابدأ باختيار الورشة، ثمّ أضف بنودها تحتها.</div>'}
@@ -804,10 +1007,14 @@ function vFollow(d){
       <button class="chip o" data-act="att" data-kind="صورة ورشة" ${dis}>📷 صورة من الورشة</button>
       <button class="chip o" data-act="att" data-kind="إيصال" ${dis}>🧾 إيصال مصروف</button></div>
     ${A.length?`<div class="gal">${A.map(a=>`<div>
-        <img class="thumb" src="data:image/jpeg;base64,${blobGet(a.id)}" data-act="viewAtt" data-id="${a.id}">
+        ${imgTag(a.id,'thumb',`data-act="viewAtt" data-id="${a.id}"`)}
         <div class="mini" style="margin-top:4px">${esc(a.kind)} ${a.amount?('• '+cur()+fmt(a.amount)):''}${a.clientId?' • '+esc(clientName(a.clientId)):''}</div>
         <button class="btn sm ghost w" style="margin-top:4px" data-act="editAtt" data-id="${a.id}">تفاصيل</button></div>`).join('')}</div>`
       :'<div class="empty">لا مرفقات. صوّر أي فاتورة أو وضع ورشة يحتاج توثيقاً.</div>'}</div>
+  ${(()=>{const mine=LR().filter(r=>r.status!=='مستلم'&&r.status!=='مرفوض').slice(0,8);
+    return `<div class="card"><h3>🧾 طلبات البضاعة <span class="n">${mine.length}</span></h3>
+    <div class="chips"><div class="t">اطلب من داخل مجموعة الورشة في تبويب الورقة</div></div>
+    ${mine.map(r=>reqLine(r,false)).join('')||'<div class="empty">لا طلبات معلّقة.</div>'}</div>`})()}
   <div class="card"><h3>📅 أعمال لم تُنجز عند الزبائن <span class="n">${jobs.length}</span></h3>
     <div class="chips"><div class="t">سجّل ما بقي ليأخذه المدير في جدول المواعيد</div>
       <button class="chip" data-act="newJob" data-from="foreman">+ تسجيل عمل ناقص</button></div>
@@ -1011,6 +1218,7 @@ function insights(ds,a,prev){
 function viewManager(){
   if(S.mtab==='dash')return mDash();
   if(S.mtab==='days')return S.openDay?mDayDetail():mDays();
+  if(S.mtab==='reqs')return mReqs();
   if(S.mtab==='jobs')return mJobs();
   if(S.mtab==='rep')return mReports();
   if(S.mtab==='arch')return mArchive();
@@ -1026,6 +1234,35 @@ const rangeBar=()=>`<div class="card noprint"><div class="pad">
     <button class="chip" data-act="quick" data-k="all">الكل</button></div></div></div>`;
 /* اليوميات التي أرسلها الفورمان وبقي فيها بند بلا سعر */
 const needPrice=ds=>ds.filter(d=>d.materials.some(m=>!n(m.price)));
+/* لوحة الطلبات عند الإدارة: مرتّبة على مراحل الدورة */
+function mReqs(){
+  const grp=st=>reqBy(st);
+  const sec=(st,t,hint)=>{const L=grp(st);
+    return `<div class="card"><h3>${t} <span class="n">${L.length}</span></h3>
+      ${L.length?L.map(r=>reqLine(r,true)).join(''):`<div class="empty">${hint}</div>`}</div>`};
+  const low=LI().filter(i=>n(i.stock)<0).slice(0,12);
+  return `<div class="kpis">
+    <div class="kpi ${grp('جديد').length?'d':'b'}"><div class="l">بانتظار موافقتك</div><div class="v">${grp('جديد').length}</div></div>
+    <div class="kpi b"><div class="l">موافَق بلا أمر شراء</div><div class="v">${grp('موافَق').length}</div></div>
+    <div class="kpi b"><div class="l">عند المورّد</div><div class="v">${grp('أمر شراء').length}</div></div>
+    <div class="kpi p"><div class="l">استُلم</div><div class="v">${grp('مستلم').length}</div></div></div>
+  ${low.length?`<div class="note b">رصيد سالب في ${low.length} بند — صُرف من المستودع أكثر ممّا دخله:
+    ${low.map(i=>esc(i.name)+' ('+fmt(i.stock)+')').join(' · ')}</div>`:''}
+  ${sec('جديد','🆕 طلبات جديدة','لا طلبات جديدة.')}
+  ${sec('موافَق','✅ موافَق عليها — أصدر أمر الشراء','لا شيء ينتظر أمر شراء.')}
+  ${sec('أمر شراء','🚚 عند المورّد — بانتظار الاستلام','لا أوامر شراء معلّقة.')}
+  ${sec('مستلم','📦 استُلمت ودخلت المستودع','لم يُستلم شيء بعد.')}
+  ${grp('مرفوض').length?sec('مرفوض','✕ مرفوضة',''):''}`;
+}
+/* المحل يرى أوامر الشراء الصادرة إليه */
+function shopPO(){
+  const po=reqBy('أمر شراء'),done=reqBy('مستلم').slice(0,10);
+  return `<div class="card"><h3>🚚 أوامر شراء عليك <span class="n">${po.length}</span></h3>
+    <div class="chips"><div class="t">اضغط الأمر لترى بنوده وتؤكّد ما جهّزته</div></div>
+    ${po.map(r=>reqLine(r,true)).join('')||'<div class="empty">لا أوامر شراء حالياً.</div>'}</div>
+  <div class="card"><h3>📦 آخر ما سُلّم <span class="n">${done.length}</span></h3>
+    ${done.map(r=>reqLine(r,true)).join('')||'<div class="empty">لا شيء بعد.</div>'}</div>`;
+}
 function mDash(){
   const ds=range(),a=agg(ds);
   const open=DB.jobs.filter(j=>!j.deleted&&j.status!=='منجز');
@@ -1041,6 +1278,7 @@ function mDash(){
     <div class="kpi b"><div class="l">أيام</div><div class="v">${a.days}</div></div></div>
   ${a.pending?`<div class="note">${a.pending} يومية بانتظار المراجعة.</div>`:''}
   ${needPrice(ds).length?`<div class="note b">${needPrice(ds).length} يومية فيها بنود بلا سعر — افتحها وأكمل التسعير من الفاتورة.</div>`:''}
+  ${reqBy('جديد').length?`<div class="note">${reqBy('جديد').length} طلب بضاعة بانتظار موافقتك — تبويب الطلبات.</div>`:''}
   ${lateJ?`<div class="note b">${lateJ} عمل متأخر عن موعده — افتح تبويب المواعيد.</div>`:''}
   ${(newOrders||newInq)?`<div class="note">المحل: ${newOrders} طلب بضاعة و${newInq} استفسار جديد.</div>`:''}
   <div class="card"><h3>🧮 توزّع الكلفة</h3>
@@ -1147,7 +1385,7 @@ function mDayDetail(){
   </table></div><div class="tot"><span>قيمة البضاعة</span><span>${cur()}${fmt(dayMat(d))}</span></div></div>
   ${matPricing(d)}
   ${A.length?`<div class="card"><h3>📎 مرفقات الفورمان <span class="n">${A.length}</span></h3>
-    <div class="gal">${A.map(x=>`<div><img class="thumb" src="data:image/jpeg;base64,${blobGet(x.id)}">
+    <div class="gal">${A.map(x=>`<div>${imgTag(x.id,'thumb')}
       <div class="mini" style="margin-top:4px">${esc(x.kind)} ${x.amount?('• '+cur()+fmt(x.amount)):''} ${x.note?'• '+esc(x.note):''}</div></div>`).join('')}</div></div>`:''}
   ${cashDesk(d)}
   <div class="card"><h3>🧾 إيرادات اليوم</h3>
@@ -1609,6 +1847,7 @@ function mArchive(){
 const ORDST=['جديد','قيد التأمين','مطلوب من المورد','جاهز','سُلّم','ملغى'];
 const INQST=['جديد','قيد المتابعة','مغلق'];
 function viewShop(){
+  if(S.stab==='po')return shopPO();
   if(S.stab==='orders')return shopOrders();
   if(S.stab==='inq')return shopInq();
   return shopCat();
@@ -1767,6 +2006,9 @@ function mData(){
   <div class="card"><h3>📦 قاعدة البضاعة <span class="n">${LI().length} بند</span></h3>
     <div class="pad"><div class="mini">${Object.entries(cats).map(([k,v])=>`${esc(k)}: ${v}`).join(' • ')}</div>
       <div style="height:10px"></div>
+      <div class="tot" style="border:0;padding:4px 0"><span>بنود لها رصيد في المستودع</span><span>${LI().filter(i=>n(i.stock)>0).length}</span></div>
+      <div class="tot" style="border:0;padding:4px 0"><span>بنود برصيد سالب</span><span style="color:${LI().some(i=>n(i.stock)<0)?'var(--bad)':'inherit'}">${LI().filter(i=>n(i.stock)<0).length}</span></div>
+      <div style="height:8px"></div>
       <button class="btn ghost w" data-act="pk" data-kind="item" data-mode="manage">🔍 بحث وتعديل الأسعار</button>
       <div style="height:8px"></div><button class="btn ghost w" data-act="resetCat">➕ إضافة أي بنود ناقصة من القائمة القياسية</button>
       <div style="height:8px"></div><button class="btn ghost w" data-act="expItems">⬇︎ تصدير قاعدة البضاعة CSV</button></div></div>
@@ -1789,6 +2031,7 @@ function mData(){
     <div class="tot" style="border:0;padding:6px 0"><span>نسخة على السحابة</span><span>${SY.state==='live'?'✅ مزامنة لحظية':SY.state==='offline'?'🟠 بانتظار الشبكة':'❌ غير مفعّلة'}</span></div>
     <div class="tot" style="border:0;padding:6px 0"><span>تخزين دائم على الجهاز</span><span>${ST.persist?'✅ مضمون':'⚠️ غير مضمون'}</span></div>
     <div class="tot" style="border:0;padding:6px 0"><span>المساحة المستعملة</span><span>${fmt(ST.used/1048576)} م.ب${ST.quota?' من '+fmt(ST.quota/1048576):''}</span></div>
+    <div class="tot" style="border:0;padding:6px 0"><span>الصور المحفوظة</span><span>${ST.photos} صورة</span></div>
     <div class="tot" style="border:0;padding:6px 0"><span>آخر نسخة احتياطية</span><span>${lastBackup()||'لم تُؤخذ بعد'}</span></div>
     ${SY.state!=='live'&&SY.state!=='offline'?'<div class="note b" style="margin-top:10px">المزامنة غير مفعّلة: بياناتك على هذا الجهاز فقط، وأي مسح لسجل المتصفح يمحوها. فعّلها من بطاقة المزامنة أعلاه.</div>':''}
     ${backupAge()>14?'<div class="note" style="margin-top:10px">مضى أكثر من أسبوعين على آخر نسخة احتياطية. نزّل نسخة JSON واحفظها في iCloud أو Drive.</div>':''}
@@ -1872,6 +2115,15 @@ function applyPick(id){
   const d=curDay();
   if(p.kind==='foreman'){d.foreman=id;DB.meta.foreman=id;saveMeta()}
   else if(p.kind==='worker'){c.p==null?addLabor(id):d.labor[c.i].workerId=id}
+  else if(c.mode==='reqline'&&p.kind==='item'){
+    const r=reqById(S.reqId);if(r){r.lines.push({id:uid(),itemId:id,qty:1,note:'',recvQty:''});save('reqs',r)}
+    closePicker();if(r)reqSheet(r.id);return}
+  else if(c.mode==='reqclient'&&p.kind==='client'){
+    const r=reqById(S.reqId);if(r){r.clientId=id;save('reqs',r)}
+    closePicker();if(r)reqSheet(r.id);return}
+  else if(c.mode==='reqsup'&&p.kind==='supplier'){
+    const r=reqById(S.reqId);if(r)reqSetStatus(r,'أمر شراء',{supId:id});
+    closePicker();if(r)reqSheet(r.id);render();return}
   else if(p.kind==='client'&&c.mode==='matgrp'){
     /* اختيار الورشة يفتح منتقي البند فوراً: المجموعة تُنشأ ببندها الأوّل */
     S.matCid=id;closePicker();openPicker('item',{mode:'matadd'});return}
@@ -1907,6 +2159,9 @@ function editItem(id){
       <div><label class="f">السعر</label><input type="number" inputmode="decimal" value="${x.price||''}" data-act="fldI" data-id="${x.id}" data-k="price"></div>
       <div><label class="f">الوحدة</label><input type="text" value="${esc(x.unit||'')}" data-act="fldI" data-id="${x.id}" data-k="unit"></div>
       <div><label class="f">الفئة</label><input type="text" value="${esc(x.cat||'')}" data-act="fldI" data-id="${x.id}" data-k="cat"></div></div>
+      <div style="height:8px"></div><label class="f">رصيد المستودع</label>
+      <input type="number" inputmode="decimal" value="${n(x.stock)}" data-act="fldI" data-id="${x.id}" data-k="stock">
+      <div class="mini" style="margin-top:4px">يزيد بالاستلام وينقص باعتماد اليومية. عدّله هنا بعد الجرد.</div>
       <div style="height:8px"></div><label class="f">المورّد الافتراضي</label>
       <button class="pick ${x.sup?'':'empty'}" data-act="pkItemSup" data-id="${x.id}">${x.sup?esc(supName(x.sup)):'اختر المورّد'}</button>
       ${(x.hist||[]).length?`<div style="height:10px"></div><div class="mini">تاريخ الأسعار: ${x.hist.map(h=>`${h.d}: ${cur()}${fmt(h.p)}`).join(' • ')}</div>`:''}
@@ -1940,7 +2195,7 @@ async function addAtt(kind,file){
   try{
     const data=await fileToB64(file,900,.45);
     const a={id:uid(),dayId:d.id,kind,date:today(),by:d.foreman||'',clientId:'',supId:'',amount:'',note:'',updatedAt:now()};
-    blobSet(a.id,data);DB.atts.push(a);save('atts',a);render();toast('أُضيف المرفق');
+    await blobPut(a.id,data);DB.atts.push(a);save('atts',a);render();toast('أُضيف المرفق');
   }catch(e){toast('تعذّرت إضافة الصورة')}
 }
 function editAtt(id){
@@ -1948,7 +2203,7 @@ function editAtt(id){
   S.picker={kind:'att',id};
   document.getElementById('modal').innerHTML=`<div class="sheet" data-act="closeBg"><div class="box">
     <div class="hd"><b>${esc(a.kind)}</b><div style="flex:1"></div><button class="x" data-act="closePicker">✕</button></div>
-    <div class="bd"><div class="pad"><img class="thumb" src="data:image/jpeg;base64,${blobGet(a.id)}">
+    <div class="bd"><div class="pad">${imgTag(a.id,'thumb')}
       <div style="height:10px"></div><div class="g2">
       <div><label class="f">المبلغ</label><input type="number" inputmode="decimal" value="${a.amount||''}" data-act="fldA" data-id="${a.id}" data-k="amount"></div>
       <div><label class="f">ملاحظة</label><input type="text" value="${esc(a.note||'')}" data-act="fldA" data-id="${a.id}" data-k="note"></div></div>
@@ -2108,6 +2363,31 @@ document.addEventListener('click',e=>{
     case 'sugAdd':{if(need())break;addMat(t.dataset.id);
       const m=d.materials[d.materials.length-1];m.clientId=t.dataset.cid||'';m.src='المستودع';m.price=0;
       saveDay(d);render();break}
+    /* ===== دورة طلب البضاعة ===== */
+    case 'newReq':{if(need())break;const r=newReq(t.dataset.cid||'');
+      S.picker={kind:'req',id:r.id};reqSheet(r.id);break}
+    case 'openReq':{S.picker={kind:'req',id:t.dataset.id};reqSheet(t.dataset.id);break}
+    case 'addReqLine':{S.reqId=t.dataset.id;openPicker('item',{mode:'reqline'});break}
+    case 'addReqSug':{const r=reqById(t.dataset.id);if(!r)break;
+      r.lines.push({id:uid(),itemId:t.dataset.item,qty:1,note:'',recvQty:''});save('reqs',r);reqSheet(r.id);break}
+    case 'delReqLine':{const r=reqById(t.dataset.id);if(!r)break;r.lines.splice(i,1);save('reqs',r);reqSheet(r.id);break}
+    case 'pkReq':{S.reqId=t.dataset.id;openPicker('client',{mode:'reqclient'});break}
+    case 'reqUrgent':{const r=reqById(t.dataset.id);if(!r)break;r.urgent=!r.urgent;save('reqs',r);reqSheet(r.id);break}
+    case 'sendReq':{const r=reqById(t.dataset.id);if(!r)break;
+      if(!r.clientId){toast('حدّد الورشة أولاً');break}
+      if(!(r.lines||[]).length){toast('أضف بنداً واحداً على الأقل');break}
+      if(r.lines.some(l=>!n(l.qty))){toast('كمية أحد البنود صفر');break}
+      r.by=r.by||DB.meta.foreman||'';save('reqs',r);closePicker();render();toast('أُرسل الطلب إلى الإدارة');break}
+    case 'okReq':{const r=reqById(t.dataset.id);if(!r)break;reqSetStatus(r,'موافَق');reqSheet(r.id);render();break}
+    case 'noReq':{const r=reqById(t.dataset.id);if(!r)break;
+      const why=prompt('سبب الرفض (يصل إلى الفورمان):','');
+      if(why===null)break;reqSetStatus(r,'مرفوض',{rejNote:why});closePicker();render();break}
+    case 'poReq':{S.reqId=t.dataset.id;openPicker('supplier',{mode:'reqsup'});break}
+    case 'recvReq':{const r=reqById(t.dataset.id);if(!r)break;
+      const k=reqReceive(r);closePicker();render();
+      toast(k?`دخل المستودع ${k} بند`:'لا كميات مستلمة');break}
+    case 'delReq':{const r=reqById(t.dataset.id);if(!r)break;
+      if(confirm('حذف الطلب؟')){r.deleted=true;save('reqs',r);closePicker();render()}break}
     case 'newBuy':if(need())break;openPicker('item',{mode:'buyadd'});break;
     case 'newRevC':if(need())break;openPicker('client',{mode:'revadd'});break;
     case 'delRev':if(need())break;d.revenues.splice(i,1);saveDay(d);render();break;
@@ -2131,7 +2411,8 @@ document.addEventListener('click',e=>{
     /* اليوميات — الإدارة */
     case 'openDay':S.openDay=t.dataset.id;S.mtab='days';render();break;
     case 'closeDay':S.openDay=null;render();break;
-    case 'approve':{const x=byId('days',t.dataset.id);x.status='approved';saveDay(x);render();toast('اعتُمدت');break}
+    case 'approve':{const x=byId('days',t.dataset.id);x.status='approved';saveDay(x);
+      const k=dayConsume(x);render();toast(k?`اعتُمدت — خُصم ${k} بند من المستودع`:'اعتُمدت');break}
     case 'returnDay':{const x=byId('days',t.dataset.id);x.status='returned';saveDay(x);render();toast('أُعيدت للفورمان');break}
     case 'addExpM':{const x=byId('days',t.dataset.id);if(!x)break;
       x.expenses.push({id:uid(),type:t.dataset.t,amount:'',note:'',liters:'',lprice:'',clientId:''});saveDay(x);render();break}
@@ -2220,7 +2501,9 @@ document.addEventListener('click',e=>{
     case 'delBank':if(confirm('يُحذف بنك الداتا من هذا الجهاز. الأسماء والأسعار المستوردة تبقى. متابعة؟')){bankClear();render()}break;
     case 'importJSON':{const f=document.createElement('input');f.type='file';f.accept='.json';
       f.onchange=()=>{const r=new FileReader();r.onload=()=>{try{DB=JSON.parse(r.result);saveLocal();render();toast('تم الاستيراد')}catch(err){toast('ملف غير صالح')}};r.readAsText(f.files[0])};f.click();break}
-    case 'wipe':if(confirm('سيُمسح كل شيء من هذا الجهاز. متابعة؟')){DB=seed();try{localStorage.removeItem(BLOB)}catch(e){}saveLocal();render()}break;
+    case 'wipe':if(confirm('سيُمسح كل شيء من هذا الجهاز. متابعة؟')){
+      DB.atts.forEach(x=>blobDel(x.id));try{localStorage.removeItem(BLOB)}catch(e){}
+      DB=seed();saveLocal();render()}break;
     case 'saveSync':{const g=id=>(document.getElementById(id)||{}).value||'';
       SY.cfg={team:g('sy_team').trim()||'icool',apiKey:g('sy_key').trim(),projectId:g('sy_pid').trim(),appId:g('sy_app').trim()};
       try{localStorage.setItem(CFGKEY,JSON.stringify(SY.cfg))}catch(e){}
@@ -2237,10 +2520,13 @@ document.addEventListener('input',e=>{
   if(a==='fld'){const d=curDay(),o=d[t.dataset.p][+t.dataset.i];o[t.dataset.k]=v;
     if(t.dataset.p==='expenses'&&(t.dataset.k==='liters'||t.dataset.k==='lprice')){const L2=n(o.liters),P=n(o.lprice);if(L2&&P)o.amount=Math.round(L2*P*100)/100}
     saveDay(d);refreshTotals()}
+  else if(a==='fldR'){const r=reqById(t.dataset.id);if(r){r.lines[+t.dataset.i][t.dataset.k]=v;save('reqs',r)}}
+  else if(a==='fldRq'){const r=reqById(t.dataset.id);if(r){r[t.dataset.k]=v;save('reqs',r)}}
   else if(a==='fldD'){const d=byId('days',t.dataset.day);d[t.dataset.p][+t.dataset.i][t.dataset.k]=v;saveDay(d)}
   else if(a==='dayNote'){const d=curDay();d.note=v;saveDay(d)}
   else if(a==='fldW'){const w=byId('workers',t.dataset.id);w[t.dataset.k]=['daily','hourly'].includes(t.dataset.k)?n(v):v;save('workers',w)}
-  else if(a==='fldI'){const x=byId('items',t.dataset.id);x[t.dataset.k]=t.dataset.k==='price'?n(v):v;save('items',x)}
+  else if(a==='fldI'){const x=byId('items',t.dataset.id);const k=t.dataset.k;
+    x[k]=(k==='price'||k==='stock')?n(v):v;save('items',x)}
   else if(a==='fldC'){const c=byId('clients',t.dataset.id);c[t.dataset.k]=t.dataset.k==='contract'?n(v):v;save('clients',c)}
   else if(a==='fldS'){const s=byId('suppliers',t.dataset.id);s[t.dataset.k]=v;save('suppliers',s)}
   else if(a==='fldCT'){const c=byId('contacts',t.dataset.id);c[t.dataset.k]=v;save('contacts',c)}
@@ -2278,14 +2564,14 @@ function refreshTotals(){
   put('cred',cur()+fmt(d.materials.filter(m=>m.pay==='على الحساب').reduce((s,m)=>s+matTotal(m),0)));
 }
 /* ================= صحة التخزين ================= */
-let ST={pct:0,used:0,quota:0,persist:false};
+let ST={pct:0,used:0,quota:0,persist:false,photos:0};
 async function storageHealth(){
+  ST.photos=await blobCount();
   try{if(navigator.storage&&navigator.storage.persist){ST.persist=await navigator.storage.persisted();
     if(!ST.persist)ST.persist=await navigator.storage.persist()}}catch(e){}
   try{if(navigator.storage&&navigator.storage.estimate){const e2=await navigator.storage.estimate();
     ST.used=e2.usage||0;ST.quota=e2.quota||0;ST.pct=ST.quota?ST.used/ST.quota*100:0}}catch(e){}
-  try{const raw=(localStorage.getItem(KEY)||'').length+(localStorage.getItem(BLOB)||'').length;
-    if(!ST.used)ST.used=raw}catch(e){}
+  try{const raw=(localStorage.getItem(KEY)||'').length;if(!ST.used)ST.used=raw}catch(e){}
   paintPill();
 }
 const lastBackup=()=>{try{return localStorage.getItem('icool_last_backup')||''}catch(e){return''}};
@@ -2293,7 +2579,12 @@ function markBackup(){try{localStorage.setItem('icool_last_backup',today())}catc
 function backupAge(){const b=lastBackup();if(!b)return 999;
   return Math.round((new Date(today())-new Date(b))/864e5)}
 /* ================= التشغيل ================= */
-loadLocal();render();initSync();storageHealth();
+loadLocal();render();initSync();
+(async()=>{
+  const moved=await blobMigrate();
+  if(moved){toast(`نُقلت ${moved} صورة إلى التخزين الواسع`);render()}
+  storageHealth();
+})();
 </script>
 </body>
 </html>

@@ -199,7 +199,23 @@ const ok=(c,m)=>{c?(pass++,console.log('  ✓ '+m)):(fail++,console.log('  ✗ '
   v=await body();
   ok(/كلفة اليد العاملة/.test(v),'الوضع الكامل يُظهر الكلفة مجدداً');
 
-  console.log('\n[11] لا أخطاء في الصفحة');
+  console.log('\n[11] لا رموز مكسورة في الواجهة');
+  // \U0001f... يظهر كنصّ حرفي إن لم يُفسَّر عند توليد الملف
+  const brk=await p.evaluate(()=>{
+    const bad=[];const seen=new Set();
+    const scan=()=>{const t=document.body.innerText;
+      const m=t.match(/U0001f[0-9a-f]{3}/gi);if(m)m.forEach(x=>{if(!seen.has(x)){seen.add(x);bad.push(x)}})};
+    const roles=[['foreman',['day','cash','follow','send']],
+                 ['manager',['dash','days','reqs','jobs','rep','arch','data']],
+                 ['shop',['po','orders','inq','cat']]];
+    roles.forEach(([r,tabs])=>tabs.forEach(k=>{
+      S.role=r;if(r==='foreman')S.tab=k;else if(r==='manager')S.mtab=k;else S.stab=k;
+      try{render();scan()}catch(e){bad.push('render '+r+'/'+k+': '+e.message)}}));
+    return bad;
+  });
+  ok(brk.length===0,brk.length?('رموز مكسورة: '+brk.join(' ')):'كل الرموز سليمة في كل تبويبات الأوضاع الثلاثة');
+
+  console.log('\n[12] لا أخطاء في الصفحة');
   ok(errs.length===0,errs.length?('أخطاء: '+errs.slice(0,3).join(' | ')):'لا أخطاء جافاسكربت');
 
   await b.close();
