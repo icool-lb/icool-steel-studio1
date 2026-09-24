@@ -36,6 +36,25 @@ function mkRes() { const r = { h: {}, statusCode: 0, body: '' }; r.setHeader = (
   ok(ag.length === 2 && ag[0].h === 3 && ag[0].c === 2, 'تجميع 60m ⇐ 4h');
   delete process.env.TWELVEDATA_API_KEY;
 
+  // MetaApi: أولاً، رأس auth-token، ترتيب تصاعدي، والرمز مع لاحقة الوسيط
+  process.env.METAAPI_TOKEN = 'MTSECRET'; process.env.METAAPI_ACCOUNT_ID = 'acc-1'; process.env.METAAPI_SUFFIX = '.m';
+  process.env.METAAPI_SYMBOLS = '{"NAS100":"USTEC"}'; calls.length = 0; let hdr = null;
+  const prevFetch = global.fetch;
+  global.fetch = async (u, o) => { calls.push(u); if (/agiliumtrade/.test(u)) { hdr = o.headers['auth-token'];
+      const a = []; for (let i = 0; i < 100; i++) a.push({ time: new Date((1758000000 + (99 - i) * 900) * 1000).toISOString(), open: 1, high: 2, low: 0.5, close: 1.5, tickVolume: 7 });
+      return { ok: true, json: async () => a }; } return prevFetch(u, o); };
+  r = mkRes(); await handler({ method: 'GET', query: { s: 'XAUUSD', i: '15m' } }, r); j = JSON.parse(r.body);
+  ok(j.source === 'metaapi' && hdr === 'MTSECRET' && /new-york\.agiliumtrade\.ai/.test(calls[0]), 'MetaApi أولاً برأس auth-token', j.source);
+  ok(/symbols\/XAUUSD\.m\/timeframes\/15m/.test(calls[0]), 'الرمز مع لاحقة الوسيط', calls[0].split('symbols/')[1]);
+  ok(j.candles[0].t < j.candles[1].t && j.candles.length === 100, 'الشموع مرتّبة تصاعدياً');
+  ok(!r.body.includes('MTSECRET') && !r.body.includes('acc-1'), 'التوكن ورقم الحساب لا يظهران');
+  ok(handler.mtSymbol('NAS100') === 'USTEC.m', 'خريطة الرموز من البيئة', handler.mtSymbol('NAS100'));
+  process.env.METAAPI_SYMBOLS = '{"NAS100":"../x?y"}'; ok(handler.mtSymbol('NAS100') === 'NAS100.m', 'رمز خبيث في الخريطة يُرفض');
+  global.fetch = prevFetch; calls.length = 0;
+  r = mkRes(); await handler({ method: 'GET', query: { s: 'XAUUSD', i: '15m' } }, r); j = JSON.parse(r.body);
+  ok(j.source === 'yahoo' && calls[0].includes('agiliumtrade'), 'فشل MetaApi ⇐ احتياط', j.source);
+  ['METAAPI_TOKEN', 'METAAPI_ACCOUNT_ID', 'METAAPI_SUFFIX', 'METAAPI_SYMBOLS'].forEach(k => delete process.env[k]);
+
   console.log('\n[2] الصفحة والمحرّك');
   const srv = http.createServer((q, s) => {
     if (q.url.startsWith('/api/')) { s.writeHead(502, { 'content-type': 'application/json' }); return s.end('{"ok":false,"error":{"code":"UPSTREAM_FAIL"}}'); }

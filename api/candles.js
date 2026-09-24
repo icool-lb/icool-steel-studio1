@@ -1,7 +1,9 @@
 // iCOOL Trading — وكيل بيانات الشموع (Vercel Serverless, بلا اعتماديات)
 // GET /api/candles?s=XAUUSD&i=15m&n=400
-// المفتاح يُقرأ من متغيّر البيئة TWELVEDATA_API_KEY فقط ولا يصل إلى المتصفح أبداً.
-// الترتيب: Binance (للعملات الرقمية، بلا مفتاح) ← Twelve Data (إن وُجد المفتاح) ← Yahoo (احتياطي بلا مفتاح).
+// المفاتيح تُقرأ من متغيّرات بيئة Vercel فقط ولا تصل إلى المتصفح أبداً:
+//   METAAPI_TOKEN + METAAPI_ACCOUNT_ID  (+ اختياري METAAPI_REGION، METAAPI_SUFFIX، METAAPI_SYMBOLS)
+//   TWELVEDATA_API_KEY
+// الترتيب: MetaApi (أسعار وسيطك نفسها) ← Binance (رقمية) ← Twelve Data ← Yahoo (احتياطي بلا مفتاح).
 
 'use strict';
 
@@ -31,6 +33,27 @@ const INTERVALS = Object.freeze({
 });
 
 const TIMEOUT_MS = 8000;
+const MT_TF = Object.freeze({ '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1d': '1d' });
+const REGION_RE = /^[a-z-]{2,20}$/;
+
+// اسم الرمز عند الوسيط: METAAPI_SYMBOLS='{"NAS100":"USTEC"}' يتجاوز الافتراضي، ثم تُضاف METAAPI_SUFFIX (مثل ".m")
+function mtSymbol(key) {
+  let map = {};
+  try { map = JSON.parse(process.env.METAAPI_SYMBOLS || '{}') || {}; } catch (_) { map = {}; }
+  const base = typeof map[key] === 'string' && /^[A-Za-z0-9._#-]{1,32}$/.test(map[key]) ? map[key] : key;
+  const suf = /^[A-Za-z0-9._#-]{0,8}$/.test(process.env.METAAPI_SUFFIX || '') ? (process.env.METAAPI_SUFFIX || '') : '';
+  return base + suf;
+}
+
+async function fromMetaApi(sKey, iKey, n, token, account) {
+  const region = REGION_RE.test(process.env.METAAPI_REGION || '') ? process.env.METAAPI_REGION : 'new-york';
+  const u = `https://mt-market-data-client-api-v1.${region}.agiliumtrade.ai/users/current/accounts/${encodeURIComponent(account)}` +
+            `/historical-market-data/symbols/${encodeURIComponent(mtSymbol(sKey))}/timeframes/${MT_TF[iKey]}/candles?limit=${n}`;
+  const j = await getJSON(u, { 'auth-token': token, Accept: 'application/json' });
+  if (!Array.isArray(j)) throw new Error('MetaApi shape');
+  return clean(j.map(k => ({ t: Math.floor(Date.parse(k.time) / 1000), o: num(k.open), h: num(k.high), l: num(k.low), c: num(k.close),
+    v: num(k.tickVolume) || num(k.volume) || 0 })));   // تصل من الأحدث إلى الأقدم؛ clean ترتّبها تصاعدياً
+}
 
 async function getJSON(url, headers) {
   const ac = new AbortController();
@@ -108,8 +131,11 @@ async function handler(req, res) {
   if (!iv) return send(res, 400, { ok: false, error: { code: 'BAD_INTERVAL', message: 'فاصل غير مدعوم' } });
   const n = Math.max(50, Math.min(1000, parseInt(q.n, 10) || 500));
   const key = process.env.TWELVEDATA_API_KEY;
+  const mtTok = process.env.METAAPI_TOKEN, mtAcc = process.env.METAAPI_ACCOUNT_ID;
+  const keyed = !!(key || (mtTok && mtAcc));
 
   const chain = [];
+  if (mtTok && mtAcc) chain.push(['metaapi', () => fromMetaApi(sKey, iKey, n, mtTok, mtAcc)]);
   if (sym.bn) chain.push(['binance', () => fromBinance(sym, iv, n)]);
   if (key) chain.push(['twelvedata', () => fromTwelve(sym, iv, n, key)]);
   chain.push(['yahoo', () => fromYahoo(sym, iv, n)]);
@@ -119,14 +145,14 @@ async function handler(req, res) {
     try {
       const candles = await fn();
       if (candles.length >= 30) {
-        return send(res, 200, { ok: true, symbol: sKey, interval: iKey, source: name, keyed: !!key, candles }, iv.cache);
+        return send(res, 200, { ok: true, symbol: sKey, interval: iKey, source: name, keyed, candles }, iv.cache);
       }
       tried.push(name + ':short');
     } catch (e) {
       tried.push(name + ':' + (e.name === 'AbortError' ? 'timeout' : (e.status || 'err'))); // لا يُعاد نص الخطأ الخارجي أبداً
     }
   }
-  return send(res, 502, { ok: false, keyed: !!key, error: { code: 'UPSTREAM_FAIL', message: 'تعذّر جلب البيانات', tried } },
+  return send(res, 502, { ok: false, keyed, error: { code: 'UPSTREAM_FAIL', message: 'تعذّر جلب البيانات', tried } },
     'public, max-age=0, s-maxage=15');
 }
 
@@ -134,3 +160,4 @@ module.exports = handler;
 module.exports.SYMBOLS = SYMBOLS;
 module.exports.INTERVALS = INTERVALS;
 module.exports.aggregate = aggregate;
+module.exports.mtSymbol = mtSymbol;

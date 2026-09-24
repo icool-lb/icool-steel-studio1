@@ -61,5 +61,5 @@ python3 -m http.server 8080   # ثم افتح http://localhost:8080
 ## منصّة التداول — `/trading`
 تحليل الانحياز فوق/تحت الافتتاح، قمم وقيعان جلسات آسيا ولندن ونيويورك، تأكيد الإغلاق (كسر مقابل اكتساح)،
 مناطق دعم ومقاومة مصنّفة قوية/متوسطة/ضعيفة، إشارات بدرجة 0–100، حاسبة حجم صفقة، وتصدير مؤشر Pine Script v5.
-البيانات عبر `/api/candles`؛ لتفعيل Twelve Data أضف `TWELVEDATA_API_KEY` في إعدادات مشروع Vercel ← Environment Variables.
+البيانات عبر `/api/candles`؛ لأسعار وسيطك عبر MetaApi أضف `METAAPI_TOKEN` و`METAAPI_ACCOUNT_ID` (أو `TWELVEDATA_API_KEY`) في إعدادات مشروع Vercel ← Environment Variables.
 للتحليل والتعليم فقط — ليست نصيحة مالية.
