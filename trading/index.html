@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iCOOL Trading — تحليل الافتتاح والجلسات</title>
+<meta name="description" content="تحليل الانحياز فوق/تحت الافتتاح، قمم وقيعان الجلسات، إغلاقات الشموع، ومناطق الدعم والمقاومة المصنّفة قوية/متوسطة/ضعيفة">
+<style>
+:root{
+  --bg:#0B1220;--panel:#131C2E;--panel2:#18233A;--line:#22304A;--text:#E6EDF7;--muted:#8A9BB5;
+  --blue:#0066A7;--orange:#F1471E;
+  --bull:#3AA0E8;--bear:#F1471E;--neu:#8A9BB5;
+  --asia:#9B7BFF;--london:#2EC4B6;--ny:#F2C14E;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif}
+button,select,input{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:36px}
+button{cursor:pointer}button:hover{border-color:var(--bull)}
+button.pri{background:var(--blue);border-color:var(--blue)}
+.ltr,bdi.n{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.logo{direction:ltr;display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px}
+.logo b{color:var(--blue)}.logo i{color:var(--orange);font-style:normal}
+header .px{font-size:20px;font-weight:700}
+header .grow{flex:1}
+.clock{color:var(--muted);font-size:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.chip.on{color:var(--bg);font-weight:700}
+.chip.asia.on{background:var(--asia)}.chip.london.on{background:var(--london)}.chip.ny.on{background:var(--ny)}
+main{display:grid;grid-template-columns:290px 1fr 320px;gap:10px;padding:10px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.card h3{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:2px}
+#chartWrap{position:relative;direction:ltr;background:var(--panel);border:1px solid var(--line);border-radius:12px;height:64vh;min-height:380px;overflow:hidden;touch-action:none}
+#chart{position:absolute;inset:0;width:100%;height:100%}
+#tip{position:absolute;top:8px;left:8px;font-size:12px;color:var(--muted);pointer-events:none;background:#0B1220cc;padding:4px 8px;border-radius:6px}
+#status{position:absolute;top:8px;right:80px;font-size:11px;color:var(--muted)}
+.bias{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:800}
+.bias.bull{color:var(--bull)}.bias.bear{color:var(--bear)}.bias.neu{color:var(--neu)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}
+th{color:var(--muted);font-weight:600}
+.up{color:var(--bull)}.dn{color:var(--bear)}.mu{color:var(--muted)}
+.tag{display:inline-block;min-width:22px;text-align:center;border-radius:5px;padding:0 5px;font-weight:700;font-size:11px}
+.tag.s{background:#E6EDF7;color:#0B1220}.tag.m{border:1px dashed #E6EDF7}.tag.w{border:1px dotted var(--muted);color:var(--muted)}
+.sig{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px;cursor:pointer}
+.sig:hover,.sig.sel{border-color:var(--bull)}
+.sig .t{display:flex;justify-content:space-between;font-weight:700}
+.sig .why{font-size:12px;color:var(--muted);margin-top:4px}
+.bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.bar>i{display:block;height:100%}
+.ok{color:#4ADE80}.no{color:var(--muted)}
+textarea{width:100%;min-height:180px;background:#0B1220;color:#cfe3ff;border:1px solid var(--line);border-radius:8px;direction:ltr;font:12px/1.4 Consolas,monospace;padding:8px}
+.disc{font-size:12px;color:var(--muted);border-inline-start:3px solid var(--orange);padding-inline-start:8px}
+.tabs{display:none}
+details summary{cursor:pointer;color:var(--muted)}
+.exp li{margin-bottom:4px;font-size:12.5px}
+@media (max-width:1100px){
+  main{grid-template-columns:1fr;padding:8px 8px 70px}
+  #chartWrap{height:55vh;min-height:300px}
+  .col.side{display:none}.col.side.show{display:flex}
+  .tabs{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);z-index:9}
+  .tabs button{flex:1;border:0;border-radius:0;min-height:48px;background:none}
+  .tabs button.on{color:var(--bull);border-top:2px solid var(--bull)}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><svg width="28" height="28" viewBox="0 0 28 28"><rect x="3" y="10" width="5" height="12" fill="#0066A7"/><rect x="11" y="5" width="5" height="17" fill="#F1471E"/><rect x="19" y="8" width="5" height="10" fill="#0066A7"/><line x1="5.5" y1="6" x2="5.5" y2="25" stroke="#0066A7"/><line x1="13.5" y1="2" x2="13.5" y2="25" stroke="#F1471E"/><line x1="21.5" y1="4" x2="21.5" y2="21" stroke="#0066A7"/></svg><span><b>iCOOL</b> <i>Trading</i></span></div>
+  <div><span id="symName" class="mu"></span> <bdi class="n px" id="lastPx">—</bdi> <bdi class="n" id="chg"></bdi></div>
+  <div class="grow"></div>
+  <div class="chips"><span class="chip asia" id="cAsia">آسيا/طوكيو</span><span class="chip london" id="cLon">لندن</span><span class="chip ny" id="cNY">نيويورك</span></div>
+  <div class="clock"><bdi class="n" id="clk"></bdi></div>
+</header>
+
+<main>
+  <!-- العمود الأيمن: الاختيار · الانحياز · الجلسات -->
+  <section class="col side" id="colR">
+    <div class="card">
+      <div class="row">
+        <div><label>الأداة</label><select id="sym"></select></div>
+        <div><label>الإطار</label><select id="tf"><option>5m</option><option selected>15m</option><option>1h</option><option>4h</option><option>1d</option></select></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><label>مرجع الافتتاح</label><select id="anchor">
+          <option value="ny0">منتصف ليل نيويورك 00:00</option>
+          <option value="ny18">افتتاح العقود 18:00 نيويورك</option>
+          <option value="utc">00:00 UTC</option>
+          <option value="tky">افتتاح طوكيو 09:00</option>
+        </select></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="pri" id="btnLoad">تحديث</button>
+        <label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="auto" checked style="min-height:auto"> تلقائي 60ث</label>
+      </div>
+      <div class="row" style="margin-top:8px;font-size:12px">
+        <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="shSess" checked style="min-height:auto">الجلسات</label>
+        <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="shZones" checked style="min-height:auto">المناطق</label>
+        <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="shIchi" style="min-height:auto">إيشيموكو</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>الانحياز <span class="mu" style="font-size:11px">على آخر شمعة مغلقة</span></h3>
+      <div id="biasBox" class="bias neu">—</div>
+      <div id="biasTxt" class="mu" style="font-size:12.5px"></div>
+      <table id="biasTbl" style="margin-top:6px"></table>
+    </div>
+
+    <div class="card">
+      <h3>قمم وقيعان الجلسات</h3>
+      <table id="sessTbl"></table>
+      <div id="asiaNote" class="mu" style="font-size:12px;margin-top:6px"></div>
+    </div>
+  </section>
+
+  <!-- الوسط: الرسم -->
+  <section class="col" id="colC">
+    <div id="chartWrap"><canvas id="chart"></canvas><div id="tip"></div><div id="status"></div></div>
+    <div class="card">
+      <h3>الدعوم والمقاومات <span class="mu" style="font-size:11px">ق=قوية · م=متوسطة · ض=ضعيفة</span></h3>
+      <table id="lvlTbl"></table>
+    </div>
+  </section>
+
+  <!-- العمود الأيسر: الإشارات · المخاطرة · Pine -->
+  <section class="col side" id="colL">
+    <div class="card">
+      <h3>الإشارات <span class="mu" style="font-size:11px">تأكيد بالإغلاق فقط</span></h3>
+      <div id="sigList"></div>
+    </div>
+
+    <div class="card">
+      <h3>حجم الصفقة</h3>
+      <div class="row"><div><label>رأس المال $</label><input id="eq" type="number" value="10000"></div><div><label>المخاطرة %</label><input id="rk" type="number" value="0.5" step="0.1" min="0.1" max="1"></div></div>
+      <div class="row" style="margin-top:6px"><div><label>الدخول</label><input id="en" type="number" step="any"></div><div><label>وقف الخسارة</label><input id="sl" type="number" step="any"></div></div>
+      <div class="row" style="margin-top:6px"><div><label>قيمة حركة 1.00 للوت $</label><input id="vpu" type="number" step="any"></div><div><label>الهدف</label><input id="tp" type="number" step="any"></div></div>
+      <div id="riskOut" style="margin-top:8px;font-size:13px"></div>
+    </div>
+
+    <div class="card">
+      <h3>مؤشر <span class="ltr">TradingView</span></h3>
+      <p class="mu" style="font-size:12px;margin:0 0 6px">نفس المنطق بلغة <span class="ltr">Pine Script v5</span> — الصقه في محرّر Pine ثم «Add to chart».</p>
+      <button id="btnPine">نسخ الكود</button>
+      <details style="margin-top:6px"><summary>عرض الكود</summary><textarea id="pine" readonly></textarea></details>
+    </div>
+
+    <div class="card">
+      <h3>أولوية: مؤشر أبو ساري</h3>
+      <div class="mu" style="font-size:12.5px">
+        لم يُنشر مؤشر «أبو ساري» علناً (لا كود <span class="ltr">Pine</span> ولا وصف مكتوب يمكن التحقق منه)، لذلك لم نختلق نسخة منه.
+        القالب الحالي يطبّق القواعد التي وصفتَها: الافتتاح كمرجع، قمم وقيعان الجلسات، الإغلاق كتأكيد، وقوة المستويات.
+        أرسل اسم المؤشر كما يظهر في <span class="ltr">TradingView</span> أو لقطات لإعداداته وسيُضاف كطبقة مستقلة.
+      </div>
+    </div>
+
+    <div class="card">
+      <details><summary>مساهمات الخبراء الستة</summary>
+      <ul class="exp">
+        <li><b>خبير بورصة نيويورك:</b> مراجع الافتتاح (00:00 · 08:30 · 09:30 · 18:00)، نطاق الافتتاح، اكتساح قمة/قاع لندن.</li>
+        <li><b>خبير بورصة طوكيو:</b> نطاق آسيا (مضغوط/مستنفد مقابل ADR20)، أيام Gotobi وتثبيت 9:55، فلتر إيشيموكو 9/26/52.</li>
+        <li><b>خبير الاستراتيجيات و TradingView:</b> خوارزمية المحاور والتجميع وصيغة القوة، تعريف الكسر مقابل الاكتساح، كود Pine.</li>
+        <li><b>مدير المخاطر:</b> حجم الصفقة، وقف ATR خلف المنطقة، R:R ≥ 1.5، درجة 0–100 لا يطلقها عامل واحد.</li>
+        <li><b>مصمّم الواجهة:</b> تخطيط RTL مع رسم LTR، ألوان أزرق/برتقالي آمنة لعمى الألوان، الشكل والرمز لا اللون وحده.</li>
+        <li><b>مهندس البيانات والأمان:</b> وكيل <span class="ltr">/api/candles</span> بقائمة سماح، المفتاح في Vercel فقط، تخزين CDN مؤقت.</li>
+      </ul></details>
+    </div>
+
+    <div class="card disc">
+      هذه الأداة للتحليل والتعليم فقط وليست نصيحة مالية. الدرجة تقيس توافق الشروط لا احتمال الربح.
+      تداول الذهب والعقود والعملات الرقمية بالرافعة عالي المخاطر وقد تخسر كامل رأس مالك. قد تتأخّر البيانات.
+    </div>
+  </section>
+</main>
+
+<nav class="tabs"><button data-t="colC" class="on">الرسم</button><button data-t="colR">الانحياز</button><button data-t="colL">الإشارات</button></nav>
+
+<script>
+'use strict';
+/* ================= إعدادات ================= */
+const SYMS={XAUUSD:['الذهب',100,1],XAGUSD:['الفضة',5000,.01],EURUSD:['يورو/دولار',100000,.0001],GBPUSD:['باوند/دولار',100000,.0001],
+  USDJPY:['دولار/ين',1000,.01],NAS100:['ناسداك 100',1,1],US30:['داو جونز',1,1],SPX500:['S&P 500',1,1],NIKKEI:['نيكاي 225',1,1],
+  USOIL:['نفط WTI',1000,.01],BTCUSD:['بيتكوين',1,1],ETHUSD:['إيثريوم',1,1]};
+// [الاسم، قيمة حركة 1.00 للوت بالدولار (افتراضي — تحقّق من وسيطك)، خطوة التسعير]
+const TFSEC={'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400};
+const SESS=[ // جلسات بتوقيت أسواقها المحلّي — تتبع التوقيت الصيفي تلقائياً
+  {k:'asia',  n:'آسيا/طوكيو',tz:'Asia/Tokyo',       a:9*60,     b:15*60,   col:'#9B7BFF'},
+  {k:'london',n:'لندن',       tz:'Europe/London',    a:8*60,     b:16*60+30,col:'#2EC4B6'},
+  {k:'ny',    n:'نيويورك',     tz:'America/New_York', a:9*60+30,  b:16*60,   col:'#F2C14E'}];
+const ANCH={ny0:{tz:'America/New_York',sh:0,n:'منتصف ليل نيويورك'},ny18:{tz:'America/New_York',sh:6,n:'افتتاح 18:00 نيويورك'},
+  utc:{tz:'UTC',sh:0,n:'00:00 UTC'},tky:{tz:'Asia/Tokyo',sh:-9,n:'افتتاح طوكيو'}};
+
+/* ================= أدوات الوقت ================= */
+const DTF={};
+function tzp(t,tz){ // أجزاء الساعة الجدارية في منطقة زمنية
+  const f=DTF[tz]||(DTF[tz]=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',weekday:'short'}));
+  const o={};for(const p of f.formatToParts(new Date(t*1000)))o[p.type]=p.value;
+  return {y:+o.year,m:+o.month,d:+o.day,H:+o.hour%24,M:+o.minute,wd:o.weekday,key:o.year+'-'+o.month+'-'+o.day,min:(+o.hour%24)*60+(+o.minute)};
+}
+const fmtT=(t,tz)=>{const p=tzp(t,tz||'UTC');return String(p.m).padStart(2,'0')+'/'+String(p.d).padStart(2,'0')+' '+String(p.H).padStart(2,'0')+':'+String(p.M).padStart(2,'0')};
+
+/* ================= المؤشرات الأساسية ================= */
+function atr(c,n){const r=new Array(c.length).fill(NaN);let s=0;
+  for(let i=0;i<c.length;i++){const tr=i?Math.max(c[i].h-c[i].l,Math.abs(c[i].h-c[i-1].c),Math.abs(c[i].l-c[i-1].c)):c[i].h-c[i].l;
+    if(i<n){s+=tr;if(i===n-1)r[i]=s/n;}else r[i]=(r[i-1]*(n-1)+tr)/n;}
+  for(let i=0;i<Math.min(n-1,c.length);i++)r[i]=r[Math.min(n-1,c.length-1)]||c[i].h-c[i].l;return r;}
+function ema(c,n){const k=2/(n+1),r=[];c.forEach((x,i)=>r.push(i?x.c*k+r[i-1]*(1-k):x.c));return r;}
+function sma(a,n){const r=[];let s=0;a.forEach((x,i)=>{s+=x;if(i>=n)s-=a[i-n];r.push(s/Math.min(i+1,n));});return r;}
+function ichimoku(c){const hl=(i,n)=>{let h=-1e18,l=1e18;for(let j=Math.max(0,i-n+1);j<=i;j++){h=Math.max(h,c[j].h);l=Math.min(l,c[j].l);}return (h+l)/2;};
+  const tk=[],kj=[],sa=[],sb=[];c.forEach((_,i)=>{tk.push(hl(i,9));kj.push(hl(i,26));});
+  c.forEach((_,i)=>{sa[i+26]=(tk[i]+kj[i])/2;sb[i+26]=hl(i,52);});return {tk,kj,sa,sb};}
+
+/* ================= تحليل الافتتاح والجلسات ================= */
+function dayGroups(c,anchor){ // تجميع حسب يوم المرجع المختار
+  const A=ANCH[anchor]||ANCH.ny0,g=[];let cur=null;
+  c.forEach((x,i)=>{const k=tzp(x.t+A.sh*3600,A.tz).key;
+    if(!cur||cur.key!==k){cur={key:k,i0:i,i1:i,o:x.o,h:x.h,l:x.l,c:x.c};g.push(cur);}
+    else{cur.i1=i;cur.h=Math.max(cur.h,x.h);cur.l=Math.min(cur.l,x.l);cur.c=x.c;}});
+  return g;}
+function sessions(c,tf){ // كل نسخة جلسة: {k,i0,i1,o,h,l,hi,li,done}
+  const out=[];if(TFSEC[tf]>=86400)return out;
+  for(const S of SESS){let cur=null;
+    c.forEach((x,i)=>{const p=tzp(x.t,S.tz),wk=p.wd!=='Sat'&&p.wd!=='Sun',ins=wk&&p.min>=S.a&&p.min<S.b;
+      if(ins){if(!cur||i!==cur.i1+1||cur.day!==p.key){cur={k:S.k,n:S.n,col:S.col,day:p.key,i0:i,i1:i,o:x.o,h:x.h,l:x.l,hi:i,li:i,done:false};out.push(cur);}
+        else{cur.i1=i;if(x.h>cur.h){cur.h=x.h;cur.hi=i;}if(x.l<cur.l){cur.l=x.l;cur.li=i;}}}
+      else if(cur){cur.done=true;cur=null;}});}
+  return out.sort((a,b)=>a.i0-b.i0);}
+function openAt(c,tz,dayKey,minute){for(const x of c){const p=tzp(x.t,tz);if(p.key===dayKey&&p.min>=minute)return {o:x.o,t:x.t};}return null;}
+
+/* ================= الدعم والمقاومة ================= */
+function pivots(c,L){const P=[];for(let i=L;i<c.length-L;i++){let ph=true,pl=true;
+  for(let j=i-L;j<=i+L;j++){if(j===i)continue;if(c[j].h>=c[i].h)ph=false;if(c[j].l<=c[i].l)pl=false;}
+  if(ph)P.push({i,p:c[i].h,type:'H'});if(pl)P.push({i,p:c[i].l,type:'L'});}return P;}
+function roundStep(p){const e=Math.pow(10,Math.floor(Math.log10(Math.abs(p)||1))-1);return e*5;} // 2000→50, 1.08→.05, 150→5
+function zones(c,A,tf,extra){
+  const n=c.length,L=TFSEC[tf]<=3600?5:3,at=A[n-1],P=pivots(c,L).sort((a,b)=>a.p-b.p);
+  const vs=sma(c.map(x=>x.v||0),20),cl=[];
+  for(const p of P){const z=cl[cl.length-1];
+    if(z&&Math.abs(p.p-z.mean)<=0.5*at){z.pts.push(p);z.mean=z.pts.reduce((s,q)=>s+q.p,0)/z.pts.length;}
+    else cl.push({pts:[p],mean:p.p});}
+  const out=[];
+  for(const z of cl){
+    const spr=(Math.max(...z.pts.map(q=>q.p))-Math.min(...z.pts.map(q=>q.p)))/2,hw=Math.max(0.25*at,Math.min(spr,0.6*at)),lo=z.mean-hw,hi=z.mean+hw,piv=new Set(z.pts.map(q=>q.i));
+    let T=z.pts.length,rec=0,rej=0,vol=0,nt=0,B=0,last=Math.max(...piv),side0=null,flip=0;
+    for(let i=1;i<n;i++){const x=c[i],touch=x.l<=hi&&x.h>=lo,out_=x.c>hi||x.c<lo;
+      if(touch&&out_){ if(!piv.has(i)&&!(i>0&&c[i-1].l<=hi&&c[i-1].h>=lo))T++;
+        const w=x.c>hi?Math.min(x.o,x.c)-x.l:x.h-Math.max(x.o,x.c);rej+=Math.max(0,w)/(A[i]||at);
+        vol+=(vs[i]?(x.v||0)/vs[i]:1);nt++;rec+=Math.exp(-(n-1-i)/100);last=Math.max(last,i);}
+      if((c[i-1].c<lo&&x.c>hi)||(c[i-1].c>hi&&x.c<lo))B++;
+      const side=x.c>hi?1:x.c<lo?-1:0;if(side){if(side0!==null&&side!==side0)flip=1;side0=side;}}
+    for(const q of z.pts)rec+=Math.exp(-(n-1-q.i)/100);
+    const Rej=nt?rej/nt:0.5,Vol=nt?vol/nt:1;
+    let S=100*(0.35*Math.min(T/4,1)+0.20*Math.min(rec/2,1)+0.25*Math.min(Rej/1.2,1)+0.15*Math.min(Vol/1.8,1)+0.05*flip)-15*Math.min(B,3);
+    const mid=(lo+hi)/2,conf=[];
+    for(const e of extra){if(e.p>=lo-0.1*at&&e.p<=hi+0.1*at){conf.push(e.n);S+=e.w;}}
+    const rs=roundStep(mid);if(Math.abs(mid/rs-Math.round(mid/rs))*rs<=0.25*at){S+=6;conf.push('رقم دائري');}
+    S=Math.max(0,Math.min(100,Math.round(S)));
+    if(B>=3||n-1-last>400)continue;
+    const g=(S>=70&&T>=3)?'s':(S>=45?'m':'w');
+    out.push({lo,hi,mid,T,B,S,g,flip,conf,role:mid>c[n-1].c?'مقاومة':'دعم',i0:Math.min(...piv)});}
+  return out.sort((a,b)=>b.S-a.S).slice(0,14);}
+
+/* ================= الكسر والاكتساح بالإغلاق ================= */
+function closeEvent(x,prev,lvl,dir,buf){ // dir=+1 مستوى فوق السعر (قمة)، -1 تحت (قاع)
+  const rng=x.h-x.l||1e-9;
+  if(dir>0){
+    if(x.c>lvl+buf&&(Math.max(x.o,x.c)-lvl)>=0.5*Math.abs(x.c-x.o)&&prev.c<=lvl+buf)return 'break';
+    if(x.h>lvl+buf&&x.c<lvl&&(x.h-Math.max(x.o,x.c))/rng>=0.5)return 'sweep';
+  }else{
+    if(x.c<lvl-buf&&(lvl-Math.min(x.o,x.c))>=0.5*Math.abs(x.c-x.o)&&prev.c>=lvl-buf)return 'break';
+    if(x.l<lvl-buf&&x.c>lvl&&(Math.min(x.o,x.c)-x.l)/rng>=0.5)return 'sweep';
+  }return null;}
+
+/* ================= المحرّك ================= */
+function analyze(c,tf,anchor,sym){
+  const n=c.length,A=atr(c,14),e200=ema(c,200),IC=ichimoku(c),li=n-2; // li = آخر شمعة مغلقة
+  const x=c[li],at=A[li],buf=0.1*at;
+  const days=dayGroups(c,anchor),dCur=days[days.length-1],dPrev=days[days.length-2];
+  const dayOpen=dCur.o;
+  const ss=sessions(c,tf);
+  // مراجع إضافية للتقاء المستويات
+  const extra=[];
+  if(dPrev){extra.push({p:dPrev.h,n:'قمة أمس',w:10},{p:dPrev.l,n:'قاع أمس',w:10});}
+  extra.push({p:dayOpen,n:'افتتاح اليوم',w:8});
+  ss.slice(-6).forEach(s=>{extra.push({p:s.h,n:'قمة '+s.n,w:6},{p:s.l,n:'قاع '+s.n,w:6});});
+  const Z=zones(c,A,tf,extra);
+  // الانحياز
+  const b=x.c>dayOpen+buf?1:x.c<dayOpen-buf?-1:0;
+  let streak=0;for(let i=li;i>=dCur.i0;i--){const bi=c[i].c>dayOpen+buf?1:c[i].c<dayOpen-buf?-1:0;if(bi===b&&b)streak++;else break;}
+  // مراجع نيويورك
+  const nyKey=tzp(x.t,'America/New_York').key;
+  const o930=TFSEC[tf]<86400?openAt(c,'America/New_York',nyKey,570):null;
+  const wk=weekOpen(c);
+  const curSess=ss.filter(s=>s.i0<=li&&s.i1>=li);
+  const refs=[{n:'افتتاح اليوم ('+ANCH[anchor].n+')',p:dayOpen}];
+  if(o930)refs.push({n:'افتتاح الكاش 09:30 نيويورك',p:o930.o});
+  if(wk)refs.push({n:'الافتتاح الأسبوعي',p:wk.o});
+  curSess.forEach(s=>refs.push({n:'افتتاح جلسة '+s.n,p:s.o}));
+  refs.forEach(r=>r.b=x.c>r.p+buf?1:x.c<r.p-buf?-1:0);
+  const agree=refs.filter(r=>r.b===b).length;
+  // نطاق آسيا مقابل ADR20
+  const ranges=days.slice(-21,-1).map(d=>d.h-d.l),adr=ranges.length?ranges.reduce((s,v)=>s+v,0)/ranges.length:0;
+  const asia=[...ss].reverse().find(s=>s.k==='asia');
+  let asiaState=null;if(asia&&adr){const r=asia.h-asia.l;asiaState={r,adr,st:r<0.5*adr?'مضغوط — كسر مرجّح':r>0.8*adr?'مستنفد — ارتداد مرجّح':'طبيعي'};}
+  // الاتجاه الأعلى: فوق EMA200 وفوق Kijun
+  const htf=(x.c>e200[li]?1:-1)+(x.c>IC.kj[li]?1:-1);
+  const sig=signals(c,A,li,ss,dPrev,dayOpen,Z,b,htf,sym,tf);
+  return {A,at,li,days,dayOpen,dPrev,ss,Z,bias:b,streak,refs,agree,asia,asiaState,IC,e200,sig,htf,o930,wk};}
+
+function weekOpen(c){const L=c[c.length-1];const p=tzp(L.t+6*3600,'America/New_York'); // يبدأ الأسبوع الأحد 18:00 نيويورك
+  for(let i=c.length-1;i>0;i--){const q=tzp(c[i].t+6*3600,'America/New_York'),r=tzp(c[i-1].t+6*3600,'America/New_York');
+    if(q.wd==='Mon'&&r.wd!=='Mon')return {o:c[i].o,i};if(L.t-c[i].t>8*86400)break;}return null;}
+
+function nextLevel(Z,extra,price,dir,at){ // أقرب مستوى معاكس للهدف
+  const L=[...Z.map(z=>dir>0?z.lo:z.hi),...extra].filter(p=>dir>0?p>price+0.3*at:p<price-0.3*at);
+  if(!L.length)return price+dir*2*at;return dir>0?Math.min(...L):Math.max(...L);}
+
+function scoreSig(f){ // أوزان مدير المخاطر: لا عامل يتجاوز 25
+  const W={close:25,sr:25,sess:15,bias:15,htf:10,rr:10};let s=0,k=0;
+  for(const q in W){s+=W[q]*(f[q]||0);if((f[q]||0)>=.5)k++;}
+  return {score:Math.round(s-(f.pen||0)),k};}
+
+function signals(c,A,li,ss,dPrev,dayOpen,Z,bias,htf,sym,tf){
+  const out=[],from=Math.max(30,li-150);
+  const done=ss.filter(s=>s.done);
+  for(let i=from;i<=li;i++){
+    const x=c[i],p=c[i-1],at=A[i],buf=0.1*at;
+    const lv=[];
+    // مستويات الجلسات المكتملة قبل هذه الشمعة (آخر 3)
+    done.filter(s=>s.i1<i&&i-s.i1<=200).slice(-3).forEach(s=>{lv.push({p:s.h,d:1,n:'قمة '+s.n,src:'sess'},{p:s.l,d:-1,n:'قاع '+s.n,src:'sess'});});
+    if(dPrev&&i>dPrev.i1){lv.push({p:dPrev.h,d:1,n:'قمة أمس',src:'pd'},{p:dPrev.l,d:-1,n:'قاع أمس',src:'pd'});}
+    Z.filter(z=>z.g!=='w'&&z.i0<i).forEach(z=>{lv.push({p:z.hi,d:1,n:'مقاومة '+(z.g==='s'?'قوية':'متوسطة'),src:'z',z},{p:z.lo,d:-1,n:'دعم '+(z.g==='s'?'قوي':'متوسط'),src:'z',z});});
+    const bi=x.c>dayOpen+buf?1:x.c<dayOpen-buf?-1:0;
+    for(const L of lv){
+      if(L.d>0&&!(p.c<=L.p+buf))continue; if(L.d<0&&!(p.c>=L.p-buf))continue;
+      const ev=closeEvent(x,p,L.p,L.d,buf);if(!ev)continue;
+      const dir=ev==='sweep'?-L.d:L.d; // الاكتساح عكسي، الكسر مع الاتجاه
+      if(L.src==='z'&&ev==='break'&&L.z.g==='s')continue; // لا نطارد كسر منطقة قوية دون إعادة اختبار
+      const ext=ev==='sweep'?(L.d>0?x.h:x.l):(L.d>0?Math.min(x.l,L.p):Math.max(x.h,L.p));
+      const k=L.z?({s:.5,m:.75,w:1})[L.z.g]:.5;
+      let sl=dir>0?ext-Math.max(k*at,0):ext+Math.max(k*at,0);
+      const en=x.c,risk=Math.abs(en-sl);
+      if(risk<0.5*at)sl=en-dir*0.5*at;
+      if(Math.abs(en-sl)>3*at)continue;
+      const tp=nextLevel(Z,[dPrev?dPrev.h:null,dPrev?dPrev.l:null,dayOpen].filter(v=>v!=null),en,dir,at)-dir*0.25*at;
+      const rr=Math.abs(tp-en)/Math.abs(en-sl);
+      const pNY=tzp(x.t,'America/New_York').min,quiet=pNY>=16*60&&pNY<18*60;
+      const f={close:1,sr:L.z?({s:1,m:.6,w:.2})[L.z.g]:(L.src==='pd'?.8:.6),sess:L.src==='sess'?1:(L.src==='pd'?.7:.3),
+        bias:bi===dir?1:(bi===0?.4:0),htf:htf*dir>=2?1:(htf*dir>=0?.5:0),rr:Math.min(rr/3,1),pen:quiet?20:0};
+      const sc=scoreSig(f),ok=sc.score>=65&&sc.k>=3&&rr>=1.5&&!quiet;
+      const why=(ev==='sweep'?'اكتساح ':'كسر بالإغلاق ')+L.n+' · '+(bi===dir?'متوافق مع الانحياز':bi===0?'حول الافتتاح':'عكس الانحياز')+(quiet?' · خارج السيولة':'');
+      if(rr<1)continue;
+      out.push({i,t:x.t,dir,ev,lvl:L.p,name:L.n,en,sl,tp,rr,score:sc.score,ok,why,f});
+    }
+  }
+  // إزالة التكرار: إشارة واحدة لكل شمعة (الأعلى درجة)
+  const by={};out.forEach(s=>{if(!by[s.i]||by[s.i].score<s.score)by[s.i]=s;});
+  return Object.values(by).sort((a,b)=>b.i-a.i);}
+
+/* ================= Pine Script ================= */
+function pineCode(){return `//@version=5
+// iCOOL Trading — الافتتاح · الجلسات · الإغلاق · الدعم والمقاومة
+indicator("iCOOL Open Bias + Sessions + S/R", overlay=true, max_boxes_count=300, max_lines_count=300)
+tzA   = input.string("America/New_York", "منطقة الافتتاح")
+asiaS = input.session("0900-1500", "آسيا (بتوقيت طوكيو)")
+lonS  = input.session("0800-1630", "لندن (بتوقيت لندن)")
+nyS   = input.session("0930-1600", "نيويورك (بتوقيت نيويورك)")
+pivL  = input.int(5, "طول المحور")
+atr   = ta.atr(14)
+buf   = 0.1 * atr
+
+// الافتتاح اليومي والانحياز
+newDay = ta.change(time("D", "", tzA)) != 0
+var float dOpen = na
+if newDay
+    dOpen := open
+plot(dOpen, "افتتاح اليوم", color.white, 2, plot.style_linebr)
+bias = close > dOpen + buf ? 1 : close < dOpen - buf ? -1 : 0
+bgcolor(bias == 1 ? color.new(#3AA0E8, 92) : bias == -1 ? color.new(#F1471E, 92) : na)
+
+sessBox(sess, tz, col) =>
+    var box b = na
+    var float hi = na
+    var float lo = na
+    inS = not na(time(timeframe.period, sess, tz))
+    if inS and not inS[1]
+        hi := high
+        lo := low
+        b := box.new(bar_index, high, bar_index, low, col, bgcolor=color.new(col, 88))
+    else if inS
+        hi := math.max(hi, high)
+        lo := math.min(lo, low)
+        box.set_top(b, hi), box.set_bottom(b, lo), box.set_right(b, bar_index)
+    [hi, lo, inS]
+
+[aH, aL, aIn] = sessBox(asiaS, "Asia/Tokyo", #9B7BFF)
+[lH, lL, lIn] = sessBox(lonS, "Europe/London", #2EC4B6)
+[nH, nL, nIn] = sessBox(nyS, "America/New_York", #F2C14E)
+
+// كسر واكتساح نطاق آسيا — على الشمعة المغلقة فقط
+post  = not aIn and barstate.isconfirmed
+brkUp = post and close > aH + buf and close[1] <= aH + buf
+brkDn = post and close < aL - buf and close[1] >= aL - buf
+swpHi = post and high > aH + buf and close < aH and (high - math.max(open, close)) >= 0.5 * (high - low)
+swpLo = post and low < aL - buf and close > aL and (math.min(open, close) - low) >= 0.5 * (high - low)
+plotshape(brkUp and bias == 1, "كسر صاعد", shape.triangleup, location.belowbar, #3AA0E8)
+plotshape(brkDn and bias == -1, "كسر هابط", shape.triangledown, location.abovebar, #F1471E)
+plotshape(swpHi and bias <= 0, "اكتساح قمة", shape.xcross, location.abovebar, #F1471E)
+plotshape(swpLo and bias >= 0, "اكتساح قاع", shape.xcross, location.belowbar, #3AA0E8)
+
+// محاور الدعم والمقاومة مع قوة بعدد اللمسات
+ph = ta.pivothigh(high, pivL, pivL)
+pl = ta.pivotlow(low, pivL, pivL)
+var float[] lv = array.new_float()
+var int[] tc = array.new_int()
+addLv(p) =>
+    found = false
+    if array.size(lv) > 0
+        for j = 0 to array.size(lv) - 1
+            if math.abs(array.get(lv, j) - p) <= 0.5 * atr
+                array.set(tc, j, array.get(tc, j) + 1)
+                found := true
+    if not found
+        array.push(lv, p), array.push(tc, 1)
+        if array.size(lv) > 30
+            array.shift(lv), array.shift(tc)
+if not na(ph)
+    addLv(ph)
+if not na(pl)
+    addLv(pl)
+var line[] drawn = array.new_line()
+if barstate.islast and array.size(lv) > 0
+    while array.size(drawn) > 0
+        line.delete(array.pop(drawn))
+    for j = 0 to array.size(lv) - 1
+        t = array.get(tc, j)
+        c = t >= 3 ? color.white : t == 2 ? color.gray : color.new(color.gray, 60)
+        s = t >= 3 ? line.style_solid : t == 2 ? line.style_dashed : line.style_dotted
+        array.push(drawn, line.new(bar_index - 150, array.get(lv, j), bar_index + 10, array.get(lv, j), color=c, style=s, width=t >= 3 ? 2 : 1))
+
+alertcondition(ta.crossover(close, dOpen) and barstate.isconfirmed, "فوق الافتتاح", "إغلاق فوق افتتاح اليوم")
+alertcondition(ta.crossunder(close, dOpen) and barstate.isconfirmed, "تحت الافتتاح", "إغلاق تحت افتتاح اليوم")
+alertcondition(swpHi and bias <= 0, "اكتساح قمة آسيا", "اكتساح قمة آسيا تحت الافتتاح")
+alertcondition(swpLo and bias >= 0, "اكتساح قاع آسيا", "اكتساح قاع آسيا فوق الافتتاح")
+`;}
+
+/* ================= البيانات ================= */
+async function loadCandles(sym,tf){
+  try{const r=await fetch('/api/candles?s='+sym+'&i='+tf+'&n=600',{cache:'no-store'});
+    const j=await r.json();if(j.ok&&j.candles.length>=60)return {c:j.candles,src:j.source,keyed:j.keyed};
+    throw new Error((j.error&&j.error.code)||'fail');}
+  catch(e){
+    if(/^(BTC|ETH)/.test(sym)){try{const bn={'5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d'}[tf];
+      const r=await fetch('https://data-api.binance.vision/api/v3/klines?symbol='+sym.replace('USD','USDT')+'&interval='+bn+'&limit=600');
+      const j=await r.json();return {c:j.map(k=>({t:k[0]/1000,o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]})),src:'binance (مباشر)'};}catch(_){}}
+    return {c:demoCandles(sym,tf),src:'بيانات تجريبية',demo:true};}}
+function demoCandles(sym,tf,N){ // مسار عشوائي ثابت البذرة بتذبذب أعلى في لندن/نيويورك
+  N=N||600;const sec=TFSEC[tf],base={XAUUSD:2650,XAGUSD:31,EURUSD:1.08,GBPUSD:1.27,USDJPY:149,NAS100:20500,US30:42000,SPX500:5800,NIKKEI:38500,USOIL:72,BTCUSD:64000,ETHUSD:2600}[sym]||100;
+  let s=0;for(const ch of sym+tf)s=(s*31+ch.charCodeAt(0))>>>0;const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+  const end=Math.floor(Date.now()/1000/sec)*sec,out=[];let p=base,vol=base*0.0012*Math.sqrt(sec/900);
+  for(let i=N-1;i>=0;i--){const t=end-i*sec,h=new Date(t*1000).getUTCHours(),wd=new Date(t*1000).getUTCDay();
+    if(sec<86400&&(wd===6||(wd===0&&h<22)))continue;
+    const m=(h>=7&&h<17)?1.6:0.7,o=p,dr=(rnd()-0.5)*2*vol*m+(rnd()<.02?(rnd()-.5)*vol*8:0),c=o+dr;
+    out.push({t,o,h:Math.max(o,c)+rnd()*vol*m*.8,l:Math.min(o,c)-rnd()*vol*m*.8,c,v:Math.round(500+rnd()*1000*m)});p=c;}
+  return out;}
+
+/* ================= الرسم ================= */
+const cv=document.getElementById('chart'),cx=cv.getContext('2d');
+let ST={c:[],R:null,view:{n:160,end:0},hover:-1,selSig:null,sym:'XAUUSD',tf:'15m',anchor:'ny0',src:''};
+function resize(){const r=cv.parentElement.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;cx.setTransform(d,0,0,d,0,0);draw();}
+function dp(p){const st=SYMS[ST.sym][2];const dec=st>=1?2:Math.max(2,-Math.floor(Math.log10(st))+1);return p.toFixed(dec);}
+function draw(){
+  const c=ST.c,R=ST.R;const W=cv.clientWidth,H=cv.clientHeight;cx.clearRect(0,0,W,H);if(!c.length||!R)return;
+  cx.direction='ltr';const padR=70,padB=22,cw=W-padR,ch=H-padB;
+  const end=Math.min(c.length,ST.view.end||c.length),n=Math.max(30,Math.min(ST.view.n,end)),s0=end-n;
+  let lo=1e18,hi=-1e18;for(let i=s0;i<end;i++){lo=Math.min(lo,c[i].l);hi=Math.max(hi,c[i].h);}
+  const pad=(hi-lo)*0.08;lo-=pad;hi+=pad;const bw=cw/(n+3);
+  const X=i=>(i-s0+0.5)*bw,Y=p=>ch-(p-lo)/(hi-lo)*ch;
+  // شبكة ومحور السعر
+  cx.font='11px Segoe UI, Tahoma, sans-serif';cx.textAlign='left';cx.fillStyle='#8A9BB5';cx.strokeStyle='#1c2940';cx.lineWidth=1;
+  const step=niceStep((hi-lo)/7);for(let p=Math.ceil(lo/step)*step;p<hi;p+=step){cx.beginPath();cx.moveTo(0,Y(p));cx.lineTo(cw,Y(p));cx.stroke();cx.fillText(dp(p),cw+6,Y(p)+4);}
+  // محور الوقت
+  const tz='UTC';let lastKey='';cx.textAlign='center';
+  for(let i=s0;i<end;i+=Math.max(1,Math.round(n/7))){cx.fillText(fmtT(c[i].t,tz),X(i),H-6);}
+  // جلسات
+  if(document.getElementById('shSess').checked)for(const s of R.ss){if(s.i1<s0||s.i0>=end)continue;
+    const x0=X(Math.max(s.i0,s0))-bw/2,x1=X(Math.min(s.i1,end-1))+bw/2;
+    cx.fillStyle=s.col+'1A';cx.strokeStyle=s.col;cx.fillRect(x0,Y(s.h),x1-x0,Y(s.l)-Y(s.h));
+    cx.setLineDash([]);cx.beginPath();cx.moveTo(x0,Y(s.h));cx.lineTo(x1,Y(s.h));cx.moveTo(x0,Y(s.l));cx.lineTo(x1,Y(s.l));cx.stroke();
+    if(s.done){cx.setLineDash([2,4]);cx.globalAlpha=.6;cx.beginPath();const xe=Math.min(cw,X(Math.min(end-1,s.i1+40)));cx.moveTo(x1,Y(s.h));cx.lineTo(xe,Y(s.h));cx.moveTo(x1,Y(s.l));cx.lineTo(xe,Y(s.l));cx.stroke();cx.globalAlpha=1;cx.setLineDash([]);}
+    cx.fillStyle=s.col;cx.textAlign='left';cx.fillText(({asia:'ASIA',london:'LDN',ny:'NY'})[s.k],x0+2,Y(s.h)-3);}
+  // مناطق
+  if(document.getElementById('shZones').checked)for(const z of R.Z){const y0=Y(z.hi),y1=Y(z.lo);if(y1<0||y0>ch)continue;
+    const a={s:.30,m:.18,w:.09}[z.g],col=z.role==='مقاومة'?'241,71,30':'58,160,232';
+    cx.fillStyle=`rgba(${col},${a})`;cx.fillRect(X(Math.max(z.i0,s0))-bw/2,y0,cw,y1-y0);
+    cx.strokeStyle=`rgba(${col},.9)`;cx.lineWidth=z.g==='s'?2:1;cx.setLineDash(z.g==='s'?[]:z.g==='m'?[6,4]:[2,3]);
+    cx.strokeRect(X(Math.max(z.i0,s0))-bw/2,y0,cw,y1-y0);cx.setLineDash([]);cx.lineWidth=1;
+    cx.fillStyle=`rgb(${col})`;cx.textAlign='right';cx.fillText((z.g==='s'?'STRONG ':z.g==='m'?'MED ':'WEAK ')+z.S,cw-4,y0-2);}
+  // إيشيموكو
+  if(document.getElementById('shIchi').checked){const I=R.IC;cx.strokeStyle='#E6EDF7';cx.globalAlpha=.7;line(I.kj);cx.strokeStyle='#9B7BFF';line(I.tk);cx.globalAlpha=.15;
+    for(let i=s0;i<end;i++){if(I.sa[i]==null)continue;cx.fillStyle=I.sa[i]>=I.sb[i]?'#3AA0E8':'#F1471E';cx.fillRect(X(i)-bw/2,Y(Math.max(I.sa[i],I.sb[i])),bw,Math.abs(Y(I.sa[i])-Y(I.sb[i])));}cx.globalAlpha=1;}
+  function line(a){cx.beginPath();let st=false;for(let i=s0;i<end;i++){if(!isFinite(a[i]))continue;st?cx.lineTo(X(i),Y(a[i])):cx.moveTo(X(i),Y(a[i]));st=true;}cx.stroke();}
+  // خطوط الافتتاح اليومية
+  cx.strokeStyle='#E6EDF7';cx.lineWidth=1.5;for(const d of R.days){if(d.i1<s0)continue;const a=Math.max(d.i0,s0);
+    cx.beginPath();cx.moveTo(X(a)-bw/2,Y(d.o));cx.lineTo(X(Math.min(d.i1,end-1))+bw/2,Y(d.o));cx.stroke();}
+  cx.lineWidth=1;cx.fillStyle='#E6EDF7';cx.textAlign='left';const dl=R.days[R.days.length-1];if(dl.i0>=s0)cx.fillText('OPEN '+dp(dl.o),X(dl.i0),Y(dl.o)-4);
+  // الشموع: صاعدة مجوّفة زرقاء، هابطة مصمتة برتقالية
+  for(let i=s0;i<end;i++){const k=c[i],up=k.c>=k.o,col=up?'#3AA0E8':'#F1471E',x=X(i);
+    cx.strokeStyle=col;cx.beginPath();cx.moveTo(x,Y(k.h));cx.lineTo(x,Y(Math.max(k.o,k.c)));cx.moveTo(x,Y(Math.min(k.o,k.c)));cx.lineTo(x,Y(k.l));cx.stroke();
+    const w=Math.max(1,bw*.7),yt=Y(Math.max(k.o,k.c)),hh=Math.max(1,Math.abs(Y(k.o)-Y(k.c)));
+    if(up){cx.strokeRect(x-w/2,yt,w,hh);}else{cx.fillStyle=col;cx.fillRect(x-w/2,yt,w,hh);}
+    if(i===c.length-1){cx.globalAlpha=.35;cx.fillStyle='#8A9BB5';cx.fillRect(x-w/2,yt,w,hh);cx.globalAlpha=1;}} // الشمعة الجارية باهتة: غير مؤكّدة
+  // إشارات
+  cx.textAlign='center';for(const s of R.sig){if(s.i<s0||s.i>=end)continue;const x=X(s.i),k=c[s.i];
+    cx.fillStyle=s.dir>0?'#3AA0E8':'#F1471E';cx.globalAlpha=s.ok?1:.45;
+    const y=s.dir>0?Y(k.l)+14:Y(k.h)-6;cx.font=(s.ok?'bold 14px':'11px')+' Segoe UI';cx.fillText(s.dir>0?'▲':'▼',x,y);cx.font='11px Segoe UI';cx.globalAlpha=1;}
+  // الإشارة المحدّدة: دخول/وقف/هدف
+  const S=ST.selSig;if(S&&S.i>=s0){const x0=X(S.i);cx.setLineDash([4,3]);
+    [[S.en,'#E6EDF7','ENTRY'],[S.sl,'#F1471E','SL'],[S.tp,'#4ADE80','TP']].forEach(([p,col,t])=>{cx.strokeStyle=col;cx.beginPath();cx.moveTo(x0,Y(p));cx.lineTo(cw,Y(p));cx.stroke();cx.fillStyle=col;cx.textAlign='left';cx.fillText(t+' '+dp(p),x0+4,Y(p)-3);});cx.setLineDash([]);}
+  // آخر سعر
+  const L=c[c.length-1];cx.fillStyle=L.c>=L.o?'#3AA0E8':'#F1471E';cx.fillRect(cw,Y(L.c)-9,padR,18);cx.fillStyle='#0B1220';cx.textAlign='left';cx.font='bold 11px Segoe UI';cx.fillText(dp(L.c),cw+6,Y(L.c)+4);cx.font='11px Segoe UI';
+  // مؤشر التمرير
+  if(ST.hover>=s0&&ST.hover<end){const k=c[ST.hover];cx.strokeStyle='#8A9BB566';cx.beginPath();cx.moveTo(X(ST.hover),0);cx.lineTo(X(ST.hover),ch);cx.stroke();
+    document.getElementById('tip').textContent=fmtT(k.t,'UTC')+' UTC  O '+dp(k.o)+'  H '+dp(k.h)+'  L '+dp(k.l)+'  C '+dp(k.c);}
+  ST._geo={s0,end,bw,cw};}
+function niceStep(r){const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return (f<1.5?1:f<3?2:f<7?5:10)*e;}
+
+// تفاعل: عجلة للتكبير، سحب للتحريك
+cv.addEventListener('wheel',e=>{e.preventDefault();ST.view.n=Math.max(40,Math.min(ST.c.length,Math.round(ST.view.n*(e.deltaY>0?1.15:0.87))));draw();},{passive:false});
+let drag=null;cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,end:ST.view.end||ST.c.length};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{const g=ST._geo;if(!g)return;const r=cv.getBoundingClientRect();
+  if(drag){const d=Math.round((e.clientX-drag.x)/g.bw);ST.view.end=Math.max(40,Math.min(ST.c.length,drag.end-d));}
+  ST.hover=g.s0+Math.floor((e.clientX-r.left)/g.bw);draw();});
+cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('dblclick',()=>{ST.view={n:160,end:0};draw();});
+
+/* ================= اللوحات ================= */
+const $=id=>document.getElementById(id);
+const N=v=>'<bdi class="n">'+v+'</bdi>';
+function panels(){
+  const R=ST.R,c=ST.c,x=c[R.li],L=c[c.length-1];
+  $('lastPx').textContent=dp(L.c);const ch=(L.c-R.dayOpen)/R.dayOpen*100;$('chg').textContent=(ch>=0?'+':'')+ch.toFixed(2)+'%';$('chg').className='n '+(ch>=0?'up':'dn');
+  $('symName').textContent=SYMS[ST.sym][0];
+  const bb=$('biasBox');bb.className='bias '+(R.bias>0?'bull':R.bias<0?'bear':'neu');
+  bb.innerHTML=R.bias>0?'▲ صاعد — فوق الافتتاح':R.bias<0?'▼ هابط — تحت الافتتاح':'◆ محايد — حول الافتتاح';
+  $('biasTxt').innerHTML='الإغلاق '+N(dp(x.c))+' مقابل الافتتاح '+N(dp(R.dayOpen))+' · '+(R.streak?R.streak+' إغلاقات متتالية في نفس الجهة':'')+
+    '<br>توافق المراجع: '+N(R.agree+'/'+R.refs.length)+' · الاتجاه الأعلى (EMA200 + Kijun): '+(R.htf>=2?'<span class="up">صاعد</span>':R.htf<=-2?'<span class="dn">هابط</span>':'مختلط');
+  $('biasTbl').innerHTML=R.refs.map(r=>`<tr><td>${r.n}</td><td>${N(dp(r.p))}</td><td class="${r.b>0?'up':r.b<0?'dn':'mu'}">${r.b>0?'▲ فوق':r.b<0?'▼ تحت':'◆ عند'}</td></tr>`).join('');
+  // الجلسات: آخر نسخة من كل جلسة
+  const last={};R.ss.forEach(s=>last[s.k]=s);
+  $('sessTbl').innerHTML='<tr><th>الجلسة</th><th>القمة</th><th>القاع</th><th>الحالة</th></tr>'+SESS.map(S=>{const s=last[S.k];if(!s)return `<tr><td>${S.n}</td><td colspan=3 class="mu">—</td></tr>`;
+    const st=x.c>s.h?'<span class="up">فوق القمة</span>':x.c<s.l?'<span class="dn">تحت القاع</span>':'داخل النطاق';
+    return `<tr><td><span style="color:${S.col}">■</span> ${S.n}${s.done?'':' <span class="mu">(جارية)</span>'}</td><td>${N(dp(s.h))}</td><td>${N(dp(s.l))}</td><td>${st}</td></tr>`;}).join('');
+  $('asiaNote').innerHTML=R.asiaState?'نطاق آسيا '+N(dp(R.asiaState.r))+' = '+N(Math.round(R.asiaState.r/R.asiaState.adr*100)+'%')+' من متوسط المدى اليومي ⇐ <b>'+R.asiaState.st+'</b>'+gotobi():(TFSEC[ST.tf]>=86400?'الجلسات تظهر على الأطر اللحظية فقط.':'');
+  $('lvlTbl').innerHTML='<tr><th>القوة</th><th>النوع</th><th>المنطقة</th><th>لمسات</th><th>التقاء</th></tr>'+R.Z.slice().sort((a,b)=>b.mid-a.mid).map(z=>
+    `<tr><td><span class="tag ${z.g}">${({s:'ق',m:'م',w:'ض'})[z.g]}</span> ${N(z.S)}</td><td class="${z.role==='مقاومة'?'dn':'up'}">${z.role}${z.flip?' ↻':''}</td><td>${N(dp(z.lo)+' – '+dp(z.hi))}</td><td>${N(z.T)}${z.B?' <span class="mu">(كُسر '+z.B+')</span>':''}</td><td class="mu" style="font-size:11px">${z.conf.join('، ')}</td></tr>`).join('');
+  const sg=R.sig.slice(0,12);
+  $('sigList').innerHTML=sg.length?sg.map((s,j)=>`<div class="sig${ST.selSig===s?' sel':''}" data-j="${j}"><div class="t"><span class="${s.dir>0?'up':'dn'}">${s.dir>0?'▲ شراء':'▼ بيع'} · ${s.ev==='sweep'?'اكتساح':'كسر'}</span><span class="${s.ok?'ok':'no'}">${s.ok?'✓ صالحة':'مراقبة'} ${N(s.score)}</span></div>
+    <div class="why">${s.why}<br>${N(fmtT(s.t,'UTC'))} UTC · دخول ${N(dp(s.en))} · وقف ${N(dp(s.sl))} · هدف ${N(dp(s.tp))} · R:R ${N(s.rr.toFixed(2))}</div>
+    <div class="bar"><i style="width:${s.score}%;background:${s.ok?'#4ADE80':'#8A9BB5'}"></i></div></div>`).join(''):'<div class="mu">لا إشارات في آخر 150 شمعة.</div>';
+  document.querySelectorAll('.sig').forEach(el=>el.onclick=()=>{const s=sg[+el.dataset.j];ST.selSig=s;$('en').value=dp(s.en);$('sl').value=dp(s.sl);$('tp').value=dp(s.tp);
+    const i=s.i;if(i<ST._geo.s0)ST.view.end=Math.min(ST.c.length,i+60);risk();panels();draw();});
+  $('status').textContent='المصدر: '+ST.src+(ST.keyed===false&&!/binance/.test(ST.src)?' · بلا مفتاح':'')+' · '+c.length+' شمعة · ATR '+dp(R.at);
+}
+function gotobi(){if(ST.sym!=='USDJPY')return '';const p=tzp(Date.now()/1000,'Asia/Tokyo');return [5,10,15,20,25,30].includes(p.d)?'<br>اليوم يوم <b>Gotobi</b> — ضغط شراء محتمل على الدولار/ين حتى تثبيت 9:55 طوكيو.':'';}
+function risk(){const eq=+$('eq').value,rk=Math.min(1,+$('rk').value)/100,en=+$('en').value,sl=+$('sl').value,tp=+$('tp').value,vpu=+$('vpu').value;
+  if(!(eq&&rk&&en&&sl&&vpu)||en===sl){$('riskOut').innerHTML='<span class="mu">اختر إشارة أو أدخل الدخول والوقف.</span>';return;}
+  const usd=eq*rk,lots=Math.floor(usd/(Math.abs(en-sl)*vpu)*100)/100,rr=tp?Math.abs(tp-en)/Math.abs(en-sl):0;
+  $('riskOut').innerHTML=`مبلغ المخاطرة: ${N('$'+usd.toFixed(2))}<br>الحجم: <b>${N(lots.toFixed(2))}</b> لوت${lots<0.01?' <span class="dn">— أقل من الحد الأدنى: لا صفقة</span>':''}<br>`+
+    (rr?`R:R ${N(rr.toFixed(2))} ${rr<1.5?'<span class="dn">— أقل من 1.5: لا صفقة</span>':'<span class="ok">✓</span>'}`:'')+'<br><span class="mu" style="font-size:11px">حدّ خسارة يومي 3% · توقّف بعد 3 خسائر متتالية.</span>';}
+
+/* ================= الدورة ================= */
+async function load(){
+  ST.sym=$('sym').value;ST.tf=$('tf').value;ST.anchor=$('anchor').value;$('status').textContent='جارٍ التحميل…';
+  const d=await loadCandles(ST.sym,ST.tf);ST.c=d.c;ST.src=d.src;ST.keyed=d.keyed;
+  ST.R=analyze(ST.c,ST.tf,ST.anchor,ST.sym);ST.selSig=null;$('vpu').value=SYMS[ST.sym][1];
+  panels();risk();draw();}
+function tick(){const t=Date.now()/1000;$('clk').textContent=fmtT(t,'UTC')+' UTC';
+  const on={asia:0,london:0,ny:0};SESS.forEach(S=>{const p=tzp(t,S.tz);on[S.k]=p.wd!=='Sat'&&p.wd!=='Sun'&&p.min>=S.a&&p.min<S.b;});
+  $('cAsia').classList.toggle('on',on.asia);$('cLon').classList.toggle('on',on.london);$('cNY').classList.toggle('on',on.ny);}
+function init(){
+  $('sym').innerHTML=Object.keys(SYMS).map(k=>`<option value="${k}">${k} — ${SYMS[k][0]}</option>`).join('');
+  try{const s=JSON.parse(localStorage.getItem('icool_trd')||'{}');if(s.sym)$('sym').value=s.sym;if(s.tf)$('tf').value=s.tf;if(s.anchor)$('anchor').value=s.anchor;}catch(_){}
+  ['sym','tf','anchor'].forEach(id=>$(id).onchange=()=>{try{localStorage.setItem('icool_trd',JSON.stringify({sym:$('sym').value,tf:$('tf').value,anchor:$('anchor').value}));}catch(_){}ST.view={n:160,end:0};load();});
+  ['shSess','shZones','shIchi'].forEach(id=>$(id).onchange=draw);
+  ['eq','rk','en','sl','tp','vpu'].forEach(id=>$(id).oninput=risk);
+  $('btnLoad').onclick=load;
+  $('pine').value=pineCode();
+  $('btnPine').onclick=async()=>{try{await navigator.clipboard.writeText(pineCode());$('btnPine').textContent='✓ نُسخ';}catch(_){$('pine').parentElement.open=true;$('pine').select();}setTimeout(()=>$('btnPine').textContent='نسخ الكود',1500);};
+  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+    ['colR','colC','colL'].forEach(id=>$(id).classList.toggle('show',id===b.dataset.t));$('colC').style.display=b.dataset.t==='colC'?'':'none';if(b.dataset.t==='colC')resize();});
+  new ResizeObserver(resize).observe($('chartWrap'));
+  setInterval(tick,1000);tick();setInterval(()=>{if($('auto').checked&&!document.hidden)load();},60000);
+  load();}
+window.TE={tzp,atr,dayGroups,sessions,pivots,zones,closeEvent,analyze,demoCandles,scoreSig,pineCode};
+init();
+</script>
+</body>
+</html>
